@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="GBK"?>
+<template cnname="POC_BUILD_TEMPLATE" id="COMP201710260069">
+<desc>poc构建模板</desc>
+<references alias="BUILD_创建应用目录" id="COMP201710250044" order="1" type="COMPONENT"/>
+<references alias="BUILD_创建备份目录" id="COMP201710250044" order="2" type="COMPONENT"/>
+<references alias="BUILD_获取应用包" id="COMP201710250049" order="3" type="COMPONENT"/>
+<references alias="BUILD_解压应用包" id="COMP201710250047" order="4" type="COMPONENT"/>
+<references alias="BUILD_清除应用包及目录" id="COMP201710250057" order="5" type="COMPONENT"/>
+<references alias="BUILD_数据库目录校验" id="COMP201710250044" order="6" type="COMPONENT"/>
+<references alias="BUILD_获取数据包" id="COMP201710250049" order="7" type="COMPONENT"/>
+<references alias="BUILD_解压数据包" id="COMP201710250054" order="8" type="COMPONENT"/>
+<references alias="BUILD_创建数据库" id="COMP201710250055" order="9" type="COMPONENT"/>
+<references alias="BUILD_创建数据表" id="COMP201710250055" order="10" type="COMPONENT"/>
+<references alias="BUILD_基础数据导入" id="COMP201710250055" order="11" type="COMPONENT"/>
+<references alias="BUILD_数据库备份" id="COMP201710270076" order="12" type="COMPONENT"/>
+<references alias="BUILD_数据包清理" id="COMP201710250057" order="13" type="COMPONENT"/>
+<params>
+<param cnname="项目名称" defult="" desc="项目名称" hand="false" modify="YES" name="project_name" type="PJPARAM"/>
+<param cnname="区分标识" defult="${task_no}" desc="区分标识" hand="false" modify="YES" name="tag" type="PJPARAM"/>
+<param cnname="上传目录" defult="./upload/${task_no}" desc="文件上传目录" hand="true" modify="YES" name="upload_path" type="PJPARAM"/>
+<param cnname="版本应用包目录" defult="/CorsManager/xpversion/${verno_path}/" desc="版本应用包目录" hand="true" modify="YES" name="svn_app_path" type="PJPARAM"/>
+<param cnname="本地应用包目录" defult="app" desc="本地应用包目录" hand="true" modify="YES" name="local_app_path" type="PJPARAM"/>
+<param cnname="版本数据包目录" defult="/CorsManager/xpversion/${verno_path}/" desc="版本数据包目录" hand="true" modify="YES" name="svn_db_path" type="PJPARAM"/>
+<param cnname="本地数据包目录" defult="db" desc="本地数据包目录" hand="true" modify="YES" name="local_db_path" type="PJPARAM"/>
+<param cnname="数据库创建脚本" defult="createdb.sh" desc="数据库创建脚本" hand="true" modify="YES" name="create_db_script" type="PJPARAM"/>
+<param cnname="数据表创建脚本" defult="createdb.sh" desc="数据表创建脚本" hand="true" modify="YES" name="create_tbl_script" type="PJPARAM"/>
+<param cnname="基础数据脚本" defult="dataimport.sh" desc="基础数据脚本" hand="true" modify="YES" name="import_data_script" type="PJPARAM"/>
+<param cnname="备份脚本文件" defult="backup.sh" desc="备份脚本文件" hand="true" modify="YES" name="backup_script" type="PJPARAM"/>
+<param cnname="备份路径" defult="./backup/${task_no}" desc="备份路径" hand="true" modify="YES" name="backup_path" type="PJPARAM"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="dir" phaseno="1" ref="upload_path"/>
+<param cnname="备份路径" defult="" desc="备份路径" hand="false" name="dir" phaseno="2" ref="backup_path"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="local_path" phaseno="3" ref="upload_path"/>
+<param cnname="版本应用包目录" defult="" desc="版本应用包目录" hand="false" name="svn_relative_path" phaseno="3" ref="svn_app_path"/>
+<param cnname="本地应用包目录" defult="" desc="本地应用包目录" hand="false" name="relative_path" phaseno="3" ref="local_app_path"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="dir" phaseno="4" ref="upload_path"/>
+<param cnname="本地应用包目录" defult="" desc="本地应用包目录" hand="false" name="relative_path" phaseno="4" ref="local_app_path"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="path" phaseno="5" ref="upload_path"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="dir" phaseno="6" ref="upload_path"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="local_path" phaseno="7" ref="upload_path"/>
+<param cnname="版本数据包目录" defult="" desc="版本数据包目录" hand="false" name="svn_relative_path" phaseno="7" ref="svn_db_path"/>
+<param cnname="本地数据包目录" defult="" desc="本地数据包目录" hand="false" name="relative_path" phaseno="7" ref="local_db_path"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="dir" phaseno="8" ref="upload_path"/>
+<param cnname="本地数据包目录" defult="" desc="本地数据包目录" hand="false" name="relative_path" phaseno="8" ref="local_db_path"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="script_dir" phaseno="9" ref="upload_path"/>
+<param cnname="数据库创建脚本" defult="" desc="数据库创建脚本" hand="false" name="script_file" phaseno="9" ref="create_db_script"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="script_dir" phaseno="10" ref="upload_path"/>
+<param cnname="数据表创建脚本" defult="" desc="数据表创建脚本" hand="false" name="script_file" phaseno="10" ref="create_tbl_script"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="script_dir" phaseno="11" ref="upload_path"/>
+<param cnname="基础数据脚本" defult="" desc="基础数据脚本" hand="false" name="script_file" phaseno="11" ref="import_data_script"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="script_dir" phaseno="12" ref="upload_path"/>
+<param cnname="本地数据包目录" defult="" desc="本地数据包目录" hand="false" name="relative_path" phaseno="12" ref="local_db_path"/>
+<param cnname="备份脚本文件" defult="" desc="备份脚本文件" hand="false" name="script_file" phaseno="12" ref="backup_script"/>
+<param cnname="备份路径" defult="" desc="备份路径" hand="false" name="backup_dir" phaseno="12" ref="backup_path"/>
+<param cnname="上传目录" defult="" desc="文件上传目录" hand="false" name="path" phaseno="13" ref="upload_path"/>
+</params>
+</template>

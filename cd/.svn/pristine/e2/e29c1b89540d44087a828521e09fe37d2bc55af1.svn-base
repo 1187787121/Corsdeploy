@@ -1,0 +1,50 @@
+/**
+ * Title: DppBean.java
+ * File Description: 
+ * @copyright: 2017
+ * @company: CORSWORK
+ * @author: zhangj
+ * @version: 1.0
+ * @date: 2017年2月14日
+ */
+package com.wk.cd.module.bean;
+
+import java.util.List;
+
+import com.wk.cd.module.info.ParamInfo;
+
+/**
+ * Class Description: cl项目中涉及到有投产包参数的应用实例
+ * @author zhangj
+ */
+public class DppBean {
+	
+	/**
+	 * 投产包 包名
+	 */
+	String package_name;
+	
+	/**
+	 * 投产包名对应的投产包参数列表
+	 */
+	List<ParamInfo> dpp_params;
+
+	public String getPackage_name() {
+		return package_name;
+	}
+
+	public void setPackage_name(String package_name) {
+		this.package_name = package_name;
+	}
+
+	public List<ParamInfo> getDpp_params() {
+		return dpp_params;
+	}
+
+	public void setDpp_params(List<ParamInfo> dpp_params) {
+		this.dpp_params = dpp_params;
+	}
+	
+	
+
+}

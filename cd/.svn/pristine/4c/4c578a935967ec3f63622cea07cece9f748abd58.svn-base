@@ -1,0 +1,107 @@
+package com.wk.cd.remote.agent.bean;
+
+/**
+ * Agent监控信息
+ * Class Description: 
+ * @author 12049
+ */
+public class AgentMonitorCfg {
+
+	private String ip;
+	private String node_name;                    //节点名
+	private String system;
+	private String system_version;               //系统版本
+	private String srv_name;                     //服务器名
+	private int machine_cpu;                     //机器cpu%
+	private int machine_mem;                     //机器内存%
+	private int agent_cpu;                       //agent自身cpu%
+	private int agent_mem;                       //agent自身mem%
+	private int agent_operate_status;            //agent运行状态         0.停止   1.运行   2.闲置
+	private int operate_status;                 //操作按钮状态         1.启动   2.停止
+	private int op_system_flag;
+	public String getIp() {
+		return ip;
+	}
+	public void setIp(String ip) {
+		this.ip = ip;
+	}
+	public String getNode_name() {
+		return node_name;
+	}
+	public void setNode_name(String node_name) {
+		this.node_name = node_name;
+	}
+	public String getSystem() {
+		return system;
+	}
+	public void setSystem(String system) {
+		this.system = system;
+	}
+	public String getSystem_version() {
+		return system_version;
+	}
+	public void setSystem_version(String system_version) {
+		this.system_version = system_version;
+	}
+	public String getSrv_name() {
+		return srv_name;
+	}
+	public void setSrv_name(String srv_name) {
+		this.srv_name = srv_name;
+	}
+
+	public int getMachine_cpu() {
+		return machine_cpu;
+	}
+	public void setMachine_cpu(int machine_cpu) {
+		this.machine_cpu = machine_cpu;
+	}
+	public int getMachine_mem() {
+		return machine_mem;
+	}
+	public void setMachine_mem(int machine_mem) {
+		this.machine_mem = machine_mem;
+	}
+	public int getAgent_cpu() {
+		return agent_cpu;
+	}
+	public void setAgent_cpu(int agent_cpu) {
+		this.agent_cpu = agent_cpu;
+	}
+	public int getAgent_mem() {
+		return agent_mem;
+	}
+	public void setAgent_mem(int agent_mem) {
+		this.agent_mem = agent_mem;
+	}
+	
+	public int getAgent_operate_status() {
+		return agent_operate_status;
+	}
+	public void setAgent_operate_status(int agent_operate_status) {
+		this.agent_operate_status = agent_operate_status;
+	}
+	public int getOperate_status() {
+		return operate_status;
+	}
+	public void setOperate_status(int operate_status) {
+		this.operate_status = operate_status;
+	}
+	
+	public int getOp_system_flag() {
+		return op_system_flag;
+	}
+	public void setOp_system_flag(int op_system_flag) {
+		this.op_system_flag = op_system_flag;
+	}
+	@Override
+	public String toString() {
+		return "AgentMonitorCfg [ip=" + ip + ", node_name=" + node_name
+				+ ", system=" + system + ", system_version=" + system_version
+				+ ", srv_name=" + srv_name + ", machine_cpu=" + machine_cpu
+				+ ", machine_mem=" + machine_mem + ", agent_cpu=" + agent_cpu
+				+ ", agent_mem=" + agent_mem + ", agent_operate_status="
+				+ agent_operate_status + ", operate_status=" + operate_status
+				+ ", op_system_flag=" + op_system_flag + "]";
+	}
+}

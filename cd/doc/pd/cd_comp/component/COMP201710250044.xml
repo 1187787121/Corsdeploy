@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="PUBLISH_创建目录" id="COMP201710250044">
+<desc>创建目录，存在就输出存在信息，不存在就创建目录。</desc>
+<script type="SHELL"><![CDATA[
+if [ -d '${dir}' ]; then echo 'Directory ${dir} already exist !'; else mkdir -p ${dir}; fi;
+]]></script>
+<params>
+<param cnname="目录" defult="" desc="待创建目录" hand="false" name="dir"/>
+</params>
+</component>

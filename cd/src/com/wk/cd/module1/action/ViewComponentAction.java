@@ -1,0 +1,489 @@
+/**
+ * Title: ViewComponentAction.java
+ * File Description: 删除组件服务
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: yangl
+ * @version: 1.0
+ * @date: 2016年12月8日
+ */
+package com.wk.cd.module1.action;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.CfgTool;
+import com.wk.cd.common.util.FileTool;
+import com.wk.cd.enu.ORDER_TYPE;
+import com.wk.cd.module1.bean.CompBeanForList;
+import com.wk.cd.module1.bean.ViewComponentInputBean;
+import com.wk.cd.module1.bean.ViewComponentOutputBean;
+import com.wk.cd.module1.bean.ViewModuleInputBean;
+import com.wk.cd.module1.dao.MoComponentDaoService;
+import com.wk.cd.module1.dao.MoTagsDaoService;
+import com.wk.cd.module1.entity.Component;
+import com.wk.cd.module1.entity.ComponentGroup;
+import com.wk.cd.module1.entity.Param;
+import com.wk.cd.module1.entity.Phase;
+import com.wk.cd.module1.entity.PhaseParam;
+import com.wk.cd.module1.entity.Script;
+import com.wk.cd.module1.enu.COMPONENT_PURPOSE;
+import com.wk.cd.module1.enu.COMPONENT_SOURCE;
+import com.wk.cd.module1.enu.MODULE_TYPE;
+import com.wk.cd.module1.info.MoComponentInfo;
+import com.wk.cd.module1.info.PackageTypeInfo;
+import com.wk.cd.module1.service.CompCommonService;
+import com.wk.cd.module1.xml.XmlUtils;
+import com.wk.cd.module1.xml1.XmlPathUtil;
+import com.wk.cd.module1.xml1.XmlReader;
+import com.wk.cd.service.IViewActionBasic;
+import com.wk.cd.system.us.info.UsUserInfo;
+import com.wk.cd.system.us.service.UsGetUserInfoService;
+import com.wk.lang.EIterable;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.FileUtil;
+
+/**
+ * Class Description: 删除组件服务
+ * @author yangl
+ */
+public class ViewComponentAction
+		extends IViewActionBasic<ViewComponentInputBean, ViewComponentOutputBean> {
+
+	@Inject
+	private MoComponentDaoService moComponentDaoService;
+	@Inject
+	private CompCommonService compCommonService;
+	@Inject
+	private MoTagsDaoService moTagsDaoService;
+	@Inject
+	private UsGetUserInfoService usGetUserInfoService;
+	private static final Log logger = LogFactory.getLog();
+
+	/**
+	 * Description: 查询组件上传目录
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean getUploadDirectory(ViewComponentInputBean input) {
+		logger.info("------------------ ViewComponentAction getUploadDirectory begin ---------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		MODULE_TYPE module_type = input.getType();
+		Assert.assertNotEmpty(module_type, ViewModuleInputBean.MODULE_TYPECN);
+		output.setFile_path(XmlPathUtil.getRelativeUploadDirByModuleType(module_type));
+		logger.info("------------------ ViewComponentAction getUploadDirectory end -----------------");
+		return output;
+	}
+
+	/**
+	 * Description: 查询导入组件详细信息
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean getImportComponentDetail(ViewComponentInputBean input) {
+		logger.info("------------------ ViewComponentAction getImportComponentDetail begin ---------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		String file_path = input.getFile_path();
+		Assert.assertNotEmpty(file_path, ViewComponentInputBean.FILE_PATHCN);
+		file_path = CfgTool.getWebRootPath() + file_path;
+		Component component = XmlReader.read(file_path, Component.class);
+		if (component.getComponent_source() == COMPONENT_SOURCE.FILE) {
+			component.setFile_path(null);
+			component.setScript_list(null);
+		}
+		output.setComponent(component);
+		logger.info("------------------ ViewComponentAction getImportComponentDetail end -----------------");
+		return output;
+	}
+
+	/**
+	 * Description: 查询导入组件详细信息
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean getImportGroupDetail(ViewComponentInputBean input) {
+		logger.info("------------------ ViewComponentAction getImportGroupDetail begin ---------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		String file_path = input.getFile_path();
+		Assert.assertNotEmpty(file_path, ViewComponentInputBean.FILE_PATHCN);
+		file_path = CfgTool.getWebRootPath() + file_path;
+		ComponentGroup group = XmlReader.read(file_path, ComponentGroup.class);
+		output.setGroup(group);
+		logger.info("------------------ ViewComponentAction getImportGroupDetail end -----------------");
+		return output;
+	}
+
+	/**
+	 * Description: 获取组建来源文件内容
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean getFileContent(ViewComponentInputBean input) {
+		logger.info("------------------ ViewComponentAction getFileContent begin ---------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		String file_path = input.getFile_path();
+		Assert.assertNotEmpty(file_path, ViewComponentInputBean.FILE_PATHCN);
+		file_path = CfgTool.getWebRootPath() + file_path;
+		String file_name = FileTool.getFileName(file_path);
+		EIterable<String> cmd_it = FileUtil.lineReader(new File(file_path));
+		List<String> cmd_list = new ArrayList<String>();
+		for (String cmd : cmd_it) {
+			if (!Assert.isEmpty(cmd)) {
+				cmd_list.add(cmd);
+			}
+		}
+		output.setScript(new Script(file_name, cmd_list.toArray(new String[cmd_list.size()])));
+		logger.info("------------------ ViewComponentAction getFileContent end -----------------");
+		return output;
+	}
+
+	/**
+	 * Description: 查看组件信息
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean getComponentDetail(ViewComponentInputBean input) {
+		logger.info("------------------ ViewComponentAction getComponentDetail begin ---------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		// 获取参数
+		String id = input.getId();
+		// 非空校检
+		Assert.assertNotEmpty(id, ViewComponentInputBean.IDCN);
+		compCommonService.checkCompIdIsExist(id, MODULE_TYPE.COMPONENT);
+		Component component = new Component(id);
+		XmlReader.read(component);
+		output.setComponent(component);
+		output.setFile_path(XmlPathUtil.getXmlRelativePath(component));
+		output.setPublish_state(moComponentDaoService.getInfoByKey(id).getPublish_state());
+		logger.info("------------------ ViewComponentAction getComponentDetail end -----------------");
+		return output;
+	}
+
+	/**
+	 * Description: 查看组件组信息
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean getGroupDetail(ViewComponentInputBean input) {
+		logger.info("------------------ ViewComponentAction getGroupDetail begin ---------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		// 获取参数
+		String id = input.getId();
+		// 非空校检
+		Assert.assertNotEmpty(id, ViewComponentInputBean.IDCN);
+		compCommonService.checkCompIdIsExist(id, MODULE_TYPE.GROUP);
+		ComponentGroup group = new ComponentGroup(id);
+		XmlReader.read(group);
+		output.setGroup(group);
+		output.setFile_path(XmlPathUtil.getXmlRelativePath(group));
+		output.setPublish_state(moComponentDaoService.getInfoByKey(id).getPublish_state());
+		logger.info("------------------ ViewComponentAction getGroupDetail end -----------------");
+		return output;
+	}
+
+	/**
+	 * Description: 查询组件列表
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean queryComponentList(ViewComponentInputBean input) {
+		logger.info("------------------ ViewComponentAction queryComponentList begin ---------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		String key_word = input.getKey_word();
+		String order_col_name = input.getOrder_col_name();
+		ORDER_TYPE order_type = input.getOrder_type();
+		Assert.assertNotEmpty(order_type, ViewComponentInputBean.ORDER_TYPECN);
+		List<MoComponentInfo> info_list = moComponentDaoService.queryAllComponentInfos(key_word, MODULE_TYPE.COMPONENT,
+				order_col_name, order_type);
+		List<CompBeanForList> bean_list = CompBeanForList.parseCompList(info_list);
+		output.setComp_list(bean_list);
+		logger.info("------------------ ViewComponentAction queryComponentList end -----------------");
+		return output;
+	}
+
+	/**
+	 * Description: 查询组件组列表
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean queryGroupList(ViewComponentInputBean input) {
+		logger.info("------------------ ViewComponentAction queryComponentList begin ---------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		String key_word = input.getKey_word();
+		String order_col_name = input.getOrder_col_name();
+		ORDER_TYPE order_type = input.getOrder_type();
+		Assert.assertNotEmpty(order_type, ViewComponentInputBean.ORDER_TYPECN);
+		List<MoComponentInfo> info_list = moComponentDaoService.queryAllComponentInfos(key_word, MODULE_TYPE.GROUP,
+				order_col_name, order_type);
+		List<CompBeanForList> bean_list = CompBeanForList.parseCompList(info_list);
+		output.setComp_list(bean_list);
+		logger.info("------------------ ViewComponentAction queryComponentList end -----------------");
+		return output;
+	}
+
+	/**
+	 * Description:获得组件详细信息
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean getComponentListDetail(ViewComponentInputBean input) {
+		logger.info("------------------ ViewComponentAction getComponentListDetail begin ---------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		// 非空校检
+		String[] id_list = input.getId_list();
+		Assert.assertNotEmpty(id_list, ViewComponentInputBean.ID_LISTCN);
+		List<Component> comp_list = new ArrayList<Component>();
+		for (String id : id_list) {
+			compCommonService.checkCompIdIsExist(id, MODULE_TYPE.COMPONENT);
+			Component component = new Component(id);
+			XmlReader.read(component);
+			//String uuid = UUID.randomUUID().toString();
+			component.setId(id);
+			comp_list.add(component);
+			String check_id = component.getCheck_comp_id();
+			if (Assert.notEmpty(check_id)) {
+				Component check_comp = new Component(check_id);
+				XmlReader.read(check_comp);
+				check_comp.setId(check_id);
+				comp_list.add(check_comp);
+			}
+		}
+		output.setComponent_list(comp_list);
+		logger.info("------------------ ViewComponentAction getComponentListDetail end ---------------");
+		return output;
+	}
+
+	/**
+	 * Description:获得组件详细信息
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean getGroupListDetail(ViewComponentInputBean input) {
+		logger.info("------------------ ViewComponentAction getGroupListDetail begin ---------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		// 非空校检
+		String[] id_list = input.getId_list();
+		Assert.assertNotEmpty(id_list, ViewComponentInputBean.ID_LISTCN);
+		List<Component> comp_list = new ArrayList<Component>();
+		for (String id : id_list) {
+			compCommonService.checkCompIdIsExist(id, MODULE_TYPE.GROUP);
+			ComponentGroup group = new ComponentGroup(id);
+			XmlReader.read(group);
+			comp_list.addAll(group.getComponent_list());
+		}
+		output.setComponent_list(comp_list);
+		logger.info("------------------ ViewComponentAction getGroupListDetail end ---------------");
+		return output;
+	}
+
+	/**
+	 * Description: 获得特定类型的已发布组件
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean queryPublishedCompByType(ViewComponentInputBean input) {
+		logger.info("------------------ ViewComponentAction queryPublishedCompByType begin ---------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		String cn_name = input.getComponent_cn_name();
+		// 组件Id
+		MODULE_TYPE module_type = input.getType();
+		// 组件用途
+//		COMPONENT_PURPOSE component_purpose = input.getComponent_purpose();
+		// 非空校检
+		Assert.assertNotEmpty(module_type, ViewComponentInputBean.TYPECN);
+//		Assert.assertNotEmpty(component_purpose, ViewComponentInputBean.COMPONENT_PURPOSECN);
+		List<MoComponentInfo> info_list = moComponentDaoService.queryPublishedCompByType(cn_name, module_type);
+		
+		List<CompBeanForList> bean_list = CompBeanForList.parseCompList(info_list);
+		output.setComp_list(bean_list);
+		logger.info("------------------ ViewComponentAction queryPublishedCompByType end ---------------");
+		return output;
+	}
+
+	/**
+	 * Description: 校验节点中文名是否存在
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean checkCompnentCnName(ViewComponentInputBean input) {
+		logger.info("------------------checkCompnentCnName begin-------------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		// 非空校验
+		if (Assert.isEmpty(input.getData())) {
+			output.setResult(false);
+			return output;
+		}
+		if (!Assert.isEmpty(moComponentDaoService.getIdByName(input.getData()))) {
+			output.setResult(true);
+		} else {
+			output.setResult(false);
+		}
+		logger.info("-------------------checkCompnentCnName end--------------------");
+		return output;
+	}
+
+	/**
+	 * Description: 获取现有的组件标签
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean queryAllCompnentTags(ViewComponentInputBean input) {
+		logger.info("------------------checkCompnentCnName begin-------------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		List<String> list = moTagsDaoService.queryAllTags();
+		output.setTag_list(list.toArray(new String[list.size()]));
+		logger.info("-------------------checkCompnentCnName end--------------------");
+		return output;
+	}
+
+	/**
+	 * Description: 查询现有的组件创建人列表
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean queryAllCrtUser(ViewComponentInputBean input) {
+		logger.info("------------------checkCompnentCnName begin-------------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		List<String> id_list = moComponentDaoService.queryAllCrtUser();
+		List<UsUserInfo> user_list = new ArrayList<UsUserInfo>();
+		for (String id : id_list) {
+			UsUserInfo info = new UsUserInfo();
+			info.setUser_id(id);
+			info.setUser_cn_name(usGetUserInfoService.getUserCnNameByUserId(id));
+			user_list.add(info);
+		}
+		output.setUser_list(user_list);
+		logger.info("-------------------checkCompnentCnName end--------------------");
+		return output;
+	}
+	
+	/**
+	 * Description: 根据组件生成合并合并参数
+	 * @param input
+	 * @return
+	 */
+	public ViewComponentOutputBean getCombineParam(ViewComponentInputBean input) {
+		logger.info("------------------getCombineParam begin-------------------");
+		ViewComponentOutputBean output = new ViewComponentOutputBean();
+		// 阶段信息
+		List<Phase> phase_list = input.getPhase_list();
+		// 全局参数
+		List<PhaseParam> param_list = input.getParam_list();
+		// 投产包类型列表
+		List<PackageTypeInfo> pac_type_list = input.getPac_type_list();
+		// 前端有可能出现阶段列表为空参数列表不为空的情况(去掉非空判断)
+		// Assert.assertNotEmpty(phase_list,
+		// ViewComponentInputBean.PHASE_LISTCN);
+
+		Map<String, PhaseParam> old_param_map = new HashMap<String, PhaseParam>();
+		Map<String, PhaseParam> combine_param_map = new HashMap<String, PhaseParam>();
+		List<String> remove_param_list = new ArrayList<String>();
+
+		// 系统参数
+		/*
+		 * remove_param_list.add("update_loacl_dir");
+		 * remove_param_list.add("project_name");
+		 * remove_param_list.add("node_config_local");
+		 * remove_param_list.add("node_config_file");
+		 */
+
+		// 使用中，锁定不可删除的参数列表
+		Set<String> lock_list = new HashSet<String>();
+		if (!Assert.isEmpty(pac_type_list)) {
+			for (PackageTypeInfo pac : pac_type_list) {
+				remove_param_list.add(pac.getType_name());
+			}
+		}
+		if (!Assert.isEmpty(param_list)) {
+			for (PhaseParam param : param_list) {
+				if (param.getHand_param()) {
+					combine_param_map.put(param.getParam_name(), param);
+				} else {
+					old_param_map.put(param.getParam_name(), param);
+				}
+			}
+		}
+		logger.info("combine_param_map：++++++++++++" + combine_param_map.toString());
+		logger.info("old_param_map：++++++++++++" + old_param_map.toString());
+
+		if (!Assert.isEmpty(phase_list)) {
+			for (Phase phase : phase_list) {
+				if (Assert.isEmpty(phase.getComponent_id())) {
+					List<PhaseParam> cmd_param_list = XmlUtils.matchParams(phase.getScript().getCmds());
+					if (!Assert.isEmpty(cmd_param_list)) {
+						for (PhaseParam param : cmd_param_list) {
+							// 判断已否是新的参数
+							if (!combine_param_map.containsKey(param.getParam_name())) {
+								combine_param_map.put(param.getParam_name(), param);
+							}
+						}
+					}
+				} else {
+					// 引用参数
+					Set<String> ref_list = new HashSet<String>();
+					if (!Assert.isEmpty(phase.getRef_param_list())) {
+						for (PhaseParam param : phase.getRef_param_list()) {
+							if (Assert.notEmpty(param.getParam_name())) {
+								ref_list.add(param.getParam_name());
+							}
+							if (Assert.notEmpty(param.getRef())) {
+								lock_list.add(param.getRef());
+							}
+						}
+					}
+					if (!Assert.isEmpty(phase.getParam_list())) {
+						for (Param param : phase.getParam_list()) {
+							if (!ref_list.contains(param.getParam_name())) {
+								combine_param_map.put(param.getParam_name(), new PhaseParam(param));
+								lock_list.add(param.getParam_name());
+							}
+						}
+					}
+				}
+			}
+		}
+		logger.info("combine_param_map：++++++++++++" + combine_param_map.toString());
+		List<PhaseParam> combine_param_list = new ArrayList<PhaseParam>();
+		if (!Assert.isEmpty(combine_param_map)) {
+			for (Entry<String, PhaseParam> param_entry : combine_param_map.entrySet()) {
+				PhaseParam param = param_entry.getValue();
+				if (old_param_map.containsKey(param.getParam_name())) {
+					combine_param_list.add(old_param_map.get(param.getParam_name()));
+				} else {
+					combine_param_list.add(param_entry.getValue());
+				}
+			}
+		}
+
+		// 根据锁定列表给与可删除标志
+		if (!Assert.isEmpty(combine_param_list)) {
+			for (PhaseParam param : combine_param_list) {
+				if (!remove_param_list.contains(param.getParam_name())) {
+					if (lock_list.contains(param.getParam_name())) {
+						param.setDelete_flag(false);
+					} else {
+						param.setDelete_flag(true);
+					}
+				} else {
+					combine_param_list.remove(param);
+				}
+				lock_list.remove(param.getParam_name());
+			}
+		}
+
+		output.setParam_list(combine_param_list);
+
+		logger.info("------------------getCombineParam end-------------------");
+		return output;
+
+	}
+}

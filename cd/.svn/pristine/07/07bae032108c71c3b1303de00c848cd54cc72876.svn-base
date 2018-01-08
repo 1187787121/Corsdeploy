@@ -1,0 +1,122 @@
+/**
+ * @copyright 2014
+ * @company CORSWORK
+ * @version 1.0
+ */
+
+package com.wk.cd.remote.agent.service;
+
+import com.wk.SystemConfig;
+import com.wk.actor.Actor;
+import com.wk.cl.common.util.Assert;
+import com.wk.cl.common.util.StringUtil;
+import com.wk.lang.RuntimeBussinessException;
+import com.wk.lang.Sync;
+import com.wk.lang.SystemException;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.net.ChannelBufferMsg;
+import com.wk.net.Request;
+import com.wk.nio.ChannelBuffer;
+import com.wk.outsystem.MsgConverter;
+import com.wk.outsystem.MsgConverters;
+import com.wk.sdo.ServiceData;
+import com.wk.util.GBKProperties;
+
+
+/**
+ * Class Description:
+ * Created by lixl on 16-8-9.
+ */
+public abstract class AgentBaseActor extends Actor<Request<ChannelBufferMsg>> {
+    private static final Log logger = LogFactory.getLog();
+    @Sync
+    protected MsgConverter req_cvt;
+    @Sync
+    protected MsgConverter resp_cvt;
+    protected static final String AGENT_NAME = "agentserver";
+
+    @Override
+    protected void act(Request<ChannelBufferMsg> req) {
+        final ChannelBuffer buffer = req.getRequestMsg().toChannelBuffer();
+        final int size = buffer.readableBytes();
+        final byte[] bs = new byte[size];
+        int out_size = 0;
+        buffer.getBytes(0, bs);
+        logger.debug("server received and echo: \n"
+                + StringUtil.byteArr2HexStr(bs));
+        Object input = newInput();
+        Object output = newOutput();
+        ServiceData sd = null;
+
+        if(req_cvt == null || resp_cvt == null) initMsgConveter();
+
+        input = req_cvt.fromBytes(bs, input.getClass());
+        logger.info("server received[{}]", input);
+        try {
+            output = runService(input, output);
+        }catch (RuntimeBussinessException e){
+        	logger.error("agent run cmd error", e);
+            sd = error_pack(e.getErrorCode(), e.getMessage());
+        }catch (Exception e){
+        	logger.error("agent run cmd error", e);
+            sd = error_pack("SYSTEM_ERROR", "");
+        }
+        logger.debug("out result=[{}]", output);
+        ChannelBuffer write_buffer = null;
+        if(!Assert.isEmpty(sd)) {
+            byte[] err_byte = resp_cvt.toBytes(AGENT_NAME, sd);
+            write_buffer = ChannelBuffer.allocate(err_byte.length);
+            write_buffer.putBytes(err_byte);
+        }else{
+            byte[] rs = resp_cvt.toBytes(AGENT_NAME, output);
+            write_buffer = ChannelBuffer.allocate(rs.length);
+            write_buffer.putBytes(rs);
+        }
+
+        req.doResponse(new ChannelBufferMsg(write_buffer));
+    }
+
+
+    private ServiceData error_pack(String scode, String msg){
+        ServiceData header = new ServiceData();
+        ServiceData cxt = new ServiceData();
+        cxt.putString("status", "except");
+        cxt.putString("scode", scode);
+        cxt.putString("message", msg);
+        header.putServiceData("sys_header", cxt);
+        return header;
+    }
+
+
+
+    protected abstract Object runService(Object input, Object output);
+
+    protected abstract Object newInput();
+
+    protected abstract Object newOutput();
+
+    private void initMsgConveter() {
+        GBKProperties props = SystemConfig.getInstance();
+
+        String req_cvt_type = props.getProperty("comm.agentserver.request.type");
+
+        try {
+            req_cvt = MsgConverters.getMsgConverter(req_cvt_type, props);
+        } catch (SystemException e) {
+            throw e.addScene("agentserver", AGENT_NAME);
+        }
+
+        String resp_cvt_type = props.getProperty("comm.agentserver.response.type");
+        if (resp_cvt_type == null) {
+            throw new SystemException("SYS_OUT_SYSTEM_NO_RESPONSE_TYPE").
+                    addScene("Name", AGENT_NAME);
+        }
+
+        try {
+            resp_cvt = MsgConverters.getMsgConverter(resp_cvt_type, props);
+        } catch (SystemException e) {
+            throw e.addScene("agentserver", AGENT_NAME);
+        }
+    }
+}

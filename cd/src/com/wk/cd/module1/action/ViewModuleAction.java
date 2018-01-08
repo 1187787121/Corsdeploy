@@ -1,0 +1,197 @@
+/**
+ * Title: ViewCompAction.java
+ * File Description: 
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: xuph
+ * @version: 1.0
+ * @date: 2016年10月19日
+ */
+package com.wk.cd.module1.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.PROTOCOL_TYPE;
+import com.wk.cd.module1.bean.SourceListBean;
+import com.wk.cd.module1.bean.ViewModuleInputBean;
+import com.wk.cd.module1.bean.ViewModuleOutputBean;
+import com.wk.cd.module1.dao.MoTemplateDaoService;
+import com.wk.cd.module1.entity.Template;
+import com.wk.cd.module1.info.MoTemplateInfo;
+import com.wk.cd.module1.info.ModuleBasicInfo;
+import com.wk.cd.module1.info.ParamInfo;
+import com.wk.cd.module1.service.ModuleCommonService;
+import com.wk.cd.module1.service.TemplateService;
+import com.wk.cd.module1.xml.XmlPathUtil;
+import com.wk.cd.module1.xml.XmlUtils;
+import com.wk.cd.module1.xml1.XmlReader;
+import com.wk.cd.service.IViewActionBasic;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.cd.system.dt.service.DtSocService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+/**
+ * Class Description:
+ * @author xuph
+ */
+public class ViewModuleAction
+		extends IViewActionBasic<ViewModuleInputBean, ViewModuleOutputBean> {
+
+	@Inject
+	private ModuleCommonService moduleCommonService;
+	@Inject
+	private DtSocService dtSocService;
+	
+	@Inject
+	private TemplateService templateService;
+	@Inject
+	private MoTemplateDaoService moTemplateDaoService;
+	
+	private static final Log logger = LogFactory.getLog();
+
+	
+
+	/**
+	 * Description: 获得单个模板的配置信息
+	 * @param input
+	 * @return
+	 */
+	public ViewModuleOutputBean getTemplateDetail(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String template_name = input.getTemplate_cn_name();
+		Assert.assertNotEmpty(template_name, ViewModuleInputBean.CN_NAMECN);
+		// 模板存在校验
+		templateService.checkTemplateNameIsExist(template_name);
+		MoTemplateInfo info = moTemplateDaoService.getInfoByKey(template_name);
+		String id = info.getRef_module_id();
+		Template template = new Template(id);
+		template = XmlReader.read(template);
+//		TemplateInfo template = XmlReader.readTemplate(id);
+		template.setOperating_system(moduleCommonService.generateIntArray(info.getOperating_system().trim()));
+		template.setTemplate_type(info.getTemplate_type());
+		output.setTemplate(template);
+		output.setFile_path(com.wk.cd.module1.xml1.XmlPathUtil.getXmlRelativePath(template));
+//		output.setFile_path(XmlPathUtil.getRelativePathByCompId(id, MODULE_TYPE.TEMPLATE));
+		return output;
+	}
+
+
+
+
+
+	/**
+	 * Description: 获得组件/组件组文件路径
+	 * @param input
+	 * @return
+	 */
+	public ViewModuleOutputBean getModuleFileDirectory(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		MODULE_TYPE module_type = input.getType();
+		Assert.assertNotEmpty(module_type, ViewModuleInputBean.MODULE_TYPECN);
+		String file_path = XmlPathUtil.getRelativeDirByCompType(module_type) + "/temp/";
+		String script_file_path = XmlPathUtil.getCtRelativeDirByType(module_type) + "/collect/";
+		output.setFile_path(file_path);
+		output.setScript_path(script_file_path);
+		return output;
+	}
+
+	/**
+	 * Description: 测试组件或组件组投产包临时上传目录
+	 * @param input
+	 * @return
+	 */
+	public ViewModuleOutputBean getTestPacakageDirectory(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String file_dir = XmlPathUtil.getTestRelativeDir();
+		output.setTest_package_dir(file_dir);
+		return output;
+	}
+
+	/**
+	 * Description: 查看合适数据源列表
+	 * @param input
+	 * @return
+	 */
+	public ViewModuleOutputBean querySoc(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String execute_type = input.getImpl_type().getName();
+		String node_ip = input.getSoc_ip();
+		List<String> soc_list = new ArrayList<String>();
+		if ("ftp".equalsIgnoreCase(execute_type)) {
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip, PROTOCOL_TYPE.SFTP));
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip, PROTOCOL_TYPE.PLT_FTP));
+		} else if ("shell".equalsIgnoreCase(execute_type)) {
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip, PROTOCOL_TYPE.SSH));
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip, PROTOCOL_TYPE.TELNET));
+		} else if ("was".equalsIgnoreCase(execute_type)) {
+			// soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip,
+			// PROTOCOL_TYPE.WAS_SSH));
+			// soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip,
+			// PROTOCOL_TYPE.WAS_TELNET));
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip, PROTOCOL_TYPE.WAS));
+		} else if ("svn".equalsIgnoreCase(execute_type)) {
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip, PROTOCOL_TYPE.SVN));
+		}
+		output.setSoc_list(soc_list.toArray(new String[soc_list.size()]));
+		return output;
+	}
+
+
+	/**
+	 * Description:根据组件生成合并合并参数
+	 * @param input
+	 * @return
+	 */
+	public ViewModuleOutputBean getCombineParam(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		List<ModuleBasicInfo> groups = input.getGroups();
+		ParamInfo[] params = input.getParams();
+		Assert.assertNotEmpty(groups, ViewModuleInputBean.GROUPSCN);
+//		output.setParams(XmlUtils.combineParams(groups, params));
+		return output;
+	}
+	
+	
+	/**
+	 * Description: 根据ip和执行类别查看数据源
+	 * @param input
+	 * @return
+	 */
+	public ViewModuleOutputBean querySocList(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		IMPL_TYPE type = input.getImpl_type();
+		String node_ip = input.getSoc_ip();
+		Assert.assertNotEmpty(type, "执行类别");
+		Assert.assertNotEmpty(node_ip, "节点IP");
+		logger.debug("查看当前的数据源名IP[{}],类型[{}]", node_ip, type);
+		List<DtSourceInfo> soc_infos = dtSocService.getSocNameByIp(node_ip);
+		List<SourceListBean> source_list = moduleCommonService.getSocBeanList(soc_infos, type);
+//		output.setSoc_list(soc_list.toArray(new String[soc_list.size()]));
+		output.setSource_list(source_list);
+		return output;
+	}
+	
+	
+	public ViewModuleOutputBean getModuleParam(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+
+		String comp_id = input.getId();
+
+		Assert.assertNotEmpty(comp_id, "ID");
+
+		this.moduleCommonService.checkCompIdIsExist(comp_id,
+				MODULE_TYPE.COMPONENT);
+
+		List<ParamInfo> param_list = XmlUtils.getParamById(comp_id, MODULE_TYPE.COMPONENT);
+
+		output.setParams(param_list);
+		return output;
+	}
+
+}

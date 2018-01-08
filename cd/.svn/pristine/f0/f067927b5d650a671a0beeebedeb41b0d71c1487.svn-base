@@ -1,0 +1,56 @@
+package com.wk.cd.module.impl;
+
+import com.wk.cd.enu.CMD_STATUS;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.info.ModuleSourceInfo;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+/**
+ * SVN实现模块
+ *
+ * 功能包括：checkout, add, rm, commit, update
+ *
+ * Created by 姜志刚 on 2016/11/17.
+ */
+public class SVN extends MultiStepModule {
+	
+	private static final Log logger = LogFactory.getLog();
+	
+	private final ModuleSourceInfo dt_info;
+	
+	private SVNModuleSession sess;
+
+	public SVN(ModuleSourceInfo source_info, String[] cmds) {
+		super(cmds);
+		this.dt_info = source_info;
+	}
+
+	@Override
+	public Result stepinto(int step) {
+		long start_time = System.currentTimeMillis();
+		if (sess == null) {
+			try {
+				sess = new SVNModuleSession(this.dt_info);
+				sess.connect();
+			} catch (Throwable t) {
+				logger.error("连接数据源[{}]异常", this.dt_info.getDt_source_info()
+						.getSoc_name(), t);
+				return new Result(t, start_time);
+			}
+
+			if (ctx != null) {
+				ctx.bindSession(this.sess);
+			}
+		}
+
+		String cmd = cmds[step];
+		try {
+			String msg = this.sess.execCmd(cmd);
+			return new Result(CMD_STATUS.SUCCEED, msg, start_time);
+		} catch (Throwable t) {
+			logger.error("执行SVN命令[{}]异常", cmd, t);
+			return new Result(CMD_STATUS.ERROR, t.getMessage(), start_time);
+		}
+	}
+}

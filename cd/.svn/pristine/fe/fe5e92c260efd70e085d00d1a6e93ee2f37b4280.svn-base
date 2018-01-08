@@ -1,0 +1,71 @@
+package com.wk.cd.remote.agent.service;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.remote.agent.bean.AgentMonitorBasicInfo;
+import com.wk.cd.remote.agent.bean.AgentMonitorCfg;
+import com.wk.cd.remote.agent.util.AgentCMDUtil;
+import com.wk.cd.remote.sh.bean.ShExecRsBean;
+
+/**
+ * Agent自身监控服务
+ * Class Description: 
+ * @author 12049
+ */
+public class AgentMonitorSelfService {
+
+	public static AgentMonitorCfg getMonitorInfo(String ip, int port){
+
+		AgentRSession session = new AgentRSession(ip, port, IMPL_TYPE.SHELL, 1, AgentRSession.SYNCHRO_TYPE, false, null);
+		ShExecRsBean bean = session.sendCmd(AgentCMDUtil.AGENT_MANAGER_CMD);
+		AgentMonitorCfg cfg_bean = new AgentMonitorCfg();
+		
+		if(!Assert.isEmpty(bean)){
+			AgentMonitorBasicInfo basic = bean.getNodeMsgBean().getBasicware();
+			cfg_bean.setIp(ip);
+			cfg_bean.setSystem(basic.getSystem());
+			cfg_bean.setSystem_version(basic.getSystem_version());
+			cfg_bean.setSrv_name(basic.getSrv_name());
+			cfg_bean.setMachine_cpu(basic.getMachine_cpu());
+			cfg_bean.setMachine_mem(basic.getMachine_mem());
+			cfg_bean.setAgent_cpu(basic.getAgent_cpu());
+			cfg_bean.setAgent_mem(basic.getAgent_mem());
+			int agent_operate_status = basic.getAgent_operate_status();
+			cfg_bean.setAgent_operate_status(agent_operate_status);
+			if(!Assert.isEmpty(agent_operate_status)){
+				if(agent_operate_status == 1 || agent_operate_status == 2){
+					cfg_bean.setOperate_status(2);
+				}else{
+					cfg_bean.setOperate_status(1);
+				}
+			}else{
+				cfg_bean.setOperate_status(1);
+			}
+			
+			String op_system = basic.getOp_system().toLowerCase();
+			
+			if (Assert.isEmpty(op_system)) {
+				cfg_bean.setOp_system_flag(4);
+			} else {	
+				if (op_system.indexOf("linux") >= 0) {
+					cfg_bean.setOp_system_flag(1);
+				} else if (op_system.indexOf("windows") >= 0 || op_system.contains("win")) {
+					cfg_bean.setOp_system_flag(2);
+				} else if (op_system.indexOf("ios") >= 0) {
+					cfg_bean.setOp_system_flag(3);
+				}else if(op_system.indexOf("aix") >= 0){
+					cfg_bean.setOp_system_flag(5);
+				}else if(op_system.indexOf("hp-ux") >= 0){
+					cfg_bean.setOp_system_flag(6);
+				}else if(op_system.indexOf("freebsd") >= 0){
+					cfg_bean.setOp_system_flag(7);
+				}else if(op_system.indexOf("sco") >= 0){
+					cfg_bean.setOp_system_flag(8);
+				}else if(op_system.indexOf("olaris") >= 0){
+					cfg_bean.setOp_system_flag(9);
+				}
+			}
+		}
+		return cfg_bean;
+	}
+}

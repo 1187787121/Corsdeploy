@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="解压文件_tar" id="COMP201701050485">
+<desc>解压版本包，生成文件清单，将 sql、sh、txt、list转为Unix格式，修复sh执行权限</desc>
+<script type="SHELL"><![CDATA[
+cd ${dir}
+ls *.tar|xargs -n1 tar tf >${tag}.list
+ls *.tar|xargs -n1 tar xvf
+find . -name "*.sql" -o -name "*.sh" -o -name "*.txt" -o -name "*.list" > check_suffix.list
+merge(){ cat $1|tr -d '\r' > $1.temp; mv $1.temp $1; }
+if [ ! -z "`find . -name '*.sh'`" ]; then chmod +x *.sh; fi
+while read line; do if [ -f "$line" ]; then merge $line;fi;done < check_suffix.list
+]]></script>
+<params>
+<param cnname="包目录" defult="" desc="包目录" hand="false" name="dir"/>
+<param cnname="区分标识" defult="${tag}" desc="区分标识" hand="false" name="tag"/>
+</params>
+</component>

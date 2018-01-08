@@ -1,0 +1,9 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootOutputBean;
+
+public class DeleteModuleOutputBean extends ActionRootOutputBean {
+	
+	private static final long serialVersionUID = 8021102981523920508L;
+	
+}

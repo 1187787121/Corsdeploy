@@ -1,0 +1,240 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootOutputBean;
+import com.wk.cd.enu.PUBLISH_STATE;
+import com.wk.cd.module.MODULE_PURPOSE;
+import com.wk.cd.module.info.GroupModuleInfo;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.info.ParamInfo;
+import com.wk.cd.module.info.TemplateInfo;
+import java.util.List;
+
+public class ViewModuleOutputBean extends ActionRootOutputBean {
+	
+	private static final long serialVersionUID = 5691621228691020354L;
+	
+	/**
+	 * 组件信息
+	 */
+	private ModuleInfo module;
+	
+	public static final String MODULECN = "组件信息";
+	
+	/**
+	 * 脚本路径
+	 */
+	private String script_path;
+	
+	public static final String SCRIPT_PATHCN = "脚本路径";
+	
+	/**
+	 * 组件组信息
+	 */
+	private GroupModuleInfo module_group;
+	
+	public static final String GROUPCN = "组件组信息";
+	
+	/**
+	 * 流程模板信息
+	 */
+	private TemplateInfo template;
+	
+	public static final String TEMPLATEINFOCN = "流程模板信息";
+	
+	/**
+	 * 文件路径
+	 */
+	private String file_path;
+	
+	public static final String FILE_PATH = "文件路径";
+	
+	/**
+	 * 发布状态
+	 */
+	private PUBLISH_STATE publish_state;
+	
+	public static final String PUBLISH_STATECN = "发布状态";
+	
+	/**
+	 * 组件信息列表
+	 */
+	private List<ModuleInfo> modules;
+	
+	public static final String MODULESCN = "组件信息列表";
+	
+	/**
+	 * 组件组信息列表
+	 */
+	private List<GroupModuleInfo> groups;
+	
+	public static final String GROUPSCN = "组件组信息列表";
+	
+	/**
+	 * 参数列表
+	 */
+	private List<ParamInfo> params;
+	
+	public static final String PARAMSCN = "参数列表";
+	
+	/**
+	 * 测试投产包临时上传目录
+	 */
+	private String test_package_dir;
+	
+	public static final String TEST_PACKAGE_DIRCN = "测试投产包临时上传目录";
+	
+	/**
+	 * 引用标识
+	 */
+	private boolean ref_flag;
+	
+	public static final String REF_FLAGCN = "引用标识";
+	
+	/**
+	 * 数据源列表
+	 */
+	private String[] soc_list;
+	
+	public static final String SOC_LISTCN = "数据源列表";
+	
+	/**
+	 * 引用列表
+	 */
+	private List<ReferenceBean> ref_list;
+	
+	public static final String REF_LISTCN = "引用列表";
+	
+	/**
+	 * 组件列表
+	 */
+	private List<ModuleBeanForList> module_list;
+	
+	public static final String MODULE_LISTCN = "组件列表";
+	
+	/**
+	 * 组件用途
+	 */
+	private MODULE_PURPOSE module_purpose;
+	
+	public static final String MODULE_PURPOSE = "组件用途";
+
+	public String getFile_path() {
+		return this.file_path;
+	}
+
+	public void setFile_path(String file_path) {
+		this.file_path = file_path;
+	}
+
+	public PUBLISH_STATE getPublish_state() {
+		return this.publish_state;
+	}
+
+	public void setPublish_state(PUBLISH_STATE publish_state) {
+		this.publish_state = publish_state;
+	}
+
+	public String getTest_package_dir() {
+		return this.test_package_dir;
+	}
+
+	public void setTest_package_dir(String test_package_dir) {
+		this.test_package_dir = test_package_dir;
+	}
+
+	public String[] getSoc_list() {
+		return this.soc_list;
+	}
+
+	public void setSoc_list(String[] soc_list) {
+		this.soc_list = soc_list;
+	}
+
+	public boolean isRef_flag() {
+		return this.ref_flag;
+	}
+
+	public void setRef_flag(boolean ref_flag) {
+		this.ref_flag = ref_flag;
+	}
+
+	public List<ReferenceBean> getRef_list() {
+		return this.ref_list;
+	}
+
+	public void setRef_list(List<ReferenceBean> ref_list) {
+		this.ref_list = ref_list;
+	}
+
+	public ModuleInfo getModule() {
+		return this.module;
+	}
+
+	public void setModule(ModuleInfo module) {
+		this.module = module;
+	}
+
+	public GroupModuleInfo getModule_group() {
+		return this.module_group;
+	}
+
+	public void setModule_group(GroupModuleInfo module_group) {
+		this.module_group = module_group;
+	}
+
+	public TemplateInfo getTemplate() {
+		return this.template;
+	}
+
+	public void setTemplate(TemplateInfo template) {
+		this.template = template;
+	}
+
+	public List<ModuleInfo> getModules() {
+		return this.modules;
+	}
+
+	public void setModules(List<ModuleInfo> modules) {
+		this.modules = modules;
+	}
+
+	public List<GroupModuleInfo> getGroups() {
+		return this.groups;
+	}
+
+	public void setGroups(List<GroupModuleInfo> groups) {
+		this.groups = groups;
+	}
+
+	public List<ParamInfo> getParams() {
+		return this.params;
+	}
+
+	public void setParams(List<ParamInfo> params) {
+		this.params = params;
+	}
+
+	public List<ModuleBeanForList> getModule_list() {
+		return this.module_list;
+	}
+
+	public void setModule_list(List<ModuleBeanForList> module_list) {
+		this.module_list = module_list;
+	}
+
+	public String getScript_path() {
+		return this.script_path;
+	}
+
+	public void setScript_path(String script_path) {
+		this.script_path = script_path;
+	}
+
+	public MODULE_PURPOSE getModule_purpose() {
+		return this.module_purpose;
+	}
+
+	public void setModule_purpose(MODULE_PURPOSE module_purpose) {
+		this.module_purpose = module_purpose;
+	}
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="GBK"?>
+<template cnname="Alpha_version_publish_R_tpl" id="COMP201703160642">
+<desc>版本回退模版</desc>
+<references alias="Alpha_数据恢复" id="COMP201701050486" order="1" type="COMPONENT"/>
+<references alias="Alpha_文件恢复" id="COMP201703030293" order="2" type="COMPONENT"/>
+<params>
+<param cnname="区分标识" defult="${task_no}" desc="" hand="false" modify="YES" name="tag" type="PJPARAM"/>
+<param cnname="备份目录" defult="./backup/${task_no}" desc="" hand="true" modify="YES" name="backup_dir" type="PJPARAM"/>
+<param cnname="数据库恢复脚本" defult="" desc="" hand="true" modify="YES" name="db_restore_script" type="PJPARAM"/>
+<param cnname="数据库恢复脚本" defult="" desc="" hand="false" name="script_file" phaseno="1" ref="db_restore_script"/>
+<param cnname="备份目录" defult="" desc="" hand="false" name="script_dir" phaseno="1" ref="backup_dir"/>
+</params>
+</template>

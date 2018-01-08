@@ -1,0 +1,108 @@
+/**
+ * Title: ComponentTestAction.java
+ * File Description: 
+ * @copyright: 2017
+ * @company: CORSWORK
+ * @author: Administrator
+ * @version: 1.0
+ * @date: 2017年8月24日
+ */
+package com.wk.cd.module1.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.module1.Process;
+import com.wk.cd.module1.ProcessManager;
+import com.wk.cd.module1.Result;
+import com.wk.cd.module1.bean.ComponentTestInputBean;
+import com.wk.cd.module1.bean.ComponentTestOutputBean;
+import com.wk.cd.module1.entity.Instance;
+import com.wk.cd.module1.service.InstanceGenerateService;
+import com.wk.cd.module1.service.TextLogInterceptor;
+import com.wk.cd.module1.xml.XmlPathUtil;
+import com.wk.cd.module1.entity.PhaseParam;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.CfgTool;
+import com.wk.cd.common.util.DESUtil;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+/**
+ * Class Description:组件测试
+ * @author xuph
+ */
+public class ComponentTestAction
+		extends ActionBasic<ComponentTestInputBean, ComponentTestOutputBean> {
+
+	@Inject
+	private InstanceGenerateService instanceGenerateService;
+	@Inject
+	private ActionLogPublicService lgsvc;
+
+	private static final Log logger = LogFactory.getLog();
+
+	/**
+	 * Description:
+	 * @param input
+	 * @return
+	 */
+	@Override
+	protected ComponentTestOutputBean doAction(ComponentTestInputBean input) {
+		logger.debug("ComponentTestAction ----------->begin");
+		ComponentTestOutputBean output = new ComponentTestOutputBean();
+		//非空判断
+		Assert.assertNotEmpty(input.getPhase(), ComponentTestInputBean.PHASECN);
+		Assert.assertNotEmpty(input.getId(), ComponentTestInputBean.IDCN);
+		
+		//目前CD不填写敏感参数加密
+		for (PhaseParam phaseParamInfo : input.getParams()) {
+			if (phaseParamInfo.getSensitive_flag()) {
+				String param_value = phaseParamInfo.getParam_value();
+				StringBuffer sb = new StringBuffer();
+				if (!Assert.isEmpty(param_value)) {
+					String[] param_array = param_value.trim().split(PhaseParam.PARAM_SLIP);
+					for (int i = 0; i < param_array.length; i++) {
+						if (i == param_array.length - 1) {
+							sb.append(DESUtil.encrypt(param_array[i]).trim());
+						} else {
+							sb.append(DESUtil.encrypt(param_array[i]).trim()).append(PhaseParam.PARAM_SLIP);
+						}
+					}
+				}
+				phaseParamInfo.setParam_value(sb.toString());
+			}
+		}
+		//生成测试实例
+		Instance instance = instanceGenerateService.phaseGenerate(input.getPhase(), input.getParams(), null, input.getId(), null);
+		Process proc = ProcessManager.instance.buildProcess(instance);
+		String path = XmlPathUtil.getTestRelativeDir() + instance.getInstance_id() + ".txt";
+		proc.addInterceptor(new TextLogInterceptor(CfgTool.getWebRootPath() + path, instance.getPhaseCount(), "组件测试"));
+		List<Result> list = new ArrayList<Result>();
+		String remote_relative_dir = "compTest/" + input.getId();
+		for (int i = 0; i < instance.getPhaseCount(); i++) {
+			Result result = proc.runStage(remote_relative_dir, i, false);
+			result.setMsg("check log");
+			list.add(result);
+		}
+		output.setLog_file_path(path);
+		output.setResult(list);
+		logger.debug("ComponentTestAction -------------->end");
+		return output;
+	}
+
+	/**
+	 * Description:
+	 * @param input
+	 * @return
+	 */
+	@Override
+	protected String getLogTxt(ComponentTestInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+		return lgsvc.getLogTxt("测试组件", log_lst);
+	}
+
+}

@@ -1,0 +1,1655 @@
+package com.wk.cd.module.xml;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.module.bean.NodeBean;
+import com.wk.cd.module.bean.PhaseTestBean;
+import com.wk.cd.module.bean.StageSourceBean;
+import com.wk.cd.module.exc.GetFileDocumentException;
+import com.wk.cd.module.exc.WriterXmlException;
+import com.wk.cd.module.info.GroupModuleInfo;
+import com.wk.cd.module.info.InstanceInfo;
+import com.wk.cd.module.info.ModuleBasicInfo;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.info.ModuleSourceInfo;
+import com.wk.cd.module.info.PackageCombine;
+import com.wk.cd.module.info.PackageTypeInfo;
+import com.wk.cd.module.info.ParamInfo;
+import com.wk.cd.module.info.ProgramInfo;
+import com.wk.cd.module.info.TemplateInfo;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.JSON;
+import com.wk.util.JSONCaseType;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.apache.commons.lang.exception.ExceptionUtils;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+
+/**
+ * Class Description:
+ * 
+ * @author "Zhangj"
+ */
+public class XmlWriter {
+	private static final Log logger = LogFactory.getLog();
+	private Document document;
+	private final String file_path;
+	private final String id;
+
+	private XmlWriter(String id, MODULE_TYPE comp_type) {
+		DocumentBuilder db = getDocumentBuilder();
+		Document document1 = db.newDocument();
+		String file_path1 = XmlPathUtil.getPathByCompId(id, comp_type);
+		this.document = document1;
+		this.file_path = file_path1;
+		this.id = id;
+		document1.setXmlStandalone(true);
+	}
+
+	private static XmlWriter xmlWriterInstanceFactory(String id,
+			MODULE_TYPE comp_type) {
+		XmlWriter writer = new XmlWriter(id, comp_type);
+		return writer;
+	}
+
+	public static void writerProgram(ProgramInfo program_info) {
+		logger.debug("------writerProgram begin id"
+				+ program_info.getProgram_id() + "------");
+		XmlWriter writer = xmlWriterInstanceFactory(
+				program_info.getProgram_id(), MODULE_TYPE.PROGRAM);
+		Element program = writer.document.createElement("program");
+		program.setAttribute("id", program_info.getProgram_id());
+		List<PhaseTestBean> phase_list = program_info.getPhase_list();
+		if (!Assert.isEmpty(phase_list)) {
+			for (PhaseTestBean phase : phase_list) {
+				Element stage = writer.document.createElement("stage");
+
+				stage.setAttribute("phaseno", phase.getPhase_no() + "");
+				stage.setAttribute("desc", phase.getCn_name());
+				stage.setAttribute("generate", phase.getGen_flag().getCname());
+				stage.setAttribute("moduletype", phase.getType().getCname());
+				stage.setAttribute("bk_desc", phase.getBk_desc());
+
+				IMPL_TYPE type = phase.getImpl_type();
+				String[] cmds = phase.getCmds();
+				Element script = writer.script(cmds, type);
+				stage.appendChild(script);
+
+				StageSourceBean[] ssb = phase.getSrv_soc();
+				NodeBean[] config_nodes = phase.getConfig_nodes();
+				if (!Assert.isEmpty(ssb)) {
+					Element source = writer.source(ssb);
+					stage.appendChild(source);
+				}
+
+				if (!Assert.isEmpty(config_nodes)) {
+					Element config = writer.configs(config_nodes);
+					stage.appendChild(config);
+				}
+
+				program.appendChild(stage);
+			}
+
+		}
+
+		List<ParamInfo> params = program_info.getParam_list();
+		if (!Assert.isEmpty(params)) {
+			Element params_ele = writer.getParamElement(params);
+			program.appendChild(params_ele);
+		}
+
+		List<ParamInfo> ref_params = program_info.getRef_param_list();
+		if (!Assert.isEmpty(ref_params)) {
+			Element ref_params_ele = writer.getRefParamElement(ref_params);
+			program.appendChild(ref_params_ele);
+		}
+
+		List<PackageTypeInfo> pakcage_types = program_info.getPackage_types();
+		if (!Assert.isEmpty(pakcage_types)) {
+			Element pk_ele = writer.getPackageElement(pakcage_types);
+			program.appendChild(pk_ele);
+		}
+
+		Map<String, PackageCombine> combines = program_info
+				.getPackage_combine_map();
+		if (!Assert.isEmpty(combines)) {
+			Element comb_ele = writer.getCombineElement(combines);
+			program.appendChild(comb_ele);
+		}
+
+		writer.document.appendChild(program);
+		writer.writer();
+	}
+
+	public static void writerProgram1(ProgramInfo program_info) {
+		logger.debug("------writerProgram begin id"
+				+ program_info.getProgram_id() + "------");
+		XmlWriter writer = xmlWriterInstanceFactory(
+				program_info.getProgram_id(), MODULE_TYPE.PROGRAM);
+		Element program = writer.document.createElement("program");
+		program.setAttribute("id", program_info.getProgram_id());
+		List<PhaseTestBean> phase_list = program_info.getPhase_list();
+		if (!Assert.isEmpty(phase_list)) {
+			for (PhaseTestBean phase : phase_list) {
+				MODULE_TYPE module_type = phase.getType();
+				Element script;
+				StageSourceBean[] ssb;
+				Element config;
+				if (MODULE_TYPE.COMPONENT.equals(module_type)) {
+					Element stage = writer.document.createElement("stage");
+
+					stage.setAttribute("phaseno", phase.getPhase_no() + "");
+					stage.setAttribute("desc", phase.getCn_name());
+					stage.setAttribute("generate", phase.getGen_flag()
+							.getCname());
+					stage.setAttribute("moduletype", phase.getType().getCname());
+					stage.setAttribute("bk_desc", phase.getBk_desc());
+
+					IMPL_TYPE type = phase.getImpl_type();
+					String[] cmds = phase.getCmds();
+					script = writer.script(cmds, type);
+					stage.appendChild(script);
+
+					List<ParamInfo> paramsNameList = phase.getParams();
+
+					Element paramsName = writer.document
+							.createElement("ref_param_names");
+
+					if (!Assert.isEmpty(paramsNameList)) {
+						for (ParamInfo paramInfo : paramsNameList) {
+							Element ref_param = writer.document
+									.createElement("ref_param_name");
+							ref_param.setAttribute("param_bk_desc",
+									paramInfo.getParam_bk_desc());
+							ref_param.setAttribute("param_cn_name",
+									paramInfo.getParam_cn_name());
+							ref_param.setAttribute("param_group",
+									paramInfo.getParam_group());
+							ref_param.setAttribute("param_name",
+									paramInfo.getParam_name());
+							ref_param.setAttribute("param_value",
+									paramInfo.getParam_value());
+							ref_param.setAttribute("param_index",
+									paramInfo.getIndex() + "");
+							ref_param.setAttribute("param_index",
+									paramInfo.getIndex() + "");
+							paramsName.appendChild(ref_param);
+						}
+					}
+
+					stage.appendChild(paramsName);
+
+					List<ParamInfo> refParamsList = phase.getRef_params();
+
+					Element ref_params = writer.document
+							.createElement("ref_params");
+
+					if (!Assert.isEmpty(refParamsList)) {
+						for (ParamInfo paramInfo : refParamsList) {
+							Element ref_param = writer.document
+									.createElement("ref_param");
+							ref_param.setAttribute("param_bk_desc",
+									paramInfo.getParam_bk_desc());
+							ref_param.setAttribute("param_cn_name",
+									paramInfo.getParam_cn_name());
+							ref_param.setAttribute("param_group",
+									paramInfo.getParam_group());
+							ref_param.setAttribute("param_name",
+									paramInfo.getParam_name());
+							ref_param.setAttribute("param_type", paramInfo
+									.getParam_type().getCname());
+							ref_param.setAttribute("param_result",
+									paramInfo.getRef());
+							ref_param.setAttribute("param_index",
+									paramInfo.getIndex() + "");
+							ref_param.setAttribute("param_index",
+									paramInfo.getIndex() + "");
+							ref_params.appendChild(ref_param);
+						}
+					}
+
+					stage.appendChild(ref_params);
+
+					ssb = phase.getSrv_soc();
+					NodeBean[] config_nodes = phase.getConfig_nodes();
+					if (!Assert.isEmpty(ssb)) {
+						Element source = writer.source(ssb);
+						stage.appendChild(source);
+					}
+
+					if (!Assert.isEmpty(config_nodes)) {
+						config = writer.configs(config_nodes);
+						stage.appendChild(config);
+					}
+
+					program.appendChild(stage);
+				} else {
+					Element group_stage;
+					Element paramsName;
+					if (MODULE_TYPE.GROUP.equals(module_type)) {
+						List<PhaseTestBean> modules = phase.getModules();
+
+						Element stage = writer.document.createElement("stage");
+
+						stage.setAttribute("phaseno", phase.getPhase_no() + "");
+						stage.setAttribute("desc", phase.getCn_name());
+						stage.setAttribute("generate", phase.getGen_flag()
+								.getCname());
+						stage.setAttribute("moduletype", phase.getType()
+								.getCname());
+						stage.setAttribute("bk_desc", phase.getBk_desc());
+
+						if (!Assert.isEmpty(modules)) {
+							for (PhaseTestBean moduleInfo : modules) {
+								group_stage = writer.document
+										.createElement("group_stage");
+
+								group_stage.setAttribute("phaseno",
+										moduleInfo.getPhase_no() + "");
+								group_stage.setAttribute("desc",
+										moduleInfo.getCn_name());
+								group_stage.setAttribute("generate", moduleInfo
+										.getGen_flag().getCname());
+								group_stage.setAttribute("moduletype",
+										moduleInfo.getType().getCname());
+								group_stage.setAttribute("bk_desc",
+										moduleInfo.getBk_desc());
+
+								List<ParamInfo> paramsNameList = moduleInfo
+										.getParams();
+
+								paramsName = writer.document
+										.createElement("ref_param_names");
+
+								if (!Assert.isEmpty(paramsNameList)) {
+									for (ParamInfo paramInfo : paramsNameList) {
+										Element ref_param = writer.document
+												.createElement("ref_param_name");
+										ref_param.setAttribute("param_bk_desc",
+												paramInfo.getParam_bk_desc());
+										ref_param.setAttribute("param_cn_name",
+												paramInfo.getParam_cn_name());
+										ref_param.setAttribute("param_group",
+												paramInfo.getParam_group());
+										ref_param.setAttribute("param_name",
+												paramInfo.getParam_name());
+										ref_param.setAttribute("param_value",
+												paramInfo.getParam_value());
+										ref_param.setAttribute("param_index",
+												paramInfo.getIndex() + "");
+										ref_param.setAttribute("param_index",
+												paramInfo.getIndex() + "");
+										paramsName.appendChild(ref_param);
+									}
+								}
+
+								group_stage.appendChild(paramsName);
+
+								List<ParamInfo> refParamsList = moduleInfo
+										.getRef_params();
+
+								Element ref_params = writer.document
+										.createElement("ref_params");
+
+								if (!Assert.isEmpty(refParamsList)) {
+									for (ParamInfo paramInfo : refParamsList) {
+										Element ref_param = writer.document
+												.createElement("ref_param");
+										ref_param.setAttribute("param_bk_desc",
+												paramInfo.getParam_bk_desc());
+										ref_param.setAttribute("param_cn_name",
+												paramInfo.getParam_cn_name());
+										ref_param.setAttribute("param_group",
+												paramInfo.getParam_group());
+										ref_param.setAttribute("param_name",
+												paramInfo.getParam_name());
+										ref_param.setAttribute("param_type",
+												paramInfo.getParam_type()
+														.getCname());
+										ref_param.setAttribute("param_result",
+												paramInfo.getRef());
+										ref_param.setAttribute("param_index",
+												paramInfo.getIndex() + "");
+										ref_param.setAttribute("param_index",
+												paramInfo.getIndex() + "");
+										ref_params.appendChild(ref_param);
+									}
+								}
+
+								group_stage.appendChild(ref_params);
+
+								IMPL_TYPE type = moduleInfo.getImpl_type();
+								String[] cmds = moduleInfo.getCmds();
+								Element script1 = writer.script(cmds, type);
+								group_stage.appendChild(script1);
+
+								StageSourceBean[] ssb1 = moduleInfo
+										.getSrv_soc();
+								NodeBean[] config_nodes = moduleInfo
+										.getConfig_nodes();
+								if (!Assert.isEmpty(ssb1)) {
+									Element source = writer.source(ssb1);
+									group_stage.appendChild(source);
+								}
+
+								if (!Assert.isEmpty(config_nodes)) {
+									Element config1 = writer
+											.configs(config_nodes);
+									group_stage.appendChild(config1);
+								}
+
+								stage.appendChild(group_stage);
+							}
+
+						}
+
+						program.appendChild(stage);
+					} else if (MODULE_TYPE.PHASE.equals(module_type)) {
+						Element stage = writer.document.createElement("stage");
+
+						stage.setAttribute("phaseno", phase.getPhase_no() + "");
+						stage.setAttribute("desc", phase.getCn_name());
+						stage.setAttribute("generate", phase.getGen_flag()
+								.getCname());
+						stage.setAttribute("moduletype", phase.getType()
+								.getCname());
+						stage.setAttribute("bk_desc", phase.getBk_desc());
+
+						List<ParamInfo> paramsNameList = phase.getParams();
+
+						Element paramsName1 = writer.document
+								.createElement("ref_param_names");
+
+						if (!Assert.isEmpty(paramsNameList)) {
+							for (ParamInfo paramInfo : paramsNameList) {
+								Element ref_param = writer.document
+										.createElement("ref_param_name");
+								ref_param.setAttribute("param_bk_desc",
+										paramInfo.getParam_bk_desc());
+								ref_param.setAttribute("param_cn_name",
+										paramInfo.getParam_cn_name());
+								ref_param.setAttribute("param_group",
+										paramInfo.getParam_group());
+								ref_param.setAttribute("param_name",
+										paramInfo.getParam_name());
+								ref_param.setAttribute("param_value",
+										paramInfo.getParam_value());
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								paramsName1.appendChild(ref_param);
+							}
+						}
+
+						stage.appendChild(paramsName1);
+
+						List<ParamInfo> refParamsList = phase.getRef_params();
+
+						Element ref_params = writer.document
+								.createElement("ref_params");
+
+						if (!Assert.isEmpty(refParamsList)) {
+							for (ParamInfo paramInfo : refParamsList) {
+								Element ref_param = writer.document
+										.createElement("ref_param");
+								ref_param.setAttribute("param_bk_desc",
+										paramInfo.getParam_bk_desc());
+								ref_param.setAttribute("param_cn_name",
+										paramInfo.getParam_cn_name());
+								ref_param.setAttribute("param_group",
+										paramInfo.getParam_group());
+								ref_param.setAttribute("param_name",
+										paramInfo.getParam_name());
+								ref_param.setAttribute("param_type", paramInfo
+										.getParam_type().getCname());
+								ref_param.setAttribute("param_result",
+										paramInfo.getRef());
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								ref_params.appendChild(ref_param);
+							}
+						}
+
+						stage.appendChild(ref_params);
+
+						IMPL_TYPE type = phase.getImpl_type();
+						String[] cmds = phase.getCmds();
+						Element script1 = writer.script(cmds, type);
+						stage.appendChild(script1);
+
+						StageSourceBean[] ssb1 = phase.getSrv_soc();
+						NodeBean[] config_nodes = phase.getConfig_nodes();
+						if (!Assert.isEmpty(ssb1)) {
+							Element source = writer.source(ssb1);
+							stage.appendChild(source);
+						}
+
+						if (!Assert.isEmpty(config_nodes)) {
+							Element config1 = writer.configs(config_nodes);
+							stage.appendChild(config1);
+						}
+
+						program.appendChild(stage);
+					}
+				}
+
+			}
+
+		}
+
+		List<ParamInfo> params = program_info.getParam_list();
+		if (!Assert.isEmpty(params)) {
+			Element params_ele = writer.getParamElement(params);
+			program.appendChild(params_ele);
+		}
+
+		List<ParamInfo> ref_params = program_info.getRef_param_list();
+		if (!Assert.isEmpty(ref_params)) {
+			Element ref_params_ele = writer.getRefParamElement(ref_params);
+			program.appendChild(ref_params_ele);
+		}
+
+		Map<String, PackageCombine> combines = program_info
+				.getPackage_combine_map();
+		if (!Assert.isEmpty(combines)) {
+			Element comb_ele = writer.getCombineElement(combines);
+			program.appendChild(comb_ele);
+		}
+
+		writer.document.appendChild(program);
+		writer.writer();
+	}
+
+	public static void writerProgram2(String module_id,
+			ProgramInfo program_info, ProgramInfo rol_info) {
+		logger.debug("------writerProgram begin id" + module_id + "------");
+
+		XmlWriter writer = xmlWriterInstanceFactory(module_id,
+				MODULE_TYPE.PROGRAM);
+
+		Element program = writer.document.createElement("program");
+
+		program.setAttribute("id", module_id);
+		// Object script;
+		Object config_nodes;
+		List<PackageTypeInfo> pakcage_types;
+		if (!Assert.isEmpty(program_info)) {
+			Element program_type = writer.document
+					.createElement("program_type");
+
+			program_type.setAttribute("id", "发布流程");
+
+			List<PhaseTestBean> phase_list = program_info.getPhase_list();
+			if (!Assert.isEmpty(phase_list)) {
+				for (PhaseTestBean phase : phase_list) {
+					MODULE_TYPE module_type = phase.getType();
+					Element script1;
+					StageSourceBean[] ssb;
+					Element config;
+					if (MODULE_TYPE.COMPONENT.equals(module_type)) {
+						Element stage = writer.document.createElement("stage");
+
+						stage.setAttribute("phaseno", phase.getPhase_no() + "");
+						stage.setAttribute("desc", phase.getCn_name());
+						stage.setAttribute("generate", phase.getGen_flag()
+								.getCname());
+						stage.setAttribute("moduletype", phase.getType()
+								.getCname());
+						stage.setAttribute("bk_desc", phase.getBk_desc());
+
+						IMPL_TYPE type = phase.getImpl_type();
+						String[] cmds = phase.getCmds();
+						script1 = writer.script(cmds, type);
+						stage.appendChild(script1);
+
+						List<ParamInfo> paramsNameList = phase.getParams();
+
+						Element paramsName = writer.document
+								.createElement("ref_param_names");
+
+						if (!Assert.isEmpty(paramsNameList)) {
+							for (ParamInfo paramInfo : paramsNameList) {
+								Element ref_param = writer.document
+										.createElement("ref_param_name");
+								ref_param.setAttribute("param_bk_desc",
+										paramInfo.getParam_bk_desc());
+								ref_param.setAttribute("param_cn_name",
+										paramInfo.getParam_cn_name());
+								ref_param.setAttribute("param_group",
+										paramInfo.getParam_group());
+								ref_param.setAttribute("param_name",
+										paramInfo.getParam_name());
+								ref_param.setAttribute("param_value",
+										paramInfo.getParam_value());
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								paramsName.appendChild(ref_param);
+							}
+						}
+
+						stage.appendChild(paramsName);
+
+						List<ParamInfo> refParamsList = phase.getRef_params();
+
+						Element ref_params = writer.document
+								.createElement("ref_params");
+
+						if (!Assert.isEmpty(refParamsList)) {
+							for (ParamInfo paramInfo : refParamsList) {
+								Element ref_param = writer.document
+										.createElement("ref_param");
+								ref_param.setAttribute("param_bk_desc",
+										paramInfo.getParam_bk_desc());
+								ref_param.setAttribute("param_cn_name",
+										paramInfo.getParam_cn_name());
+								ref_param.setAttribute("param_group",
+										paramInfo.getParam_group());
+								ref_param.setAttribute("param_name",
+										paramInfo.getParam_name());
+								ref_param.setAttribute("param_type", paramInfo
+										.getParam_type().getCname());
+								ref_param.setAttribute("param_result",
+										paramInfo.getRef());
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								ref_params.appendChild(ref_param);
+							}
+						}
+
+						stage.appendChild(ref_params);
+
+						ssb = phase.getSrv_soc();
+						NodeBean[] config_nodes1 = phase.getConfig_nodes();
+						if (!Assert.isEmpty(ssb)) {
+							Element source = writer.source(ssb);
+							stage.appendChild(source);
+						}
+
+						if (!Assert.isEmpty(config_nodes1)) {
+							config = writer.configs(config_nodes1);
+							stage.appendChild(config);
+						}
+
+						program_type.appendChild(stage);
+					} else {
+						Element group_stage;
+						Element paramsName;
+						if (MODULE_TYPE.GROUP.equals(module_type)) {
+							List<PhaseTestBean> modules = phase.getModules();
+
+							Element stage = writer.document
+									.createElement("stage");
+
+							stage.setAttribute("phaseno", phase.getPhase_no()
+									+ "");
+							stage.setAttribute("desc", phase.getCn_name());
+							stage.setAttribute("generate", phase.getGen_flag()
+									.getCname());
+							stage.setAttribute("moduletype", phase.getType()
+									.getCname());
+							stage.setAttribute("bk_desc", phase.getBk_desc());
+
+							if (!Assert.isEmpty(modules)) {
+								for (PhaseTestBean moduleInfo : modules) {
+									group_stage = writer.document
+											.createElement("group_stage");
+
+									group_stage.setAttribute("phaseno",
+											moduleInfo.getPhase_no() + "");
+									group_stage.setAttribute("desc",
+											moduleInfo.getCn_name());
+									group_stage
+											.setAttribute("generate",
+													moduleInfo.getGen_flag()
+															.getCname());
+									group_stage.setAttribute("moduletype",
+											moduleInfo.getType().getCname());
+									group_stage.setAttribute("bk_desc",
+											moduleInfo.getBk_desc());
+
+									List<ParamInfo> paramsNameList = moduleInfo
+											.getParams();
+
+									paramsName = writer.document
+											.createElement("ref_param_names");
+
+									if (!Assert.isEmpty(paramsNameList)) {
+										for (ParamInfo paramInfo : paramsNameList) {
+											Element ref_param = writer.document
+													.createElement("ref_param_name");
+											ref_param
+													.setAttribute(
+															"param_bk_desc",
+															paramInfo
+																	.getParam_bk_desc());
+											ref_param
+													.setAttribute(
+															"param_cn_name",
+															paramInfo
+																	.getParam_cn_name());
+											ref_param.setAttribute(
+													"param_group",
+													paramInfo.getParam_group());
+											ref_param.setAttribute(
+													"param_name",
+													paramInfo.getParam_name());
+											ref_param.setAttribute(
+													"param_value",
+													paramInfo.getParam_value());
+											ref_param.setAttribute(
+													"param_index",
+													paramInfo.getIndex() + "");
+											ref_param.setAttribute(
+													"param_index",
+													paramInfo.getIndex() + "");
+											paramsName.appendChild(ref_param);
+										}
+									}
+
+									group_stage.appendChild(paramsName);
+
+									List<ParamInfo> refParamsList = moduleInfo
+											.getRef_params();
+
+									Element ref_params = writer.document
+											.createElement("ref_params");
+
+									if (!Assert.isEmpty(refParamsList)) {
+										for (ParamInfo paramInfo : refParamsList) {
+											Element ref_param = writer.document
+													.createElement("ref_param");
+											ref_param
+													.setAttribute(
+															"param_bk_desc",
+															paramInfo
+																	.getParam_bk_desc());
+											ref_param
+													.setAttribute(
+															"param_cn_name",
+															paramInfo
+																	.getParam_cn_name());
+											ref_param.setAttribute(
+													"param_group",
+													paramInfo.getParam_group());
+											ref_param.setAttribute(
+													"param_name",
+													paramInfo.getParam_name());
+											ref_param.setAttribute(
+													"param_type", paramInfo
+															.getParam_type()
+															.getCname());
+											ref_param.setAttribute(
+													"param_result",
+													paramInfo.getRef());
+											ref_param.setAttribute(
+													"param_index",
+													paramInfo.getIndex() + "");
+											ref_param.setAttribute(
+													"param_index",
+													paramInfo.getIndex() + "");
+											ref_params.appendChild(ref_param);
+										}
+									}
+
+									group_stage.appendChild(ref_params);
+
+									IMPL_TYPE type = moduleInfo.getImpl_type();
+									String[] cmds = moduleInfo.getCmds();
+									Element script11 = writer
+											.script(cmds, type);
+									group_stage.appendChild(script11);
+
+									StageSourceBean[] ssb1 = moduleInfo
+											.getSrv_soc();
+									NodeBean[] config_nodes1 = moduleInfo
+											.getConfig_nodes();
+									if (!Assert.isEmpty(ssb1)) {
+										Element source = writer.source(ssb1);
+										group_stage.appendChild(source);
+									}
+
+									if (!Assert.isEmpty(config_nodes1)) {
+										Element config1 = writer
+												.configs(config_nodes1);
+										group_stage.appendChild(config1);
+									}
+
+									stage.appendChild(group_stage);
+								}
+
+							}
+
+							program_type.appendChild(stage);
+						} else if (MODULE_TYPE.PHASE.equals(module_type)) {
+							Element stage = writer.document
+									.createElement("stage");
+
+							stage.setAttribute("phaseno", phase.getPhase_no()
+									+ "");
+							stage.setAttribute("desc", phase.getCn_name());
+							stage.setAttribute("generate", phase.getGen_flag()
+									.getCname());
+							stage.setAttribute("moduletype", phase.getType()
+									.getCname());
+							stage.setAttribute("bk_desc", phase.getBk_desc());
+
+							List<ParamInfo> paramsNameList = phase.getParams();
+
+							Element paramsName1 = writer.document
+									.createElement("ref_param_names");
+
+							if (!Assert.isEmpty(paramsNameList)) {
+								for (ParamInfo paramInfo : paramsNameList) {
+									Element ref_param = writer.document
+											.createElement("ref_param_name");
+									ref_param.setAttribute("param_bk_desc",
+											paramInfo.getParam_bk_desc());
+									ref_param.setAttribute("param_cn_name",
+											paramInfo.getParam_cn_name());
+									ref_param.setAttribute("param_group",
+											paramInfo.getParam_group());
+									ref_param.setAttribute("param_name",
+											paramInfo.getParam_name());
+									ref_param.setAttribute("param_value",
+											paramInfo.getParam_value());
+									ref_param.setAttribute("param_index",
+											paramInfo.getIndex() + "");
+									ref_param.setAttribute("param_index",
+											paramInfo.getIndex() + "");
+									paramsName1.appendChild(ref_param);
+								}
+							}
+
+							stage.appendChild(paramsName1);
+
+							List<ParamInfo> refParamsList = phase
+									.getRef_params();
+
+							Element ref_params = writer.document
+									.createElement("ref_params");
+
+							if (!Assert.isEmpty(refParamsList)) {
+								for (ParamInfo paramInfo : refParamsList) {
+									Element ref_param = writer.document
+											.createElement("ref_param");
+									ref_param.setAttribute("param_bk_desc",
+											paramInfo.getParam_bk_desc());
+									ref_param.setAttribute("param_cn_name",
+											paramInfo.getParam_cn_name());
+									ref_param.setAttribute("param_group",
+											paramInfo.getParam_group());
+									ref_param.setAttribute("param_name",
+											paramInfo.getParam_name());
+									ref_param.setAttribute("param_type",
+											paramInfo.getParam_type()
+													.getCname());
+									ref_param.setAttribute("param_result",
+											paramInfo.getRef());
+									ref_param.setAttribute("param_index",
+											paramInfo.getIndex() + "");
+									ref_param.setAttribute("param_index",
+											paramInfo.getIndex() + "");
+									ref_params.appendChild(ref_param);
+								}
+							}
+
+							stage.appendChild(ref_params);
+
+							IMPL_TYPE type = phase.getImpl_type();
+							String[] cmds = phase.getCmds();
+							script1 = writer.script(cmds, type);
+							stage.appendChild(script1);
+
+							StageSourceBean[] ssb1 = phase.getSrv_soc();
+							config_nodes = phase.getConfig_nodes();
+							if (!Assert.isEmpty(ssb1)) {
+								Element source = writer.source(ssb1);
+								stage.appendChild(source);
+							}
+
+							if (!Assert.isEmpty((Object[]) config_nodes)) {
+								Element config1 = writer
+										.configs((NodeBean[]) config_nodes);
+								stage.appendChild(config1);
+							}
+
+							program_type.appendChild(stage);
+						}
+					}
+
+				}
+
+			}
+
+			List<ParamInfo> params = program_info.getParam_list();
+			if (!Assert.isEmpty(params)) {
+				Element params_ele = writer.getParamElement(params);
+				program_type.appendChild(params_ele);
+			}
+
+			pakcage_types = program_info.getPackage_types();
+			if (!Assert.isEmpty(pakcage_types)) {
+				Element pk_ele = writer.getPackageElement(pakcage_types);
+				program_type.appendChild(pk_ele);
+			}
+
+			List<ParamInfo> ref_params = program_info.getRef_param_list();
+			if (!Assert.isEmpty(ref_params)) {
+				Element ref_params_ele = writer.getRefParamElement(ref_params);
+				program_type.appendChild(ref_params_ele);
+			}
+
+			Map<String, PackageCombine> combines = program_info
+					.getPackage_combine_map();
+			if (!Assert.isEmpty(combines)) {
+				Element comb_ele = writer.getCombineElement(combines);
+				program_type.appendChild(comb_ele);
+			}
+
+			program.appendChild(program_type);
+		}
+
+		if (!Assert.isEmpty(rol_info)) {
+			Element program_type = writer.document
+					.createElement("program_type");
+
+			program_type.setAttribute("id", "回退流程");
+
+			List<PhaseTestBean> phase_list = rol_info.getPhase_list();
+			if (!Assert.isEmpty(phase_list)) {
+				for (int i = 0; i < phase_list.size(); i++) {
+					PhaseTestBean phase = phase_list.get(i);
+					MODULE_TYPE module_type = phase.getType();
+					Element script1;
+					StageSourceBean[] ssb;
+					Element config;
+					if (MODULE_TYPE.COMPONENT.equals(module_type)) {
+						Element stage = writer.document.createElement("stage");
+
+						stage.setAttribute("phaseno", phase.getPhase_no() + "");
+						stage.setAttribute("desc", phase.getCn_name());
+						stage.setAttribute("generate", phase.getGen_flag()
+								.getCname());
+						stage.setAttribute("moduletype", phase.getType()
+								.getCname());
+						stage.setAttribute("bk_desc", phase.getBk_desc());
+
+						IMPL_TYPE type = phase.getImpl_type();
+						String[] cmds = phase.getCmds();
+						script1 = writer.script(cmds, type);
+						stage.appendChild(script1);
+
+						List<ParamInfo> paramsNameList = phase.getParams();
+
+						Element paramsName = writer.document
+								.createElement("ref_param_names");
+
+						if (!Assert.isEmpty(paramsNameList)) {
+							for (ParamInfo paramInfo : paramsNameList) {
+								Element ref_param = writer.document
+										.createElement("ref_param_name");
+								ref_param.setAttribute("param_bk_desc",
+										paramInfo.getParam_bk_desc());
+								ref_param.setAttribute("param_cn_name",
+										paramInfo.getParam_cn_name());
+								ref_param.setAttribute("param_group",
+										paramInfo.getParam_group());
+								ref_param.setAttribute("param_name",
+										paramInfo.getParam_name());
+								ref_param.setAttribute("param_value",
+										paramInfo.getParam_value());
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								paramsName.appendChild(ref_param);
+							}
+						}
+
+						stage.appendChild(paramsName);
+
+						List<ParamInfo> refParamsList = phase.getRef_params();
+
+						Element ref_params = writer.document
+								.createElement("ref_params");
+
+						if (!Assert.isEmpty(refParamsList)) {
+							for (int j = 0; j < refParamsList.size(); j++) {
+								ParamInfo paramInfo = refParamsList.get(j);
+								Element ref_param = writer.document
+										.createElement("ref_param");
+								ref_param.setAttribute("param_bk_desc",
+										paramInfo.getParam_bk_desc());
+								ref_param.setAttribute("param_cn_name",
+										paramInfo.getParam_cn_name());
+								ref_param.setAttribute("param_group",
+										paramInfo.getParam_group());
+								ref_param.setAttribute("param_name",
+										paramInfo.getParam_name());
+								ref_param.setAttribute("param_type", paramInfo
+										.getParam_type().getCname());
+								ref_param.setAttribute("param_result",
+										paramInfo.getRef());
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								ref_param.setAttribute("param_index",
+										paramInfo.getIndex() + "");
+								ref_params.appendChild(ref_param);
+							}
+						}
+
+						stage.appendChild(ref_params);
+
+						ssb = phase.getSrv_soc();
+						NodeBean[] config_nodes1 = phase.getConfig_nodes();
+						if (!Assert.isEmpty(ssb)) {
+							Element source = writer.source(ssb);
+							stage.appendChild(source);
+						}
+
+						if (!Assert.isEmpty(config_nodes1)) {
+							config = writer.configs(config_nodes1);
+							stage.appendChild(config);
+						}
+
+						program_type.appendChild(stage);
+					} else {
+						Element group_stage;
+						Element paramsName;
+						if (MODULE_TYPE.GROUP.equals(module_type)) {
+							List<PhaseTestBean> modules = phase.getModules();
+
+							Element stage = writer.document
+									.createElement("stage");
+
+							stage.setAttribute("phaseno", phase.getPhase_no()
+									+ "");
+							stage.setAttribute("desc", phase.getCn_name());
+							stage.setAttribute("generate", phase.getGen_flag()
+									.getCname());
+							stage.setAttribute("moduletype", phase.getType()
+									.getCname());
+							stage.setAttribute("bk_desc", phase.getBk_desc());
+
+							if (!Assert.isEmpty(modules)) {
+								for (PhaseTestBean moduleInfo : modules) {
+									group_stage = writer.document
+											.createElement("group_stage");
+
+									group_stage.setAttribute("phaseno",
+											moduleInfo.getPhase_no() + "");
+									group_stage.setAttribute("desc",
+											moduleInfo.getCn_name());
+									group_stage
+											.setAttribute("generate",
+													moduleInfo.getGen_flag()
+															.getCname());
+									group_stage.setAttribute("moduletype",
+											moduleInfo.getType().getCname());
+									group_stage.setAttribute("bk_desc",
+											moduleInfo.getBk_desc());
+
+									List<ParamInfo> paramsNameList = moduleInfo
+											.getParams();
+
+									paramsName = writer.document
+											.createElement("ref_param_names");
+
+									if (!Assert.isEmpty(paramsNameList)) {
+										for (ParamInfo paramInfo : paramsNameList) {
+											Element ref_param = writer.document
+													.createElement("ref_param_name");
+											ref_param
+													.setAttribute(
+															"param_bk_desc",
+															paramInfo
+																	.getParam_bk_desc());
+											ref_param
+													.setAttribute(
+															"param_cn_name",
+															paramInfo
+																	.getParam_cn_name());
+											ref_param.setAttribute(
+													"param_group",
+													paramInfo.getParam_group());
+											ref_param.setAttribute(
+													"param_name",
+													paramInfo.getParam_name());
+											ref_param.setAttribute(
+													"param_value",
+													paramInfo.getParam_value());
+											ref_param.setAttribute(
+													"param_index",
+													paramInfo.getIndex() + "");
+											ref_param.setAttribute(
+													"param_index",
+													paramInfo.getIndex() + "");
+											paramsName.appendChild(ref_param);
+										}
+									}
+
+									group_stage.appendChild(paramsName);
+
+									List<ParamInfo> refParamsList = moduleInfo
+											.getRef_params();
+
+									Element ref_params = writer.document
+											.createElement("ref_params");
+
+									if (!Assert.isEmpty(refParamsList)) {
+										for (ParamInfo paramInfo : refParamsList) {
+											Element ref_param = writer.document
+													.createElement("ref_param");
+											ref_param
+													.setAttribute(
+															"param_bk_desc",
+															paramInfo
+																	.getParam_bk_desc());
+											ref_param
+													.setAttribute(
+															"param_cn_name",
+															paramInfo
+																	.getParam_cn_name());
+											ref_param.setAttribute(
+													"param_group",
+													paramInfo.getParam_group());
+											ref_param.setAttribute(
+													"param_name",
+													paramInfo.getParam_name());
+											ref_param.setAttribute(
+													"param_type", paramInfo
+															.getParam_type()
+															.getCname());
+											ref_param.setAttribute(
+													"param_result",
+													paramInfo.getRef());
+											ref_param.setAttribute(
+													"param_index",
+													paramInfo.getIndex() + "");
+											ref_param.setAttribute(
+													"param_index",
+													paramInfo.getIndex() + "");
+											ref_params.appendChild(ref_param);
+										}
+									}
+
+									group_stage.appendChild(ref_params);
+
+									IMPL_TYPE type = moduleInfo.getImpl_type();
+									String[] cmds = moduleInfo.getCmds();
+									Element script11 = writer
+											.script(cmds, type);
+									group_stage.appendChild(script11);
+
+									StageSourceBean[] ssb1 = moduleInfo
+											.getSrv_soc();
+									NodeBean[] config_nodes1 = moduleInfo
+											.getConfig_nodes();
+									if (!Assert.isEmpty(ssb1)) {
+										Element source = writer.source(ssb1);
+										group_stage.appendChild(source);
+									}
+
+									if (!Assert.isEmpty(config_nodes1)) {
+										Element config1 = writer
+												.configs(config_nodes1);
+										group_stage.appendChild(config1);
+									}
+
+									stage.appendChild(group_stage);
+								}
+
+							}
+
+							program_type.appendChild(stage);
+						} else if (MODULE_TYPE.PHASE.equals(module_type)) {
+							Element stage = writer.document
+									.createElement("stage");
+
+							stage.setAttribute("phaseno", phase.getPhase_no()
+									+ "");
+							stage.setAttribute("desc", phase.getCn_name());
+							stage.setAttribute("generate", phase.getGen_flag()
+									.getCname());
+							stage.setAttribute("moduletype", phase.getType()
+									.getCname());
+							stage.setAttribute("bk_desc", phase.getBk_desc());
+
+							List<ParamInfo> paramsNameList = phase.getParams();
+
+							Element paramsName1 = writer.document
+									.createElement("ref_param_names");
+
+							if (!Assert.isEmpty(paramsNameList)) {
+								for (ParamInfo paramInfo : paramsNameList) {
+									Element ref_param = writer.document
+											.createElement("ref_param_name");
+									ref_param.setAttribute("param_bk_desc",
+											paramInfo.getParam_bk_desc());
+									ref_param.setAttribute("param_cn_name",
+											paramInfo.getParam_cn_name());
+									ref_param.setAttribute("param_group",
+											paramInfo.getParam_group());
+									ref_param.setAttribute("param_name",
+											paramInfo.getParam_name());
+									ref_param.setAttribute("param_value",
+											paramInfo.getParam_value());
+									ref_param.setAttribute("param_index",
+											paramInfo.getIndex() + "");
+									ref_param.setAttribute("param_index",
+											paramInfo.getIndex() + "");
+									paramsName1.appendChild(ref_param);
+								}
+							}
+
+							stage.appendChild(paramsName1);
+
+							List<ParamInfo> refParamsList = phase
+									.getRef_params();
+
+							Element ref_params = writer.document
+									.createElement("ref_params");
+
+							if (!Assert.isEmpty(refParamsList)) {
+								for (ParamInfo paramInfo : refParamsList) {
+									Element ref_param = writer.document
+											.createElement("ref_param");
+									ref_param.setAttribute("param_bk_desc",
+											paramInfo.getParam_bk_desc());
+									ref_param.setAttribute("param_cn_name",
+											paramInfo.getParam_cn_name());
+									ref_param.setAttribute("param_group",
+											paramInfo.getParam_group());
+									ref_param.setAttribute("param_name",
+											paramInfo.getParam_name());
+									ref_param.setAttribute("param_type",
+											paramInfo.getParam_type()
+													.getCname());
+									ref_param.setAttribute("param_result",
+											paramInfo.getRef());
+									ref_param.setAttribute("param_index",
+											paramInfo.getIndex() + "");
+									ref_param.setAttribute("param_index",
+											paramInfo.getIndex() + "");
+									ref_params.appendChild(ref_param);
+								}
+							}
+
+							stage.appendChild(ref_params);
+
+							IMPL_TYPE type = phase.getImpl_type();
+							String[] cmds = phase.getCmds();
+							Element script11 = writer.script(cmds, type);
+							stage.appendChild(script11);
+
+							StageSourceBean[] ssb1 = phase.getSrv_soc();
+							NodeBean[] config_nodes1 = phase.getConfig_nodes();
+							if (!Assert.isEmpty(ssb1)) {
+								Element source = writer.source(ssb1);
+								stage.appendChild(source);
+							}
+
+							if (!Assert.isEmpty(config_nodes1)) {
+								Element config1 = writer.configs(config_nodes1);
+								stage.appendChild(config1);
+							}
+
+							program_type.appendChild(stage);
+						}
+					}
+
+				}
+
+			}
+
+			List<ParamInfo> params = rol_info.getParam_list();
+			if (!Assert.isEmpty(params)) {
+				Element params_ele = writer.getParamElement(params);
+				program_type.appendChild(params_ele);
+			}
+
+			List<PackageTypeInfo> pakcage_types1 = program_info
+					.getPackage_types();
+			if (!Assert.isEmpty(pakcage_types1)) {
+				Element pk_ele = writer.getPackageElement(pakcage_types1);
+				program_type.appendChild(pk_ele);
+			}
+
+			List<ParamInfo> ref_params = rol_info.getRef_param_list();
+			if (!Assert.isEmpty(ref_params)) {
+				Element ref_params_ele = writer.getRefParamElement(ref_params);
+				program_type.appendChild(ref_params_ele);
+			}
+
+			Map<String, PackageCombine> combines = rol_info
+					.getPackage_combine_map();
+			if (!Assert.isEmpty(combines)) {
+				Element comb_ele = writer.getCombineElement(combines);
+				program_type.appendChild(comb_ele);
+			}
+
+			program.appendChild(program_type);
+		}
+
+		writer.document.appendChild(program);
+		writer.writer();
+	}
+
+	public static void writerInstance(InstanceInfo instance_info) {
+		XmlWriter writer = xmlWriterInstanceFactory(
+				instance_info.getInstanceId(), MODULE_TYPE.INSTANCE);
+		Element instance = writer.document.createElement("instance");
+		instance.setAttribute("id", instance_info.getInstanceId());
+		List<ModuleInfo> modules = instance_info.getModuleInfos();
+		int index = 0;
+		for (ModuleInfo s : modules) {
+			String desc = s.getCn_name();
+			Element stage = writer.document.createElement("stage");
+			stage.setAttribute("order", (index++) + "");
+			stage.setAttribute("desc", desc);
+
+			IMPL_TYPE type = s.getImpl_type();
+			String[] cmds = s.getCmds();
+			Element script = writer.script(cmds, type);
+			stage.appendChild(script);
+
+			ModuleSourceInfo msi = s.getSource_info();
+			Element node = writer.getNodeSocElementList(msi);
+			stage.appendChild(node);
+			instance.appendChild(stage);
+		}
+
+		ParamInfo[] params = instance_info.getParams();
+		if (!Assert.isEmpty(params)) {
+			Element params_ele = writer.getParamElement(Arrays.asList(params));
+			instance.appendChild(params_ele);
+		}
+		writer.document.appendChild(instance);
+		writer.writer();
+	}
+
+	public static void writerTemplate(TemplateInfo template_info, String id) {
+		XmlWriter writer = xmlWriterInstanceFactory(id, MODULE_TYPE.TEMPLATE);
+		Element template = writer.document.createElement("template");
+		template.setAttribute("id", writer.id);
+		String cn_name = template_info.getCn_name();
+		String desc = template_info.getBk_desc();
+
+		writer.addDescAndCnname(cn_name, desc, template);
+		List<ModuleBasicInfo> temp_list = template_info.getModules();
+
+		List<ParamInfo> private_params = new ArrayList<ParamInfo>();
+		if (!Assert.isEmpty(temp_list)) {
+			int index = 1;
+			for (ModuleBasicInfo info : temp_list) {
+				MODULE_TYPE module_type = info.getType();
+				if (MODULE_TYPE.PHASE.equals(module_type)) {
+					Element stage = writer.document.createElement("stage");
+					stage.setAttribute("order", (index++) + "");
+					stage.setAttribute("name", info.getCn_name());
+					stage.setAttribute("type", info.getImpl_type().getName());
+					Element script = writer.script(info.getCmds(),
+							info.getImpl_type());
+					stage.appendChild(script);
+					template.appendChild(stage);
+				} else if (MODULE_TYPE.COMPONENT.equals(module_type)) {
+					Element references = writer
+							.getReferenceElement(info, index);
+					template.appendChild(references);
+
+					info.getRef_params();
+					private_params.addAll(ParamInfo.setPhaseNo(
+							info.getRef_params(), index++));
+				} else if (MODULE_TYPE.GROUP.equals(module_type)) {
+					Element references = writer
+							.getReferenceElement(info, index);
+					template.appendChild(references);
+					GroupModuleInfo group = GroupModuleInfo.copyByBasic(info);
+					List<ModuleBasicInfo> child_modules = group.getModules();
+					for (ModuleBasicInfo mi : child_modules) {
+						private_params.addAll(ParamInfo.setPhaseNo(
+								mi.getRef_params(), index++));
+					}
+				}
+			}
+		}
+		List<ParamInfo> all_params = mergerParam(template_info.getParams(),
+				private_params);
+		if (!Assert.isEmpty(all_params)) {
+			Element params_ele = writer.getParamElement(all_params);
+			template.appendChild(params_ele);
+		}
+
+		List<PackageTypeInfo> pakcage_types = template_info.getPackage_types();
+		if (!Assert.isEmpty(pakcage_types)) {
+			Element pk_ele = writer.getPackageElement(pakcage_types);
+			template.appendChild(pk_ele);
+		}
+		writer.document.appendChild(template);
+		writer.writer();
+	}
+
+	public static void writerGroup(GroupModuleInfo group_info, String id) {
+		XmlWriter writer = xmlWriterInstanceFactory(id, MODULE_TYPE.GROUP);
+		String cn_name = group_info.getCn_name();
+		String desc = group_info.getBk_desc();
+		Element group = writer.document.createElement("group");
+		group.setAttribute("id", writer.id);
+
+		writer.addDescAndCnname(cn_name, desc, group);
+		List<ModuleBasicInfo> list = group_info.getModules();
+
+		List<ParamInfo> private_params = new ArrayList<ParamInfo>();
+		if (!Assert.isEmpty(list)) {
+			int index = 1;
+			for (ModuleBasicInfo info : list) {
+				MODULE_TYPE module_type = info.getType();
+
+				if (MODULE_TYPE.COMPONENT.equals(module_type)) {
+					private_params.addAll(ParamInfo.setPhaseNo(
+							info.getRef_params(), index));
+					Element references = writer.getReferenceElement(info,
+							index++);
+					group.appendChild(references);
+				} else if (MODULE_TYPE.PHASE.equals(module_type)) {
+					Element stage = writer.document.createElement("stage");
+					stage.setAttribute("order", (index++) + "");
+					stage.setAttribute("name", info.getCn_name());
+					stage.setAttribute("type", info.getImpl_type().getName());
+					Element script = writer.script(info.getCmds(),
+							info.getImpl_type());
+					stage.appendChild(script);
+					group.appendChild(stage);
+				}
+			}
+		}
+		List<ParamInfo> all_params = mergerParam(group_info.getParams(),
+				private_params);
+		if (!Assert.isEmpty(all_params)) {
+			Element params_ele = writer.getParamElement(all_params);
+			group.appendChild(params_ele);
+		}
+
+		writer.document.appendChild(group);
+		writer.writer();
+	}
+
+	public static void writModule(ModuleInfo module_info, String id) {
+		XmlWriter writer = xmlWriterInstanceFactory(id, MODULE_TYPE.COMPONENT);
+		String cn_name = module_info.getCn_name();
+		String desc = module_info.getBk_desc();
+		String[] cmds = module_info.getCmds();
+		IMPL_TYPE type = module_info.getImpl_type();
+		ParamInfo[] params = module_info.getParams();
+
+		Element component = writer.document.createElement("component");
+		component.setAttribute("id", id);
+
+		writer.addDescAndCnname(cn_name, desc, component);
+
+		Element script = writer.script(cmds, type);
+		component.appendChild(script);
+		if (!Assert.isEmpty(params)) {
+			Element params_ele = writer.getParamElement(Arrays.asList(params));
+			component.appendChild(params_ele);
+		}
+
+		writer.document.appendChild(component);
+
+		writer.writer();
+	}
+
+	private DocumentBuilder getDocumentBuilder() {
+		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+
+		DocumentBuilder db = null;
+		try {
+			db = dbf.newDocumentBuilder();
+		} catch (ParserConfigurationException e) {
+			throw new GetFileDocumentException();
+		}
+		return db;
+	}
+
+	public void addDescAndCnname(String cn_name, String desc, Element element) {
+		if (!Assert.isEmpty(cn_name)) {
+			element.setAttribute("cnname", cn_name);
+		}
+		if (!Assert.isEmpty(desc)) {
+			Element desc_ele = this.document.createElement("desc");
+			desc_ele.setTextContent(desc.trim());
+			element.appendChild(desc_ele);
+		}
+	}
+
+	private Element script(String[] cmds, IMPL_TYPE type) {
+		Element script = this.document.createElement("script");
+		if (!Assert.isEmpty(type)) {
+			script.setAttribute("type", type.getName());
+		}
+		StringBuffer sb = new StringBuffer();
+
+		sb.append("\n");
+		if (!Assert.isEmpty(cmds)) {
+			for (String cmd : cmds) {
+				sb.append(cmd);
+				sb.append("\n");
+			}
+		}
+
+		script.setTextContent(sb.toString());
+		return script;
+	}
+
+	private Element source(StageSourceBean[] ssb) {
+		Element source = this.document.createElement("nodesoc");
+		StringBuffer sb = new StringBuffer();
+		for (StageSourceBean bean : ssb) {
+			String json = StageSourceBean.toJSOCString(bean);
+			sb.append(json);
+			sb.append("#@#");
+		}
+		source.setTextContent(sb.toString());
+		return source;
+	}
+
+	private Element configs(NodeBean[] configs) {
+		Element config = this.document.createElement("config_nodes");
+		StringBuffer sb = new StringBuffer();
+		for (NodeBean con : configs) {
+			sb.append(con.getName());
+			sb.append('|');
+			sb.append(con.getIp());
+			sb.append("#@#");
+		}
+		config.setTextContent(sb.toString());
+		return config;
+	}
+
+	private Element getParamElement(List<ParamInfo> params) {
+		Element params_ele = this.document.createElement("params");
+		if (!Assert.isEmpty(params)) {
+			List<ParamInfo> list = deleteRepeate(params);
+			for (ParamInfo param : list) {
+				Element param_ele = this.document.createElement("param");
+				if (!Assert.isEmpty(param.getParam_group())) {
+					param_ele.setAttribute("group", param.getParam_group());
+				}
+				param_ele.setAttribute("name", param.getParam_name());
+				param_ele.setAttribute("cnname", param.getParam_cn_name());
+				param_ele.setAttribute("desc", param.getParam_bk_desc());
+				param_ele.setAttribute("defult", param.getParam_value());
+				if (!Assert.isEmpty(param.getParam_modify_flag())) {
+					param_ele.setAttribute("modify", param
+							.getParam_modify_flag().getName());
+				}
+
+				if (!Assert.isEmpty(param.getParam_type())) {
+					param_ele.setAttribute("type", param.getParam_type()
+							.getName());
+				}
+				param_ele.setAttribute("hand",
+						String.valueOf(param.isHand_param()));
+				if ((param.getPhase_no() != null)
+						&& (param.getPhase_no().intValue() != 0)) {
+					param_ele.setAttribute("phaseno", param.getPhase_no() + "");
+					Assert.assertNotEmpty(param.getRef(), "阶段自定义参数引用值");
+					param_ele.setAttribute("ref", param.getRef());
+				}
+				params_ele.appendChild(param_ele);
+			}
+		}
+		return params_ele;
+	}
+
+	private Element getRefParamElement(List<ParamInfo> ref_params) {
+		Element ref_params_ele = this.document.createElement("ref_params");
+		if (!Assert.isEmpty(ref_params)) {
+			ref_params = deleteRepeate(ref_params);
+			for (ParamInfo param : ref_params) {
+				Element param_ele = this.document.createElement("param");
+				param_ele.setAttribute("name", param.getParam_name());
+				param_ele.setAttribute("cnname", param.getParam_cn_name());
+				param_ele.setAttribute("desc", param.getParam_bk_desc());
+				param_ele.setAttribute("type", param.getParam_type().getName());
+				param_ele.setAttribute("phaseno", param.getPhase_no() + "");
+				Assert.assertNotEmpty(param.getRef(), "阶段自定义参数引用值");
+				param_ele.setAttribute("ref", param.getRef());
+				ref_params_ele.appendChild(param_ele);
+			}
+		}
+		return ref_params_ele;
+	}
+
+	private Element getPackageElement(List<PackageTypeInfo> pacakges) {
+		Element package_ele = this.document.createElement("package_types");
+		if (!Assert.isEmpty(pacakges)) {
+			for (PackageTypeInfo info : pacakges) {
+				Element ele = this.document.createElement("package_type");
+
+				ele.setAttribute("type_cn_name", info.getType_cn_name());
+				ele.setAttribute("type_name", info.getType_name());
+
+				package_ele.appendChild(ele);
+			}
+		}
+		return package_ele;
+	}
+
+	private Element getCombineElement(Map<String, PackageCombine> combines) {
+		Element package_ele = this.document.createElement("package_combines");
+		if (!Assert.isEmpty(combines)) {
+			for (Map.Entry<String, PackageCombine> entry : combines.entrySet()) {
+				String id = entry.getKey();
+				PackageCombine combine = entry.getValue();
+				Element ele = this.document.createElement("package_combine");
+				ele.setAttribute("id", id);
+				Element gen_ph_ele = this.document.createElement("genphaseno");
+				gen_ph_ele.setTextContent(JSON.fromObject(
+						combine.getGen_phase_list(), JSONCaseType.DEFAULT));
+				ele.appendChild(gen_ph_ele);
+				Element sel_ph_ele = this.document.createElement("selphaseno");
+				sel_ph_ele.setTextContent(JSON.fromObject(
+						combine.getSelectable_phase_list(),
+						JSONCaseType.DEFAULT));
+				ele.appendChild(sel_ph_ele);
+				Element p_ele = this.document.createElement("param");
+				p_ele.setTextContent(JSON.fromObject(
+						combine.getParam_name_list(), JSONCaseType.DEFAULT));
+				ele.appendChild(p_ele);
+				package_ele.appendChild(ele);
+			}
+		}
+		return package_ele;
+	}
+
+	private static List<ParamInfo> mergerParam(ParamInfo[] general_param,
+			List<ParamInfo> private_param) {
+		List<ParamInfo> params = new ArrayList<ParamInfo>();
+		if (!Assert.isEmpty(general_param)) {
+			params.addAll(Arrays.asList(general_param));
+		}
+		if (!Assert.isEmpty(private_param)) {
+			params.addAll(private_param);
+		}
+		return params;
+	}
+
+	private Element getReferenceElement(ModuleBasicInfo info, int index) {
+		Element references = this.document.createElement("references");
+		references.setAttribute("order", index + "");
+		references.setAttribute("id", info.getId());
+		if (!Assert.isEmpty(info.getAlias_name())) {
+			references.setAttribute("alias", info.getAlias_name());
+		}
+		references.setAttribute("type", info.getType().getName());
+
+		return references;
+	}
+
+	private Element getNodeSocElementList(ModuleSourceInfo msi) {
+		Element ele = this.document.createElement("nodesoc");
+		if (!Assert.isEmpty(msi)) {
+			String json = ModuleSourceInfo.toJsonString(msi);
+			ele.setTextContent(json);
+		}
+		return ele;
+	}
+
+	private List<ParamInfo> deleteRepeate(List<ParamInfo> list) {
+		List<ParamInfo> params = new ArrayList<ParamInfo>();
+		for (ParamInfo info : list) {
+			String param_name = info.getParam_name();
+			if (!Assert.isEmpty(param_name)) {
+				params.add(info);
+			}
+		}
+		return params;
+	}
+
+	private void writer() {
+		TransformerFactory tff = TransformerFactory.newInstance();
+		try {
+			Transformer tf = tff.newTransformer();
+
+			tf.setOutputProperty("indent", "yes");
+			tf.setOutputProperty("encoding", "GBK");
+
+			tf.setOutputProperty("cdata-section-elements", "script");
+			tf.transform(new DOMSource(this.document), new StreamResult(
+					new File(this.file_path)));
+		} catch (TransformerConfigurationException e) {
+			logger.debug(ExceptionUtils.getStackTrace(e));
+			throw new WriterXmlException().addScene("PATH", this.file_path);
+		} catch (TransformerException e) {
+			logger.debug(ExceptionUtils.getStackTrace(e));
+			throw new WriterXmlException().addScene("PATH", this.file_path);
+		}
+	}
+}

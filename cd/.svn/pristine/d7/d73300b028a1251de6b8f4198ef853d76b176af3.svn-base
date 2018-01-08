@@ -1,0 +1,238 @@
+package com.wk.cd.module1.entity;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
+import com.wk.cd.module1.enu.COMPONENT_PURPOSE;
+import com.wk.cd.module1.info.PackageTypeInfo;
+import com.wk.cd.module1.xml1.XmlAdapter;
+import com.wk.cd.module1.xml1.XmlEntity;
+import com.wk.cd.module1.xml1.XmlTags;
+import com.wk.cl.common.util.Assert;
+import com.wk.db.EnumValue;
+
+public class ComponentGroup
+		implements XmlEntity {
+
+	private String id;
+	public static final String GROUP_IDCN = "组件组ID";
+
+	private String cn_name;
+	public static final String GROUP_CN_NAMECN = "组件组中文名";
+
+	private String bk_desc;
+	public static final String GROUP_BK_DESCCN = "组件组描述";
+
+	private int[] component_purposes;
+	public static final String GROUP_PURPOSESCN = "组件组用途列表";
+
+	private List<ComponentRef> component_list;
+	public static final String COMPONENT_LISTCN = "子组件列表";
+	
+	private List<Phase> phase_list;
+	public static final String PHASE_LISTCN = "方案阶段列表";
+
+	private List<PhaseParam> param_list;
+	public static final String PARAM_LISTCN = "方案参数列表";
+
+	private List<PackageTypeInfo> pac_type_list;
+	public static final String PAC_TYPE_LISTCN = "投产包类型列表";
+
+	/**
+	 * Description:
+	 * @param element
+	 */
+	@Override
+	public void fromElement(Element element) {
+		id = element.getAttribute(XmlTags.ID);
+		cn_name =element.getAttribute(XmlTags.CNNAME);
+		bk_desc = XmlAdapter.getElementContent(element, XmlTags.DESC, false);
+		if(!Assert.isEmpty(XmlAdapter.getElementContent(element, XmlTags.PURPOSES, false))) {
+			String[] purposes = XmlAdapter.getElementContent(element, XmlTags.PURPOSES, false).split("、");
+			component_purposes = new int[purposes.length];
+			for (int i = 0; i < purposes.length; i++) {
+				component_purposes[i] = EnumValue.valueOf(COMPONENT_PURPOSE.class, purposes[i]).getValue();
+			}
+		}
+		component_list = XmlAdapter.getElementEntityList(element, XmlTags.COMPONENT, ComponentRef.class, false);
+		phase_list = XmlAdapter.getElementEntityList(element, XmlTags.PHASE, Phase.class, false);
+		param_list = XmlAdapter.getElementEntityList(element, XmlTags.PHASE_PARAM, PhaseParam.class, false);
+		pac_type_list = XmlAdapter.getElementEntityList(element, XmlTags.PKTYPE, PackageTypeInfo.class, false);
+	}
+
+	/**
+	 * Description:
+	 * @param document
+	 * @param tag
+	 * @return
+	 */
+	@Override
+	public Element toElement(Document document, String tag) {
+		if (Assert.isEmpty(tag)) {
+			tag = XmlTags.GROUP;
+		}
+		Element group_ele = document.createElement(tag);
+		group_ele.setAttribute(XmlTags.ID, id);
+		group_ele.setAttribute(XmlTags.CNNAME, cn_name);
+		Element purposes_ele = document.createElement(XmlTags.PURPOSES);
+		if(!Assert.isEmpty(component_purposes)) {
+			StringBuilder sb = new StringBuilder();
+			for (int i : component_purposes) {
+				sb.append(EnumValue.valueOf(COMPONENT_PURPOSE.class, i).getCname()).append("、");
+			}
+			sb.deleteCharAt(sb.length() - 1);
+			purposes_ele.setTextContent(sb.toString());
+			group_ele.appendChild(purposes_ele);
+		}
+		Element desc_ele = document.createElement(XmlTags.DESC);
+		desc_ele.setTextContent(bk_desc.trim());
+		group_ele.appendChild(desc_ele);
+		group_ele.appendChild(XmlAdapter.toDocumentFragment(document, null, component_list));
+		group_ele.appendChild(XmlAdapter.toDocumentFragment(document, XmlTags.PHASE, phase_list));
+		group_ele.appendChild(XmlAdapter.toDocumentFragment(document, XmlTags.PHASE_PARAM, param_list));
+		group_ele.appendChild(XmlAdapter.toDocumentFragment(document, XmlTags.PKTYPE, pac_type_list));
+		return group_ele;
+	}
+
+	/**
+	 * @return id
+	 */
+	public String getId() {
+		return id;
+	}
+
+	/**
+	 * @return cn_name
+	 */
+	public String getCn_name() {
+		return cn_name;
+	}
+
+	/**
+	 * @return bk_desc
+	 */
+	public String getBk_desc() {
+		return bk_desc;
+	}
+
+	/**
+	 * @return component_purposes
+	 */
+	public int[] getComponent_purposes() {
+		return component_purposes;
+	}
+
+	/**
+	 * @param id
+	 */
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	/**
+	 * @param cn_name
+	 */
+	public void setCn_name(String cn_name) {
+		this.cn_name = cn_name;
+	}
+
+	/**
+	 * @param bk_desc
+	 */
+	public void setBk_desc(String bk_desc) {
+		this.bk_desc = bk_desc;
+	}
+
+	/**
+	 * @param component_purposes
+	 */
+	public void setComponent_purposes(int[] component_purposes) {
+		this.component_purposes = component_purposes;
+	}
+
+	/**
+	 * @return component_list
+	 */
+	public List<ComponentRef> getComponent_list() {
+		return component_list;
+	}
+
+	/**
+	 * @param component_list
+	 */
+	public void setComponent_list(List<ComponentRef> component_list) {
+		this.component_list = component_list;
+	}
+
+	/**
+	 * @return phase_list
+	 */
+	public List<Phase> getPhase_list() {
+		return phase_list;
+	}
+
+	/**
+	 * @param phase_list
+	 */
+	public void setPhase_list(List<Phase> phase_list) {
+		this.phase_list = phase_list;
+	}
+
+	/**
+	 * @return param_list
+	 */
+	public List<PhaseParam> getParam_list() {
+		return param_list;
+	}
+
+	/**
+	 * @param param_list
+	 */
+	public void setParam_list(List<PhaseParam> param_list) {
+		this.param_list = param_list;
+	}
+
+	/**
+	 * @return pac_type_list
+	 */
+	public List<PackageTypeInfo> getPac_type_list() {
+		return pac_type_list;
+	}
+
+	/**
+	 * @param pac_type_list
+	 */
+	public void setPac_type_list(List<PackageTypeInfo> pac_type_list) {
+		this.pac_type_list = pac_type_list;
+	}
+
+	/**
+	 * 构造函数
+	 * @param id
+	 */
+	public ComponentGroup(String id) {
+		super();
+		this.id = id;
+	}
+
+	/**
+	 * 构造函数
+	 */
+	public ComponentGroup() {
+		super();
+	}
+	
+	/** 
+	 * Description: 
+	 * @return 
+	 */
+	@Override
+	public String toString() {
+		return "ComponentGroup [id=" + id + ", cn_name=" + cn_name + ", bk_desc=" + bk_desc + ", component_purposes="
+				+ Arrays.toString(component_purposes) + ", component_list=" + component_list + "]";
+	}
+
+}

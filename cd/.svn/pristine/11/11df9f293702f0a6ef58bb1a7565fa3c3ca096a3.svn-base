@@ -1,0 +1,59 @@
+/*** Eclipse Class Decompiler plugin, copyright (c) 2016 Chen Chao (cnfree2000@hotmail.com) ***/
+package com.wk.cd.module.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.cm.service.GenNoService;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.module.bean.ImportGroupInputBean;
+import com.wk.cd.module.bean.ImportGroupOutputBean;
+import com.wk.cd.module.info.GroupModuleInfo;
+import com.wk.cd.module.xml.XmlPathUtil;
+import com.wk.cd.module.xml.XmlReader;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.FileUtil;
+
+public class ImportGroupAction extends
+		ActionBasic<ImportGroupInputBean, ImportGroupOutputBean> {
+
+	@Inject
+	private GenNoService genNoSrv;
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+
+	protected ImportGroupOutputBean doAction(ImportGroupInputBean input) {
+		logger.info("-------------------ImportGroupAction Begin ----------------");
+		ImportGroupOutputBean output = new ImportGroupOutputBean();
+		String file_path = input.getFile_path();
+
+		Assert.assertNotEmpty(file_path, "文件全路径");
+		file_path = XmlPathUtil.getImportFileFullPath(file_path);
+		logger.debug("--------Import Group File Fullpath [{}]----", file_path);
+
+		GroupModuleInfo group_detail = XmlReader.readerGroupByPath(file_path);
+		String id = group_detail.getId();
+		if (Assert.isEmpty(id)) {
+			String group_id = this.genNoSrv
+					.getCompCode(input.getDtbs_bk_date());
+			group_detail.setId(group_id);
+		}
+
+		FileUtil.deleteFile(file_path);
+		output.setModule_group(group_detail);
+		logger.info("-------------------ImportGroupAction End ----------------");
+		return output;
+	}
+
+	protected String getLogTxt(ImportGroupInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+		log_lst.add(input.getFile_path());
+		return this.lgsvc.getLogTxt("导入组件组路径", log_lst);
+	}
+}

@@ -1,0 +1,114 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+
+<!--
+	这是ms的Build文件
+	如果需要编译源程序就执行 ant
+-->
+
+<project name="ces" basedir="." default="compile">
+	<path id="classpath">
+		<pathelement path="src"/>
+		<pathelement path="."/>
+		<pathelement path="classes"/>
+		<fileset dir="lib" includes="*.jar"/>
+	</path>
+
+	<!-- 编译所有的源文件 -->
+	<target name="compile">
+		<mkdir dir="classes" />
+		<javac compiler="modern" srcdir="src" destdir="classes" debug="true" memorymaximumsize="512m" fork="true" encoding="gbk" 
+			includeantruntime="false">
+				<compilerarg value="-Xlint"/>  			
+				<!-- compilerarg value="-verbose" /-->  			
+			<classpath refid="classpath"/>
+		</javac>
+	</target>
+
+	<!-- 生成corsdeplo.jar文件 -->
+	<target name="jar" depends="compile">
+		<jar jarfile="dist/corsdeploy.jar">
+			<fileset dir="classes">
+				<or>
+					<none>
+						<filename name="com/wk/cd/test/**/*"/>
+					</none>
+				</or>
+			</fileset>
+		</jar>
+	</target>
+
+	<target name="agent" depends="compile">
+		<mkdir dir="dist/config"/>
+		<copy todir="dist/config">
+			<fileset dir="config">
+				<include name="agentlogger.properties"/>
+			</fileset>
+		</copy>
+		<rename src="dist/config/agentlogger.properties" dest="dist/config/logger.properties"/>
+	 <!-- 生成Agent.jar文件 -->
+              <jar jarfile="agent.jar">
+               <fileset dir="classes">
+                <include name="com/wk/cd/remote/"/>
+                <include name="com/wk/cd/common/util/"/>
+				<include name="com/wk/cd/enu/IMPL_TYPE.class"/>
+				<include name="com/wk/cd/enu/SQL_*.class"/>
+                <include name="com/wk/cd/enu/YN_FLAG.class"/>
+                <include name="com/wk/cd/enu/CVT_TYPE.class"/>
+                <include name="com/wk/cd/enu/PROTOCOL_TYPE.class"/>
+                <include name="com/wk/cd/enu/RCD_STATE.class"/>
+				<include name="com/wk/cd/enu/DATABASE_TYPE.class"/>
+				<include name="com/wk/cd/exc/SqlTextIllegalException.class"/>
+                <include name="com/wk/cd/exc/InputParamIsNullException.class"/>
+				<include name="com/wk/cd/exc/FileLoadErrorException.class"/>
+				<include name="com/wk/cd/exc/ReadConfigFileException.class"/>
+				<include name="com/wk/cd/exc/CryptErrorException.class"/>
+				<include name="com/wk/cd/exc/DataErrorException.class"/>
+                <include name="com/wk/cd/module1/exc/"/>
+				<include name="com/wk/cd/module1/Result.class"/>
+				<include name="com/wk/cd/build/exc/SqlTypeGetException.class"/>
+				<include name="com/wk/cd/build/exc/SqlParserException.class"/>
+				<include name="com/wk/cd/system/dt/info/DtSourceInfo.class"/>
+				<include name="com/wk/cd/module1/xml1/XmlEntity.class"/>
+				<include name="com/wk/cd/module1/xml1/ElementEntity.class"/>
+                </fileset>
+        </jar>
+		
+
+	<tar destfile="dist/Agent.tar">
+                <fileset dir=".">
+                <include name="agent.jar"/>
+                <include name="config/cms.properties"/>
+                <include name="config/log4j.properties"/>
+                <include name="config/system.properties"/>
+                <include name="config/agentdb.properties"/>
+                <include name="bin/agent.*"/>
+                <include name="bin/lcp"/>
+                <include name="bin/lcp.bat"/>
+                <include name="bin/startup.*"/>
+                <include name="lib/javassist.jar"/>
+                <include name="lib/junit.jar"/>
+                <include name="lib/c3p0.jar"/>
+                <include name="lib/sunjce_provider.jar"/>
+                <include name="lib/log4j-1.2.17.jar"/>
+                <include name="lib/db2*.jar"/>
+                <include name="lib/jsqlparser.jar"/>
+                <include name="lib/*sigar*"/>
+                <include name="lib/vframe*.jar"/>
+                <include name="log/"/>
+                </fileset>
+		<fileset dir="dist">
+		<include name="config/logger.properties"/>
+		</fileset>
+        </tar>
+
+	<delete file="agent.jar"/>	
+	<delete dir="dist/config"/>
+	</target>
+
+	<!-- 清除编译后的class文件和其它中间文件 -->
+	<target name="clean">
+		<delete dir="classes"/>
+	</target>
+
+</project>

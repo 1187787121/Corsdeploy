@@ -1,0 +1,235 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.YN_FLAG;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.module.info.ParamInfo;
+import com.wk.cd.module.bean.NodeBean;
+import com.wk.cd.module.bean.StageSourceBean;
+
+import java.util.Arrays;
+import java.util.List;
+
+public class PhaseTestBean {
+	
+	/**
+	 * 阶段号
+	 */
+	private int phase_no;
+
+	public static final String PHASE_NOCN = "阶段号";
+
+	/**
+	 * 阶段名
+	 */
+	private String cn_name;
+
+	public static final String CN_NAMECN = "阶段名";
+
+	/**
+	 * 是否生成标志
+	 */
+	private YN_FLAG gen_flag;
+
+	public static final String GEN_FLAGCN = "是否生成标示";
+	
+	/**
+	 * 是否可选标示
+	 */
+	private YN_FLAG selectable_flag;
+
+	public static final String SELECTABLE_FLAGCN = "是否可选标示";
+
+	/**
+	 * 执行类别
+	 */
+	private IMPL_TYPE impl_type;
+
+	public static final String IMPLE_TYPECN = "执行类别";
+
+	/**
+	 * 命令列表
+	 */
+	private String[] cmds;
+
+	public static final String CMDSCN = "命令列表";
+
+	/**
+	 * 服务器ip和数据源
+	 */
+	private StageSourceBean[] srv_soc;
+
+	public static final String SRV_SOCCN = "服务器ip和数据源";
+
+	/**
+	 * 阶段使用投产包列表（这个参数主要就是在cl项目中每个阶段需要配置投产包，根据投产包名获取投产包参数用）
+	 */
+	private String[] package_names;
+
+	public static final String PACKAGE_NAMESCN = "阶段使用投产包列表";
+
+	/**
+	 * 配置文件节点列表
+	 */
+	private NodeBean[] config_nodes;
+
+	public static final String CONFIG_NODESCN = "配置文件节点列表";
+	
+	/**
+	 * 阶段描述
+	 */
+	private String bk_desc;
+	
+	public static final String BK_DESC = "阶段描述";
+	/**
+	 * 组件类型
+	 */
+	
+	private MODULE_TYPE type;
+	
+	public static final String TYPE = "组件类型";
+	
+	/**
+	 * 组件组
+	 */
+	private List<PhaseTestBean> modules;
+	
+	public static final String MODULES = "组件组";
+	
+	
+	/**
+	 * 组件参数
+	 */
+	private List<ParamInfo> ref_params;
+	
+	public static final String REF_PARAMS = "组件参数";
+	
+	/**
+	 * 组件参数名列表
+	 */
+	private List<ParamInfo> params;
+	
+	public static final String PARAMS = "组件参数名列表";
+	
+
+	public int getPhase_no() {
+		return this.phase_no;
+	}
+
+	public void setPhase_no(int phase_no) {
+		this.phase_no = phase_no;
+	}
+
+	public String getCn_name() {
+		return this.cn_name;
+	}
+
+	public void setCn_name(String cn_name) {
+		this.cn_name = cn_name;
+	}
+
+	public YN_FLAG getGen_flag() {
+		return this.gen_flag;
+	}
+
+	public void setGen_flag(YN_FLAG gen_flag) {
+		this.gen_flag = gen_flag;
+	}
+
+	public IMPL_TYPE getImpl_type() {
+		return this.impl_type;
+	}
+
+	public void setImpl_type(IMPL_TYPE impl_type) {
+		this.impl_type = impl_type;
+	}
+
+	public String[] getCmds() {
+		return this.cmds;
+	}
+
+	public void setCmds(String[] cmds) {
+		this.cmds = cmds;
+	}
+
+	public StageSourceBean[] getSrv_soc() {
+		return this.srv_soc;
+	}
+
+	public void setSrv_soc(StageSourceBean[] srv_soc) {
+		this.srv_soc = srv_soc;
+	}
+
+	public String[] getPackage_names() {
+		return this.package_names;
+	}
+
+	public void setPackage_names(String[] package_names) {
+		this.package_names = package_names;
+	}
+
+	public NodeBean[] getConfig_nodes() {
+		return this.config_nodes;
+	}
+
+	public void setConfig_nodes(NodeBean[] config_nodes) {
+		this.config_nodes = config_nodes;
+	}
+
+	public String toString() {
+		return "PhaseTestBean [phase_no=" + this.phase_no + ", cn_name="
+				+ this.cn_name + ", gen_flag=" + this.gen_flag + ", impl_type="
+				+ this.impl_type + ", cmds=" + Arrays.toString(this.cmds)
+				+ ", srv_soc=" + Arrays.toString(this.srv_soc)
+				+ ", package_names=" + Arrays.toString(this.package_names)
+				+ ", config_ip=" + Arrays.toString(this.config_nodes) + "]";
+	}
+
+	public YN_FLAG getSelectable_flag() {
+		return this.selectable_flag;
+	}
+
+	public void setSelectable_flag(YN_FLAG selectable_flag) {
+		this.selectable_flag = selectable_flag;
+	}
+
+	public MODULE_TYPE getType() {
+		return this.type;
+	}
+
+	public void setType(MODULE_TYPE type) {
+		this.type = type;
+	}
+
+	public List<PhaseTestBean> getModules() {
+		return this.modules;
+	}
+
+	public void setModules(List<PhaseTestBean> modules) {
+		this.modules = modules;
+	}
+
+	public String getBk_desc() {
+		return this.bk_desc;
+	}
+
+	public void setBk_desc(String bk_desc) {
+		this.bk_desc = bk_desc;
+	}
+
+	public List<ParamInfo> getRef_params() {
+		return this.ref_params;
+	}
+
+	public void setRef_params(List<ParamInfo> ref_params) {
+		this.ref_params = ref_params;
+	}
+
+	public List<ParamInfo> getParams() {
+		return this.params;
+	}
+
+	public void setParams(List<ParamInfo> params) {
+		this.params = params;
+	}
+}

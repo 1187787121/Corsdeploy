@@ -1,0 +1,39 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootInputBean;
+import com.wk.cd.enu.MODULE_TYPE;
+
+public class PublishModuleInputBean extends ActionRootInputBean {
+	
+	private static final long serialVersionUID = 7020205773020097395L;
+	
+	/**
+	 * 组件或组件组ID
+	 */
+	private String id;
+	
+	public static final String IDCN = "组件或组件组ID";
+	
+	/**
+	 * 组件类型
+	 */
+	private MODULE_TYPE type;
+	
+	public static final String TYPECN = "组件类型";
+
+	public String getId() {
+		return this.id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public MODULE_TYPE getType() {
+		return this.type;
+	}
+
+	public void setType(MODULE_TYPE type) {
+		this.type = type;
+	}
+}

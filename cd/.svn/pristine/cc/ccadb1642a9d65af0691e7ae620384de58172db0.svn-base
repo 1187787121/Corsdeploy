@@ -1,0 +1,23 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootInputBean;
+
+public class ImportTemplateInputBean extends ActionRootInputBean {
+	
+	private static final long serialVersionUID = 1335864240617767277L;
+	
+	/**
+	 * 文件全路径
+	 */
+	private String file_path;
+	
+	public static final String FILE_PATHCN = "文件全路径";
+
+	public String getFile_path() {
+		return this.file_path;
+	}
+
+	public void setFile_path(String file_path) {
+		this.file_path = file_path;
+	}
+}

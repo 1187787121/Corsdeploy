@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="PUBLISH_解压版本tar包" id="COMP201710250054">
+<desc>解压版本数据或应用包，生成文件清单，将 sql、sh、txt、list转为Unix格式，修复sh执行权限</desc>
+<script type="SHELL"><![CDATA[
+cd ${dir}/${relative_path}/
+ls *.tar|xargs -n1 tar xvf
+if [ -d "${project_name}" ]; then ls *.tar|xargs -n1 tar tf >${tag}.list; else mkdir -p ${project_name}; cp -f *.tar ${project_name}/; tar xf ./${project_name}/*.tar -C ./${project_name}/; rm -r ./${project_name}/*.tar; tar rf ${tag}.tar ./${project_name}/*; ls ${tag}.tar|xargs -n1 tar tf >temp.list; rm -r ${tag}.tar; fi;
+bakFile=temp.tar
+backup(){ if [ ! -f "$bakFile" ]; then tar -cvf $bakFile $1; else tar -rvf $bakFile $1;fi; }
+while read line; do if [ -f $line ];then backup $line; fi;done < temp.list
+if [ -f "$bakFile" ]; then ls $bakFile|xargs -n1 tar tf >${tag}.list; rm -r temp.tar; else ls *.tar|xargs -n1 tar tf >${tag}.list; fi;
+find . -name "*.sql" -o -name "*.sh" -o -name "*.txt" -o -name "*.list" > check_suffix.list
+merge(){ cat $1|tr -d '\r' > $1.temp; mv $1.temp $1; }
+while read line; do if [ -f "$line" ]; then merge $line;fi;done < check_suffix.list
+]]></script>
+<params>
+<param cnname="本地目录" defult="./upload/${task_no}" desc="本地应用目录" hand="false" name="dir"/>
+<param cnname="应用包相对目录" defult="" desc="应用包相对目录" hand="false" name="relative_path"/>
+<param cnname="" defult="" desc="" hand="false" name="project_name"/>
+<param cnname="区分标识" defult="${task_no}" desc="区分标识" hand="false" name="tag"/>
+</params>
+</component>

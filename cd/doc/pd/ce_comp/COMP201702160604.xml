@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="GBK"?>
+<template cnname="cd_build" id="COMP201702160604">
+<desc>corsdeploy构建模板</desc>
+<references alias="创建上传目录" id="COMP201701070019" order="1" type="COMPONENT"/>
+<references alias="SVN获取应用包" id="COMP201701050484" order="2" type="COMPONENT"/>
+<references alias="SVN获取数据包" id="COMP201701050484" order="3" type="COMPONENT"/>
+<references alias="应用包解压替换" id="COMP201701050494" order="4" type="COMPONENT"/>
+<references alias="解压数据包" id="COMP201701050485" order="5" type="COMPONENT"/>
+<references alias="创建数据库" id="COMP201701050486" order="6" type="COMPONENT"/>
+<references alias="创建数据表" id="COMP201701050486" order="7" type="COMPONENT"/>
+<references alias="基础数据导入" id="COMP201701050486" order="8" type="COMPONENT"/>
+<references alias="删除目录文件" id="COMP201701050487" order="9" type="COMPONENT"/>
+<params>
+<param cnname="区分标识" defult="${tag}" desc="区分标识" hand="false" modify="YES" name="tag" type="PJPARAM"/>
+<param cnname="版本应用包目录" defult="/CorsManager/" desc="版本应用包目录" hand="true" modify="YES" name="app_path" type="PJPARAM"/>
+<param cnname="数据表创建脚本" defult="ceate_table.sh" desc="数据表创建脚本" hand="true" modify="YES" name="create_tbl_script" type="PJPARAM"/>
+<param cnname="数据库创建脚本" defult="create_database.sh" desc="数据库创建脚本" hand="true" modify="YES" name="create_db_script" type="PJPARAM"/>
+<param cnname="版本数据包目录" defult="/CorsManager/" desc="版本数据包目录" hand="true" modify="YES" name="db_path" type="PJPARAM"/>
+<param cnname="上传目录" defult="./upload/${task_no}" desc="上传目录" hand="true" modify="YES" name="upload_dir" type="PJPARAM"/>
+<param cnname="基础数据脚本" defult="import_data.sh" desc="基础数据脚本" hand="true" modify="YES" name="import_data_script" type="PJPARAM"/>
+<param cnname="上传目录" defult="" desc="上传目录" hand="false" name="dir" phaseno="1" ref="upload_dir"/>
+<param cnname="版本应用包目录" defult="" desc="版本应用包目录" hand="false" name="svn_relative_path" phaseno="2" ref="app_path"/>
+<param cnname="上传目录" defult="" desc="上传目录" hand="false" name="local_path" phaseno="2" ref="upload_dir"/>
+<param cnname="版本数据包目录" defult="" desc="版本数据包目录" hand="false" name="svn_relative_path" phaseno="3" ref="db_path"/>
+<param cnname="上传目录" defult="" desc="上传目录" hand="false" name="local_path" phaseno="3" ref="upload_dir"/>
+<param cnname="上传目录" defult="" desc="上传目录" hand="false" name="dir" phaseno="4" ref="upload_dir"/>
+<param cnname="上传目录" defult="" desc="上传目录" hand="false" name="dir" phaseno="5" ref="upload_dir"/>
+<param cnname="上传目录" defult="" desc="上传目录" hand="false" name="script_dir" phaseno="6" ref="upload_dir"/>
+<param cnname="数据库创建脚本" defult="" desc="数据库创建脚本" hand="false" name="script_file" phaseno="6" ref="create_db_script"/>
+<param cnname="上传目录" defult="" desc="上传目录" hand="false" name="script_dir" phaseno="7" ref="upload_dir"/>
+<param cnname="数据表创建脚本" defult="" desc="数据表创建脚本" hand="false" name="script_file" phaseno="7" ref="create_tbl_script"/>
+<param cnname="上传目录" defult="" desc="上传目录" hand="false" name="script_dir" phaseno="8" ref="upload_dir"/>
+<param cnname="基础数据脚本" defult="" desc="基础数据脚本" hand="false" name="script_file" phaseno="8" ref="import_data_script"/>
+<param cnname="上传目录" defult="" desc="上传目录" hand="false" name="path" phaseno="9" ref="upload_dir"/>
+</params>
+</template>

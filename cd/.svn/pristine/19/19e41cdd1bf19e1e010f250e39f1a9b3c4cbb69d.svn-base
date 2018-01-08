@@ -1,0 +1,126 @@
+package com.wk.cd.module.service;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.CMD_STATUS;
+import com.wk.cd.module.Result;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.JaDateTime;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.commons.lang.exception.ExceptionUtils;
+
+public class LogWriterService {
+	private final String space = "  ";
+	private final String path;
+	private static final Log logger = LogFactory.getLog();
+
+	public LogWriterService(String path) {
+		this.path = path;
+	}
+
+	public void writerExecuteBegin(String desc) {
+		List<String> list = new ArrayList<String>();
+		list.add("*************************************************************");
+		list.add("*************************************************************");
+		list.add("****");
+		list.add("****          " + desc + "开始执行*********");
+		list.add("****          开始时间 【" + JaDateTime.now() + "】");
+		list.add("****");
+		list.add("*************************************************************");
+		list.add("*************************************************************");
+		writeToLog(list);
+	}
+
+	public void writerPhase(int current_phase, int total_phase, String phase_desc) {
+		current_phase++;
+		String str = "【阶段" + current_phase + "/" + total_phase + "】" + phase_desc + "\r\n";
+		writeToLog(str);
+	}
+
+	public void writerStep(int current_step, int total_step, String cmd) {
+		current_step++;
+		String str = "  【步骤" + current_step + "/" + total_step + "】" + "  " + "【" + cmd.trim() + "】 \r\n";
+		writeToLog(str);
+	}
+
+	private void writerNodeName(String node_ip) {
+		String msg = "    [" + node_ip + "]" + "  ";
+		writeToLog(msg);
+	}
+
+	public void writerSend(String node_ip) {
+		writerNodeName(node_ip);
+		String msg = "发送命令成功！\r\n";
+		writeToLog(msg);
+	}
+
+	public void writerResult(String node_ip, Result result) {
+		String msg = "无响应结果";
+		if (!Assert.isEmpty(result)) {
+			CMD_STATUS cs = result.getStatus();
+			if (CMD_STATUS.SKIP.equals(cs)) {
+				logger.debug("---------execute skip logger result in----------");
+				msg = "执行跳过";
+			} else if ((CMD_STATUS.SUCCEED.equals(cs)) && (!Assert.isEmpty(result.getMsg()))) {
+				logger.debug("----------------execute success with logger msg--------------");
+				msg = result.getMsg();
+			} else if (!Assert.isEmpty(result.getThrowable())) {
+				logger.debug("----------------execute error---------------------");
+				Throwable t = result.getThrowable();
+				msg = ExceptionUtils.getStackTrace(t);
+			}
+		}
+		writerNodeName(node_ip);
+		msg = "响应结果:[" + msg + "]\r\n";
+		writeToLog(msg);
+	}
+
+	public void writerStepEnd(String ip, Result result) {
+		writerNodeName(ip);
+		CMD_STATUS cmd_status = result.getStatus();
+		String msg = "[" + cmd_status.getCname() + "]" + "  " + JaDateTime.valueOf(result.getStart_time()) + "  " + JaDateTime.valueOf(result.getEnd_time())
+				+ "  " + result.getTime_used() + "(ms)\r\n";
+		writeToLog(msg);
+	}
+
+	public void writerEnd(String desc) {
+		List<String> list = new ArrayList<String>();
+		list.add("****");
+		list.add("****          " + desc + "结束执行*********");
+		list.add("****          结束时间 【" + JaDateTime.now() + "】");
+		list.add("****");
+		list.add("*************************************************************");
+		list.add("*************************************************************");
+		writeToLog(list);
+	}
+
+	private void writeToLog(List<String> content) {
+		for (String str : content)
+			writeToLog(str + "\r\n");
+	}
+
+	private void writeToLog(String content) {
+		FileWriter writer = null;
+		try {
+			writer = new FileWriter(this.path, true);
+			writer.write(content);
+		} catch (IOException e) {
+			logger.error(e.toString(), e);
+
+			if (writer != null)
+				try {
+					writer.close();
+				} catch (IOException localIOException1) {
+				}
+		} finally {
+			if (writer != null)
+				try {
+					writer.close();
+				} catch (IOException localIOException2) {
+				}
+		}
+	}
+}

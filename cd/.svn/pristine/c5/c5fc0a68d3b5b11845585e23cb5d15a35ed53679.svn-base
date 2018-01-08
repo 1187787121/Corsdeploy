@@ -1,0 +1,61 @@
+package com.wk.cd.module.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.cm.service.GenNoService;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.module.MODULE_PURPOSE;
+import com.wk.cd.module.SCRIPT_SOURCE;
+import com.wk.cd.module.bean.ImportModuleInputBean;
+import com.wk.cd.module.bean.ImportModuleOutputBean;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.xml.XmlPathUtil;
+import com.wk.cd.module.xml.XmlReader;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.FileUtil;
+
+public class ImportModuleAction extends
+		ActionBasic<ImportModuleInputBean, ImportModuleOutputBean> {
+
+	@Inject
+	private GenNoService genNoSrv;
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+
+	protected ImportModuleOutputBean doAction(ImportModuleInputBean input) {
+		logger.info("-------------------ImportComponentAction Begin ----------------");
+		ImportModuleOutputBean output = new ImportModuleOutputBean();
+		String file_path = input.getFile_path();
+
+		Assert.assertNotEmpty(file_path, "文件全路径");
+
+		file_path = XmlPathUtil.getImportFileFullPath(file_path);
+		logger.debug("--------Import Module File Fullpath [{}]----", file_path);
+		ModuleInfo comp_bean = XmlReader.readerModuleByPath(file_path);
+		comp_bean.setModule_purpose(MODULE_PURPOSE.PROD);
+		comp_bean.setScript_source(SCRIPT_SOURCE.INPUT);
+		String id = comp_bean.getId();
+		if (Assert.isEmpty(id)) {
+			String comp_id = this.genNoSrv.getCompCode(input.getDtbs_bk_date());
+			comp_bean.setId(comp_id);
+		}
+
+		FileUtil.deleteFile(file_path);
+		output.setModule(comp_bean);
+		logger.info("-------------------ImportComponentAction End ----------------");
+		return output;
+	}
+
+	protected String getLogTxt(ImportModuleInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+		log_lst.add(input.getFile_path());
+		return this.lgsvc.getLogTxt("导入组件文件路径", log_lst);
+	}
+}

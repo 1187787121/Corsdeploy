@@ -1,0 +1,777 @@
+/**
+ * Title: ViewServerAction.java
+ * File Description: 
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: yangl
+ * @version: 1.0
+ * @date: 2016年11月1日
+ */
+package com.wk.cd.build.en.action;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.wk.cd.build.ea.dao.EnvTagStorageDaoService;
+import com.wk.cd.build.ea.dao.EnvTaskDaoService;
+import com.wk.cd.build.ea.info.EnvTagStorageInfo;
+import com.wk.cd.build.ea.info.EnvTaskInfo;
+import com.wk.cd.build.en.bean.DBBean;
+import com.wk.cd.build.en.bean.EnvInfoBean;
+import com.wk.cd.build.en.bean.ServerBean;
+import com.wk.cd.build.en.bean.ServerDetAndRelBean;
+import com.wk.cd.build.en.bean.ServerEnvSysBean;
+import com.wk.cd.build.en.bean.ServerMsgBean;
+import com.wk.cd.build.en.bean.SocBean;
+import com.wk.cd.build.en.bean.SysEnvAndTaskBean;
+import com.wk.cd.build.en.bean.SysEnvBean;
+import com.wk.cd.build.en.bean.SystemTypeServerBean;
+import com.wk.cd.build.en.bean.UpdateServerInputBean;
+import com.wk.cd.build.en.bean.ViewServerInputBean;
+import com.wk.cd.build.en.bean.ViewServerOutputBean;
+import com.wk.cd.build.en.dao.CeEnvironmentDaoService;
+import com.wk.cd.build.en.dao.CeEnvironmentServerDaoService;
+import com.wk.cd.build.en.dao.CeServerDaoService;
+import com.wk.cd.build.en.dao.CeServerDsDaoService;
+import com.wk.cd.build.en.dao.CeSystemDaoService;
+import com.wk.cd.build.en.info.CeEnvironmentInfo;
+import com.wk.cd.build.en.info.CeEnvironmentServerInfo;
+import com.wk.cd.build.en.info.CeServerDsInfo;
+import com.wk.cd.build.en.info.CeServerInfo;
+import com.wk.cd.build.en.info.CeSystemInfo;
+import com.wk.cd.build.en.service.EnvironmentPublicService;
+import com.wk.cd.build.en.service.ServerCommonService;
+import com.wk.cd.build.en.service.SystemService;
+import com.wk.cd.build.view.dao.ViSysEnvServerQuery;
+import com.wk.cd.build.view.info.ViSysEnvServerView;
+import com.wk.cd.enu.ELE_TYPE;
+import com.wk.cd.enu.SERVER_TYPE;
+import com.wk.cd.enu.SYS_TYPE;
+import com.wk.cd.enu.TASK_ALL_TYPE;
+import com.wk.cd.enu.TASK_TYPE;
+import com.wk.cd.system.ep.service.EnvPrivService;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.AF_FLAG;
+import com.wk.cd.enu.PROTOCOL_TYPE;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.service.IViewActionBasic;
+import com.wk.cd.system.dt.bean.ProtocolSocBean;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.cd.system.dt.service.DtCheckSocExistService;
+import com.wk.cd.system.dt.service.DtSocService;
+import com.wk.db.EnumValue;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.JaDate;
+import com.wk.util.JaDateTime;
+import com.wk.util.JaTime;
+
+/**
+ * Class Description:
+ * @author yangl
+ */
+public class ViewServerAction
+		extends IViewActionBasic<ViewServerInputBean, ViewServerOutputBean> {
+
+	@Inject
+	private ServerCommonService serverCommonService;
+	@Inject
+	private CeServerDaoService ceServerDaoService;
+	@Inject
+	private CeServerDsDaoService ceServerDsDaoService;
+	@Inject
+	private CeEnvironmentDaoService ceEnvironmentDaoService;
+	@Inject
+	private CeEnvironmentServerDaoService ceEnvironmentServerDaoService;
+	@Inject
+	private EnvironmentPublicService environmentPublicService;
+	@Inject
+	private ViSysEnvServerQuery viSysEnvServerQuery;
+	@Inject
+	private EnvPrivService envPrivService;
+	@Inject
+	private EnvTagStorageDaoService envTagStorageDaoService;
+	@Inject
+	private EnvTaskDaoService envTaskDaoService;
+	@Inject
+	private DtCheckSocExistService dtCheckSocExistService;
+	@Inject
+	private SystemService systemSrv;
+	@Inject 
+	private CeSystemDaoService ceSystemDaosrv;
+	@Inject
+	private DtSocService dtSocService;
+	private static final Log logger = LogFactory.getLog();
+
+	/**
+	 * Description: 查看服务器信息
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean getServerDetail(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String server_name = input.getCe_server_name();
+		Assert.assertNotEmpty(server_name, UpdateServerInputBean.CE_SERVER_NAMECN);
+		// 存在校验
+		serverCommonService.checkServerIsExist(server_name);
+		// 获取服务器信息
+		CeServerInfo server_info = ceServerDaoService.getInfoByServerName(server_name);
+		// 获取数据源关联信息列表
+		List<CeServerDsInfo> serverds_info_list = ceServerDsDaoService.querySourceByServer(server_name);
+		String ftp_config_soc = null;
+		String shell_config_soc = null;
+		// 生成协议与数据源Bean的对应关系MAP
+		HashMap<PROTOCOL_TYPE, List<String>> protocol_soc_map = new HashMap<PROTOCOL_TYPE, List<String>>();
+		if (!Assert.isEmpty(serverds_info_list)) {
+			for (CeServerDsInfo serverds_info : serverds_info_list) {
+				String soc_name = serverds_info.getSoc_name();
+				// 若数据源存在，则获取数据源信息
+				DtSourceInfo soc_info = dtSocService.getInfoByKey(soc_name);
+				PROTOCOL_TYPE type = soc_info.getProtocol_type();
+				if (serverds_info.getApply_type().equals("1|2|")) {
+					if (type == PROTOCOL_TYPE.PLT_FTP || type == PROTOCOL_TYPE.SFTP) {
+						ftp_config_soc = soc_name;
+					} else if (type == PROTOCOL_TYPE.SSH || type == PROTOCOL_TYPE.TELNET) {
+						shell_config_soc = soc_name;
+					}
+				}
+				if (protocol_soc_map.containsKey(type)) {
+					protocol_soc_map.get(type).add(soc_name);
+				} else {
+					List<String> list = new ArrayList<String>();
+					list.add(soc_name);
+					protocol_soc_map.put(type, list);
+				}
+			}
+
+		}
+		output.setFtp_config_soc(ftp_config_soc);
+		output.setShell_config_soc(shell_config_soc);
+		// 根据协议与数据源Bean的对应关系MAP生成协议数据源列表
+		List<ProtocolSocBean> protocol_soc_list = new ArrayList<ProtocolSocBean>();
+		if (!Assert.isEmpty(protocol_soc_map)) {
+			for (PROTOCOL_TYPE protocol_type : protocol_soc_map.keySet()) {
+				ProtocolSocBean protocol_soc_bean = new ProtocolSocBean();
+				protocol_soc_bean.setProtocol_type(protocol_type);
+				protocol_soc_bean.setSoc_name_list(protocol_soc_map.get(protocol_type));
+				protocol_soc_list.add(protocol_soc_bean);
+			}
+		}
+		// 获取数据库列表
+		List<DBBean> server_db_list = serverCommonService.generateServerDBList(server_info.getServer_db());
+		// 设置出输出参数
+		output.setCe_server_name(server_name);
+		output.setServer_cn_name(server_info.getServer_cn_name());
+		output.setServer_bk_desc(server_info.getServer_desc());
+		output.setServer_ip(server_info.getServer_ip());
+		output.setServer_os(server_info.getServer_os());
+		output.setOs_sbk_ver(server_info.getOs_sbk_ver());
+		output.setServer_db_list(server_db_list.toArray(new DBBean[server_db_list.size()]));
+		output.setMid_ware_list(serverCommonService.generateMidWareList(server_info.getServer_mid_ware()));
+		output.setProtocol_soc_list(protocol_soc_list);
+		// 获取应用系统和环境列表
+		List<ServerEnvSysBean> bean_list = ceEnvironmentServerDaoService.queryEnvSysByServer(server_name);
+		if (!Assert.isEmpty(bean_list)) {
+			for (ServerEnvSysBean bean : bean_list) {
+				List<ELE_TYPE> ele_type_list = environmentPublicService.generateEleTypeList(bean.getEle_type());
+				ELE_TYPE[] ele_type_array = ele_type_list.toArray(new ELE_TYPE[ele_type_list.size()]);
+				bean.setEle_type_list(ele_type_array);
+			}
+		}
+		output.setEnv_sys_list(bean_list);
+		return output;
+	}
+
+	/**
+	 * Description: 按查询所有服务器
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean getAllServerName(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		// 获取服务器列表
+		List<ServerBean> server_list = ceServerDaoService.queryAllServerName();
+		output.setServer_list(server_list);
+		return output;
+	}
+
+	/**
+	 * Description: 按IP模糊查询所有服务器详细信息
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean queryServerDetailByIP(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String server_ip = input.getServer_ip();
+		// 获取服务器列表
+		List<CeServerInfo> server_info_list = ceServerDaoService.queryInfoByLikeIP(server_ip);
+		List<ServerBean> server_bean_list = new ArrayList<ServerBean>();
+		if (!Assert.isEmpty(server_info_list)) {
+			for (CeServerInfo info : server_info_list) {
+				ServerBean bean = new ServerBean();
+				bean.setServer_name(info.getServer_name());
+				bean.setServer_cn_name(info.getServer_cn_name());
+				bean.setServer_bk_desc(info.getServer_desc());
+				bean.setServer_ip(info.getServer_ip());
+				bean.setServer_os(info.getServer_os());
+				bean.setOs_sbk_ver(info.getOs_sbk_ver());
+				server_bean_list.add(bean);
+			}
+		}
+		output.setServer_list(server_bean_list);
+		return output;
+	}
+	
+	/**
+	 * Description: 按系统列表和IP模糊查询服务器详细信息
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean queryServerDetailByIPAndSystems(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String server_ip = input.getServer_ip();
+		String[] sys_name_list = input.getSys_name_list();
+		// 获取服务器列表
+		List<ViSysEnvServerView> server_info_list = viSysEnvServerQuery.queryServerDetailByIPAndSystems(server_ip, sys_name_list);
+		List<SystemTypeServerBean> systype_server_list = new ArrayList<SystemTypeServerBean>();
+		if (!Assert.isEmpty(server_info_list)) {
+			Map<SYS_TYPE, List<ServerBean>> map = new HashMap<SYS_TYPE, List<ServerBean>>();
+			for (ViSysEnvServerView info : server_info_list) {
+				ServerBean bean = new ServerBean();
+				bean.setServer_name(info.getServer_name());
+				bean.setServer_cn_name(info.getServer_cn_name());
+				bean.setServer_bk_desc(info.getServer_desc());
+				bean.setServer_ip(info.getServer_ip());
+				bean.setServer_os(info.getServer_os());
+				bean.setOs_sbk_ver(info.getOs_sbk_ver());
+				SYS_TYPE sys_type = info.getSys_type();
+				if (map.containsKey(sys_type)) {
+					map.get(sys_type).add(bean);
+				} else {
+					List<ServerBean> bean_list = new ArrayList<ServerBean>();
+					bean_list.add(bean);
+					map.put(sys_type, bean_list);
+				}
+			}
+			for (EnumValue sys_type : SYS_TYPE.listValues(SYS_TYPE.class)) {
+				if (map.containsKey(sys_type)) {
+					SystemTypeServerBean bean = new SystemTypeServerBean();
+					bean.setSys_type((SYS_TYPE) sys_type);
+					bean.setServer_list(map.get(sys_type));
+					systype_server_list.add(bean);
+				}
+			}
+		}
+		output.setSystype_server_list(systype_server_list);
+		return output;
+	}
+
+	/**
+	 * Description: 根据服务器获得应用系统和环境列表
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean querySysAndEnvByServer(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String server_name = input.getCe_server_name();
+		Assert.assertNotEmpty(server_name, ViewServerInputBean.CE_SERVER_NAMECN);
+		// 存在校验
+		serverCommonService.checkServerIsExist(server_name);
+		// 获取应用系统和环境列表
+		List<ServerEnvSysBean> bean_list = ceEnvironmentServerDaoService.queryEnvSysByServer(server_name);
+		if (!Assert.isEmpty(bean_list)) {
+			for (ServerEnvSysBean bean : bean_list) {
+				List<ELE_TYPE> ele_type_list = environmentPublicService.generateEleTypeList(bean.getEle_type());
+				ELE_TYPE[] ele_type_array = ele_type_list.toArray(new ELE_TYPE[ele_type_list.size()]);
+				bean.setEle_type_list(ele_type_array);
+			}
+		}
+		output.setEnv_sys_list(bean_list);
+		return output;
+	}
+
+	/**
+	 * Description: 根据服务器获得对应的数据原名列表
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean querySocNameByServer(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String server_name = input.getCe_server_name();
+		Assert.assertNotEmpty(server_name, ViewServerInputBean.CE_SERVER_NAMECN);
+		// 存在校验
+		serverCommonService.checkServerIsExist(server_name);
+		List<String> soc_name_list = ceServerDsDaoService.querySocNameByServer(server_name);
+		output.setSoc_name_list(soc_name_list);
+		return output;
+	}
+
+	/**
+	 * Description: 根据服务器获得对应的数据原名列表
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean querySocNameByServerAndType(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String server_name = input.getCe_server_name();
+		IMPL_TYPE impl_type = input.getImpl_type();
+		Assert.assertNotEmpty(server_name, ViewServerInputBean.CE_SERVER_NAMECN);
+		Assert.assertNotEmpty(impl_type, ViewServerInputBean.MODULE_TYPECN);
+		// 存在校验
+		serverCommonService.checkServerIsExist(server_name);
+		List<String> list = serverCommonService.getSocNameByServiceNameAndType(server_name, impl_type);
+
+		output.setSoc_name_list(list);
+		return output;
+	}
+
+	/**
+	 * Description: 校验服务器是否已存在
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean checkServerIsExist(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String data = input.getData();
+		if (Assert.isEmpty(data)) {
+			data = "";
+		}
+		// 存在校验
+		if (ceServerDaoService.getInfoByServerName(data) == null) {
+			output.setResult(false);
+		} else {
+			output.setResult(true);
+		}
+		return output;
+	}
+
+	/**
+	 * Description: 校验服务器是否已存在
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean checkServerCnNameIsExist(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String data = input.getData();
+		if (Assert.isEmpty(data)) {
+			data = "";
+		}
+		// 存在校验
+		if (ceServerDaoService.countByServerCnName(data) <= 0) {
+			output.setResult(false);
+		} else {
+			output.setResult(true);
+		}
+		return output;
+	}
+
+	/**
+	 * Description: 查看服务器详细信息及关联信息
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean queryDetailAndRelatedInfo(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		// 非空校验
+		String server_name = input.getCe_server_name();
+		Assert.assertNotEmpty(server_name, ViewServerInputBean.CE_SERVER_NAMECN);
+		// 存在校验
+		serverCommonService.checkServerIsExist(server_name);
+
+		ServerDetAndRelBean server_detail_bean = new ServerDetAndRelBean();
+		CeServerInfo ce_info = ceServerDaoService.getInfoByServerName(server_name);
+		server_detail_bean.setServer_name(server_name);
+		server_detail_bean.setServer_cn_name(ce_info.getServer_cn_name());
+		server_detail_bean.setServer_bk_desc(ce_info.getServer_desc());
+		server_detail_bean.setServer_ip(ce_info.getServer_ip());
+		server_detail_bean.setServer_os(ce_info.getServer_os());
+		// 根据服务名查询应用环境服务器视图
+		List<String> sys_name_list = new ArrayList<String>();
+		List<ViSysEnvServerView> view_list = viSysEnvServerQuery.querySysByServerName(server_name);
+		if (!Assert.isEmpty(view_list)) {
+			List<SysEnvBean> sys_env_list = new ArrayList<SysEnvBean>();
+			// 获取服务器下系统及环境列表
+			for (ViSysEnvServerView view : view_list) {
+				String sys_name = view.getSys_name();
+				if(sys_name_list.contains(sys_name)){
+					continue;
+				}
+				SysEnvBean sys_bean = new SysEnvBean();
+				sys_bean.setSys_name(sys_name);
+				sys_bean.setSys_cn_name(view.getSys_cn_name());
+				sys_bean.setSys_type(view.getSys_type());
+				// 查询系统下环境列表
+				List<CeEnvironmentInfo> env_list = ceEnvironmentDaoService.queryEnvInfosBySys(sys_name);
+				if (!Assert.isEmpty(env_list)) {
+					List<SysEnvAndTaskBean> env_task_list = new ArrayList<SysEnvAndTaskBean>();
+					logger.debug("-----------------遍历环境表---------------");
+					for (CeEnvironmentInfo info : env_list) {
+						SysEnvAndTaskBean bean = new SysEnvAndTaskBean();
+						String env_name = info.getEnv_name();
+						bean.setEnv_name(env_name);
+						bean.setEnv_cn_name(info.getEnv_cn_name());
+						bean.setEnv_type(info.getEnv_type());
+						String task_seq = "";
+						logger.debug("--------当前环境名" + env_name + "----------");
+						// 获取环境上正在执行的任务信息
+						List<EnvTaskInfo> task_info_list = envTaskDaoService.getIdByEnv(env_name);
+
+						if (!Assert.isEmpty(task_info_list)) {
+							task_seq = task_info_list.get(0).getWork_id();
+							if (TASK_TYPE.BUILD.equals(task_info_list.get(0).getTask_type())) {
+								bean.setTask_all_type(TASK_ALL_TYPE.BUILD);
+							} else if (TASK_TYPE.INTEGRATION.equals(task_info_list.get(0).getTask_type())) {
+								bean.setTask_all_type(TASK_ALL_TYPE.INTEGRATION);
+							} else if (TASK_TYPE.PUBLISH.equals(task_info_list.get(0).getTask_type())) {
+								bean.setTask_all_type(TASK_ALL_TYPE.PUBLISH);
+							}
+						}
+						// 获取环境上正在执行的入库信息
+						List<EnvTagStorageInfo> storage_list = envTagStorageDaoService.getIdByEnv(env_name);
+						if (!Assert.isEmpty(storage_list)) {
+							task_seq = storage_list.get(0).getStorage_id();
+							bean.setTask_all_type(TASK_ALL_TYPE.STORAGE);
+							bean.setInstance_id(storage_list.get(0).getInstance_id());
+						}
+						if (envPrivService.hasUserEnvPriv(input.getOrg_user_id(), env_name)) {
+							bean.setAf_flag(AF_FLAG.ALLOW);
+						}else{
+							bean.setAf_flag(AF_FLAG.FORBID);
+						}
+						bean.setTask_seq(task_seq);
+						env_task_list.add(bean);
+					}
+					sys_bean.setEnv_task_list(env_task_list);
+				}
+				sys_name_list.add(sys_name);
+				sys_env_list.add(sys_bean);
+			}
+			server_detail_bean.setSys_env_list(sys_env_list);
+		}
+
+		output.setServer_detail_bean(server_detail_bean);
+		return output;
+	}
+
+	/**
+	 * Description: 根据环境查询服务器列表
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean querySerByEnv(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String env_name = input.getEnv_name();
+		// 非空校验
+		Assert.assertNotEmpty(env_name, ViewServerInputBean.ENV_NAMECN);
+		// 合法性校验
+		environmentPublicService.checkEnvNameIsExist(env_name);
+		List<CeEnvironmentServerInfo> env_info_list = ceEnvironmentServerDaoService.getEnvirServerByEnvName(env_name);
+		List<String> server_name_list = new ArrayList<String>();
+		if (!Assert.isEmpty(env_info_list)) {
+			for (CeEnvironmentServerInfo envserinfo : env_info_list) {
+				String server_name = envserinfo.getServer_name();
+				if (!server_name_list.contains(server_name)) {
+					server_name_list.add(server_name);
+				}
+			}
+		}
+		output.setServer_name_list(server_name_list);
+		return output;
+	}
+
+	/**
+	 * Description: 根据环境查询版本服务器列表
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean queryVerSerByEnv(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String env_name = input.getEnv_name();
+		// 非空校验
+		Assert.assertNotEmpty(env_name, ViewServerInputBean.ENV_NAMECN);
+		// 合法性校验
+		environmentPublicService.checkEnvNameIsExist(env_name);
+		List<CeEnvironmentServerInfo> env_info_list = ceEnvironmentServerDaoService.getEnvirServerByEnvName(env_name);
+		List<String> version_name_list = new ArrayList<String>();
+		if (!Assert.isEmpty(env_info_list)) {
+			for (CeEnvironmentServerInfo envserinfo : env_info_list) {
+				SERVER_TYPE type = envserinfo.getServer_type();
+				String server_name = envserinfo.getServer_name();
+				if (!version_name_list.contains(server_name) && type == SERVER_TYPE.VERSION) {
+					version_name_list.add(server_name);
+				}
+			}
+		}
+		output.setVersion_name_list(version_name_list);
+		return output;
+	}
+
+	/**
+	 * Description: 根据服务器查询执行数据源列表
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean querySourceByServer(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String server_name = input.getCe_server_name();
+		Assert.assertNotEmpty(server_name, ViewServerInputBean.CE_SERVER_NAMECN);
+		// 存在校验
+		serverCommonService.checkServerIsExist(server_name);
+		List<SocBean> source_list = new ArrayList<SocBean>();
+		List<CeServerDsInfo> server_ds_list = ceServerDsDaoService.querySourceByServer(server_name);
+		if (!Assert.isEmpty(server_ds_list)) {
+			for (CeServerDsInfo ceServerDsInfo : server_ds_list) {
+				DtSourceInfo soc_info = dtSocService.getInfoByKey(ceServerDsInfo.getSoc_name());
+				PROTOCOL_TYPE type = soc_info.getProtocol_type();
+				if (type == PROTOCOL_TYPE.SSH || type == PROTOCOL_TYPE.TELNET) {
+					SocBean bean = new SocBean();
+					bean.setProtocol_type(type);
+					bean.setSoc_name(soc_info.getSoc_name().trim());
+					bean.setUser_root_path(soc_info.getUser_root_path());
+					source_list.add(bean);
+				}
+			}
+		}
+		output.setSource_list(source_list);
+		return output;
+	}
+
+	/**
+	 * Description: 获取服务器详情列表（APP端）
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean queryServerForApp(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		List<ServerBean> server_list = new ArrayList<ServerBean>();
+		// 获取服务器信息
+		for (CeServerInfo server_info : ceServerDaoService.queryAllInfo()) {
+			ServerBean bean = new ServerBean();
+			String server_name = server_info.getServer_name();
+			// 获取数据源关联信息列表
+			List<CeServerDsInfo> serverds_info_list = ceServerDsDaoService.querySourceByServer(server_name);
+			String ftp_config_soc = null;
+			String shell_config_soc = null;
+			// 生成协议与数据源Bean的对应关系MAP
+			HashMap<PROTOCOL_TYPE, List<String>> protocol_soc_map = new HashMap<PROTOCOL_TYPE, List<String>>();
+			if (!Assert.isEmpty(serverds_info_list)) {
+				for (CeServerDsInfo serverds_info : serverds_info_list) {
+					String soc_name = serverds_info.getSoc_name();
+					// 若数据源存在，则获取数据源信息
+					DtSourceInfo soc_info = dtSocService.getInfoByKey(soc_name);
+					PROTOCOL_TYPE type = soc_info.getProtocol_type();
+					if (serverds_info.getApply_type().equals("1|2|")) {
+						if (type == PROTOCOL_TYPE.PLT_FTP || type == PROTOCOL_TYPE.SFTP) {
+							ftp_config_soc = soc_name;
+						} else if (type == PROTOCOL_TYPE.SSH || type == PROTOCOL_TYPE.TELNET) {
+							shell_config_soc = soc_name;
+						}
+					}
+					if (protocol_soc_map.containsKey(type)) {
+						protocol_soc_map.get(type).add(soc_name);
+					} else {
+						List<String> list = new ArrayList<String>();
+						list.add(soc_name);
+						protocol_soc_map.put(type, list);
+					}
+				}
+			}
+			bean.setFtp_config_soc(ftp_config_soc);
+			bean.setShell_config_soc(shell_config_soc);
+			// 根据协议与数据源Bean的对应关系MAP生成协议数据源列表
+			List<ProtocolSocBean> protocol_soc_list = new ArrayList<ProtocolSocBean>();
+			if (!Assert.isEmpty(protocol_soc_map)) {
+				for (PROTOCOL_TYPE protocol_type : protocol_soc_map.keySet()) {
+					ProtocolSocBean protocol_soc_bean = new ProtocolSocBean();
+					protocol_soc_bean.setProtocol_type(protocol_type);
+					protocol_soc_bean.setSoc_name_list(protocol_soc_map.get(protocol_type));
+					protocol_soc_list.add(protocol_soc_bean);
+				}
+			}
+			// 获取数据库列表
+			List<DBBean> server_db_list = serverCommonService.generateServerDBList(server_info.getServer_db());
+			// 设置出输出参数
+			bean.setServer_name(server_name);
+			bean.setServer_cn_name(server_info.getServer_cn_name());
+			bean.setServer_bk_desc(server_info.getServer_desc());
+			bean.setServer_ip(server_info.getServer_ip());
+			bean.setServer_os(server_info.getServer_os());
+			bean.setOs_sbk_ver(server_info.getOs_sbk_ver());
+			bean.setServer_db_list(server_db_list.toArray(new DBBean[server_db_list.size()]));
+			bean.setMid_ware_list(serverCommonService.generateEnumTypeArray(server_info.getServer_mid_ware()));
+			bean.setProtocol_soc_list(protocol_soc_list);
+			server_list.add(bean);
+		}
+		output.setServer_list(server_list);
+		return output;
+	}
+	
+	/**
+	 * Description: 根据服务器查询执行数据源列表（APP端）
+	 * @param input
+	 * @return
+	 */
+	public ViewServerOutputBean queryEnvListForApp(ViewServerInputBean input) {
+		ViewServerOutputBean output = new ViewServerOutputBean();
+		String server_name = input.getCe_server_name();
+		Assert.assertNotEmpty(server_name, ViewServerInputBean.CE_SERVER_NAMECN);
+		// 存在校验
+		serverCommonService.checkServerIsExist(server_name);
+		List<EnvInfoBean> env_list = new ArrayList<EnvInfoBean>();
+		for (String env_name : ceEnvironmentServerDaoService.queryInfoByServerName(server_name)) {
+			EnvInfoBean bean = new EnvInfoBean();
+			CeEnvironmentInfo envir_info = ceEnvironmentDaoService.getInfoByEnvName(env_name);
+			bean.setEnv_name(env_name);
+			bean.setEnv_cn_name(envir_info.getEnv_cn_name());
+			bean.setEle_type(environmentPublicService.generateEleTypeArray(envir_info.getEle_type()));
+			bean.setEnv_bk_desc(envir_info.getEnv_bk_desc());
+			bean.setEnv_type(envir_info.getEnv_type());
+			bean.setDt_range(envir_info.getDt_range());
+			bean.setSys_name(envir_info.getSys_name());
+			//获得系统类型
+			if(!Assert.isEmpty(envir_info.getSys_name())){
+				bean.setSys_cn_name(systemSrv.getSystemCnName(envir_info.getSys_name()));
+				CeSystemInfo sys = ceSystemDaosrv.getInfoBySysName(envir_info.getSys_name());
+				if(!Assert.isEmpty(sys))
+				bean.setSys_type(sys.getSys_type());
+			}
+			JaDate create_date = envir_info.getCreate_bk_date();
+			JaTime crate_time = envir_info.getCreate_bk_time();
+			JaDate modify_date = envir_info.getModify_bk_date();
+			JaTime modify_time = envir_info.getModify_bk_time();
+			if(!Assert.isEmpty(create_date)&&!Assert.isEmpty(crate_time)){
+				bean.setCreate_date_time(JaDateTime.valueOf(create_date.toString()
+						+ " " + crate_time.toString()));
+			}
+			if(!Assert.isEmpty(modify_date)&&!Assert.isEmpty(modify_time)){
+				bean.setModify_date_time(JaDateTime.valueOf(modify_date.toString()
+						+ " " + modify_time.toString()));
+			}
+			// 环境关联服务器信息
+			List<CeEnvironmentServerInfo> envir_servers = ceEnvironmentServerDaoService.queryInfoByEnvName(env_name);
+			if(!Assert.isEmpty(envir_servers)){
+				List<String> ver_servers = new ArrayList<String>();
+				List<String> sys_servers = new ArrayList<String>();
+				List<String> db_servers = new ArrayList<String>();
+				for (CeEnvironmentServerInfo server : envir_servers) {
+					SERVER_TYPE type = server.getServer_type();
+					String name = server.getServer_name();
+					if(type == SERVER_TYPE.APPLY){
+						sys_servers.add(name);
+					}
+					if(type == SERVER_TYPE.DATABASE){
+						db_servers.add(name);
+					}
+					if(type == SERVER_TYPE.VERSION){
+						ver_servers.add(name);
+					}else{
+						continue;
+					}
+				}
+				bean.setDb_server_list(db_servers);
+				bean.setVer_server_list(ver_servers);
+				bean.setSys_server_list(sys_servers);
+			}
+			env_list.add(bean);
+		}
+		sortEnvWithSysCnName(env_list);
+		output.setEnv_list(env_list);
+		return output;
+	}
+	
+	/**
+	 * Description: 根据系统查看环境对应的服务器列表
+	 * @param input
+	 * @return
+	 */
+    public ViewServerOutputBean queryServerListForApp(ViewServerInputBean input){
+    	ViewServerOutputBean output = new ViewServerOutputBean();
+    	String sys_name = input.getSys_name();
+    	Assert.assertNotEmpty(sys_name, ViewServerInputBean.SYS_NAMECN);
+    	systemSrv.checkSystemNameIsNotExist(sys_name);
+    	List<ServerMsgBean> server_list = new ArrayList<ServerMsgBean>();
+    	// 获取环境列表信息
+    	List<CeEnvironmentInfo> env_list = ceEnvironmentDaoService.getEnvirList(sys_name);
+    	if(!Assert.isEmpty(env_list)){
+    		for (CeEnvironmentInfo envs : env_list) {
+				String env_name = envs.getEnv_name();
+				// 环境关联服务器信息
+				List<CeEnvironmentServerInfo> envir_servers = ceEnvironmentServerDaoService.queryInfoByEnvName(env_name);
+			    if(!Assert.isEmpty(envir_servers)){
+			    	for (CeEnvironmentServerInfo server : envir_servers) {
+			    		ServerMsgBean servers = new ServerMsgBean();
+			    		String server_name = server.getServer_name();
+			    		CeServerInfo serinfo = ceServerDaoService.getInfoByServerName(server_name);
+			    		//服务器基础信息
+			    		if(!Assert.isEmpty(serinfo)){
+			    			servers.setServer_os(serinfo.getServer_os());
+			    			servers.setServer_name(serinfo.getServer_name());
+			    			servers.setServer_cn_name(serinfo.getServer_cn_name());
+			    			servers.setServer_db(serinfo.getServer_db());
+			    			servers.setServer_desc(serinfo.getServer_desc());
+			    			servers.setServer_ip(serinfo.getServer_ip());
+			    			servers.setServer_mid_ware(serinfo.getServer_mid_ware());
+			    			servers.setCreate_user_id(serinfo.getCreate_user_id());
+			    			servers.setModify_user_id(serinfo.getModify_user_id());
+			    			servers.setOs_sbk_ver(serinfo.getOs_sbk_ver());
+			    			JaDate create_date = serinfo.getCreate_bk_date();
+			    			JaTime create_time = serinfo.getCreate_bk_time();
+			    			JaDate modify_date = serinfo.getModify_bk_date();
+			    			JaTime modify_time = serinfo.getModify_bk_time();
+			    			if(!Assert.isEmpty(create_date)&&!Assert.isEmpty(create_time)){
+			    				servers.setCreate_date_time(JaDateTime.valueOf(create_date.toString()
+										+ " " + create_time.toString()));
+							}
+							if(!Assert.isEmpty(modify_date)&&!Assert.isEmpty(modify_time)){
+								servers.setModify_date_time(JaDateTime.valueOf(modify_date.toString()
+										+ " " + modify_time.toString()));
+							}
+							//中间件
+							servers.setMid_ware_list(serverCommonService.generateMidWareList(serinfo.getServer_mid_ware()));
+							//数据库
+							List<DBBean> server_db_list = serverCommonService.generateServerDBList(serinfo.getServer_db());
+							servers.setServer_db_list(server_db_list.toArray(new DBBean[server_db_list.size()]));
+			    		    //数据源列表
+							List<CeServerDsInfo> serverds_info_list = ceServerDsDaoService.querySourceByServer(server_name);
+							servers.setSoc_list(serverds_info_list);
+							server_list.add(servers);
+			    		}
+					}
+			    	sortServerWithServerIp(server_list);
+			    	output.setServer_msg_list(server_list);
+			    }
+    		}
+    	}
+    	return output;
+    }
+    
+	/**
+	 * Description: sort
+	 * @param server_list
+	 */
+	private void sortServerWithServerIp(List<ServerMsgBean> server_list) {
+		Collections.sort(server_list, new Comparator<ServerMsgBean>() {
+			@Override
+			public int compare(ServerMsgBean bean1, ServerMsgBean bean2) {
+				return (bean1.getServer_ip()).compareTo(bean2.getServer_ip());
+			}
+		});
+	}
+	
+	/**
+	 * Description:根据系统中文名排序
+	 */
+	private void sortEnvWithSysCnName(List<EnvInfoBean> env_list){
+		Collections.sort(env_list, new Comparator<EnvInfoBean>() {
+			@Override
+			public int compare(EnvInfoBean bean1, EnvInfoBean bean2) {
+				return (bean1.getSys_cn_name()).compareTo(bean2.getSys_cn_name());
+			}
+		});
+	}
+}

@@ -1,0 +1,162 @@
+package com.wk.cd.module.info;
+
+import com.wk.cd.enu.CVT_TYPE;
+import com.wk.cd.enu.PROTOCOL_TYPE;
+import com.wk.cd.enu.RCD_STATE;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.sdo.ServiceData;
+import com.wk.util.JSON;
+import com.wk.util.JSONCaseType;
+
+public class ModuleSourceInfo {
+	
+	/**
+	 * 执行协议类型
+	 */
+	private PROTOCOL_TYPE protocol_type;
+
+	public static final String PROTOCOL_TYPECN = "执行协议类型";
+	/**
+	 * 参数（现在主要是存放svn的参数）
+	 */
+	ServiceData data;
+
+	public static final String DATACN = "参数";
+	
+	/**
+	 * 具体执行使用数据源
+	 */
+	private DtSourceInfo dt_source_info;
+
+	public static final String DT_SOURCE_INFOCN = "具体执行使用数据源";
+	
+	public ModuleSourceInfo() {
+	}
+
+	public ModuleSourceInfo(PROTOCOL_TYPE protocol_type,
+			DtSourceInfo dt_source_info) {
+		this.protocol_type = protocol_type;
+		this.dt_source_info = dt_source_info;
+	}
+
+	public ModuleSourceInfo(DtSourceInfo dt_source_info,
+			DtSourceInfo ver_source_info) {
+		this.dt_source_info = dt_source_info;
+		PROTOCOL_TYPE type = ver_source_info.getProtocol_type();
+		ServiceData data = null;
+		if (PROTOCOL_TYPE.SVN.equals(type)) {
+			this.protocol_type = PROTOCOL_TYPE.SVN;
+			data = new ServiceData();
+			data.putString("url", "svn://" + ver_source_info.getSoc_ip());
+			data.putString("user", ver_source_info.getRemote_uname());
+			data.putString("password", ver_source_info.getRemote_passwd());
+			this.data = data;
+		} else if (PROTOCOL_TYPE.WAS.equals(type)) {
+			this.protocol_type = PROTOCOL_TYPE.WAS;
+			data = new ServiceData();
+			data.putString("url", ver_source_info.getSoc_ip());
+			data.putString("user", ver_source_info.getRemote_uname());
+			data.putString("password", ver_source_info.getRemote_passwd());
+			data.putInt("port", ver_source_info.getSoc_port());
+
+			this.data = data;
+		} else if (PROTOCOL_TYPE.WEBLOGIC.equals(type)) {
+			this.protocol_type = PROTOCOL_TYPE.WEBLOGIC;
+			data = new ServiceData();
+			data.putString("url", "t3://" + ver_source_info.getSoc_ip() + ":"
+					+ ver_source_info.getSoc_port());
+			data.putString("user", ver_source_info.getRemote_uname());
+			data.putString("password", ver_source_info.getRemote_passwd());
+			data.putInt("port", ver_source_info.getSoc_port());
+
+			this.data = data;
+		}
+	}
+
+	public ServiceData getData() {
+		return this.data;
+	}
+
+	public void setData(ServiceData data) {
+		this.data = data;
+	}
+
+	public PROTOCOL_TYPE getProtocol_type() {
+		return this.protocol_type;
+	}
+
+	public void setProtocol_type(PROTOCOL_TYPE protocol_type) {
+		this.protocol_type = protocol_type;
+	}
+
+	public DtSourceInfo getDt_source_info() {
+		return this.dt_source_info;
+	}
+
+	public void setDt_source_info(DtSourceInfo dt_source_info) {
+		this.dt_source_info = dt_source_info;
+	}
+
+	public static String toJsonString(ModuleSourceInfo info) {
+		String json = JSON.fromBean(info, JSONCaseType.DEFAULT);
+		return json;
+	}
+
+	public static ModuleSourceInfo getInfoFromJson(String json) {
+		ServiceData sd = JSON.toServiceData(json);
+		ServiceData sd_source = sd.getServiceData("dt_source_info");
+		int pro = sd.getInt("protocol_type");
+		ServiceData data = sd.getServiceData("data");
+		PROTOCOL_TYPE type = PROTOCOL_TYPE.valueOf(PROTOCOL_TYPE.class, pro);
+		ModuleSourceInfo info = new ModuleSourceInfo(type,
+				getDtInfoFromData(sd_source));
+		info.setData(data);
+		return info;
+	}
+
+	private static DtSourceInfo getDtInfoFromData(ServiceData data) {
+		DtSourceInfo info = new DtSourceInfo();
+		info.setSoc_name(data.getString("soc_name"));
+
+		info.setRemote_uname(data.getString("remote_uname"));
+		info.setKey_remote_passwd(data.getString("key_remote_passwd"));
+		info.setRemote_passwd(data.getString("remote_passwd"));
+		info.setSoc_ip(data.getString("soc_ip"));
+		info.setSoc_port(data.getInt("soc_port"));
+		info.setUser_root_path(data.getString("user_root_path"));
+		info.setBk_timeout(data.getLong("bk_timeout"));
+		info.setJdbc_drv(data.getString("jdbc_drv"));
+		info.setJdbc_url(data.getString("jdbc_url"));
+		info.setJdbc_schema(data.getString("jdbc_schema"));
+		info.setFtp_local_script(data.getString("ftp_local_script"));
+		info.setCvt_local_script(data.getString("cvt_local_script"));
+		info.setSoc_domain(data.getString("soc_domain"));
+		info.setSoc_bk_desc(data.getString("soc_bk_desc"));
+
+		info.setEnvironment_variables(data.getString("environment_variables"));
+
+		int pro = data.getInt("protocol_type");
+		PROTOCOL_TYPE protocol_type = PROTOCOL_TYPE.valueOf(PROTOCOL_TYPE.class, pro);
+		info.setProtocol_type(protocol_type);
+
+		int rcd = data.getInt("rcd_state");
+		RCD_STATE rcd_state = RCD_STATE.valueOf(RCD_STATE.class,rcd);
+		info.setRcd_state(rcd_state);
+
+		int cvt = data.getInt("cvt_type");
+		CVT_TYPE cvt_type = CVT_TYPE.valueOf(CVT_TYPE.class, cvt);
+		info.setCvt_type(cvt_type);
+		return info;
+	}
+
+	/** 
+	 * Description: 
+	 * @return 
+	 */
+	@Override
+	public String toString() {
+		return "ModuleSourceInfo [protocol_type=" + protocol_type + ", data=" + data + ", dt_source_info=" + dt_source_info + "]";
+	}
+	
+	
+}

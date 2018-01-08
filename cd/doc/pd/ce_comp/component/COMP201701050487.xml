@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="删除目录文件" id="COMP201701050487">
+<desc>删除目录或文件</desc>
+<script type="SHELL"><![CDATA[
+rm -rf ${path}
+]]></script>
+<params>
+<param cnname="路径" defult="" desc="路径" hand="false" name="path"/>
+</params>
+</component>

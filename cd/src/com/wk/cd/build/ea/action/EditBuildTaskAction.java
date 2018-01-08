@@ -1,0 +1,194 @@
+/**
+ * Title: EditBuildTaskAction.java
+ * File Description: 编辑环境构建任务
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: wangj
+ * @version: 1.0
+ * @date: 2016年12月9日
+ */
+package com.wk.cd.build.ea.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.build.ea.bean.EditBuildTaskInputBean;
+import com.wk.cd.build.ea.bean.EditBuildTaskOutputBean;
+import com.wk.cd.build.ea.dao.EnvBuildTaskDaoService;
+import com.wk.cd.build.ea.dao.EnvTagStorageDaoService;
+import com.wk.cd.build.ea.dao.EnvTaskDaoService;
+import com.wk.cd.build.ea.info.EnvBuildTaskInfo;
+import com.wk.cd.build.ea.info.EnvTagStorageInfo;
+import com.wk.cd.build.ea.info.EnvTaskInfo;
+import com.wk.cd.build.ea.service.EnvTaskPublicService;
+import com.wk.cd.build.ea.service.PublishTaskInstanceService;
+import com.wk.cd.build.en.service.EnvironmentPublicService;
+import com.wk.cd.build.en.service.ProjectPublicService;
+import com.wk.cd.build.exc.CanNotModifyTplException;
+import com.wk.cd.build.exc.TaskCannotExecuteException;
+import com.wk.cd.common.cm.service.GenNoService;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.CfgTool;
+import com.wk.cd.enu.TASK_STATUS;
+import com.wk.cd.enu.TASK_TYPE;
+import com.wk.cd.exc.ReadConfigFileException;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.JaDateTime;
+
+/**
+ * Class Description: 编辑环境构建任务
+ * @author wangj
+ */
+public class EditBuildTaskAction extends ActionBasic<EditBuildTaskInputBean, EditBuildTaskOutputBean>{
+	@Inject private GenNoService genSrv;
+	@Inject private EnvTaskDaoService envTaskDaoService;
+	@Inject private ActionLogPublicService lgsvc;
+	@Inject private ProjectPublicService projectPublicService;
+	@Inject private PublishTaskInstanceService publistTaskService;
+	@Inject private EnvironmentPublicService enviromentPublicService;
+	@Inject private EnvTagStorageDaoService envTagSrv;
+	@Inject private EnvBuildTaskDaoService envBuildTaskDaoService;
+	@Inject private EnvTaskPublicService envTaskPublicService;
+	private static final Log logger = LogFactory.getLog();
+	//初始化步骤为第一步
+	private static final int BUILD_STEP_ID = 1;
+	
+	/** 
+	 * Description: 编辑环境构建任务
+	 * @param input
+	 * @return 
+	 */
+	@Override
+	protected EditBuildTaskOutputBean doAction(EditBuildTaskInputBean input) {
+		logger.info("-----------AddBuildTaskAction begin----------");
+		
+		EditBuildTaskOutputBean output = new EditBuildTaskOutputBean();
+		String work_id = input.getWork_id();
+		String env_name = input.getEnv_name();
+		String task_bk_desc = input.getTask_bk_desc();
+		String project_name = input.getProject_name();
+		String template_name = input.getTemplate_name();
+		
+		//非空校验
+		Assert.assertNotEmpty(task_bk_desc, EditBuildTaskInputBean.TASK_BK_DESCCN);
+		Assert.assertNotEmpty(template_name, EditBuildTaskInputBean.TEMPLATE_NAMECN);
+		
+		//合法性校验
+		if(!Assert.isEmpty(env_name))
+		enviromentPublicService.checkEnvNameIsExist(env_name);
+		if(!Assert.isEmpty(project_name))
+		projectPublicService.checkProjectNameIsNotExist(project_name);
+		//保存前校验
+		checkTask(env_name, "");
+		
+		//新增环境构建任务
+		if(Assert.isEmpty(work_id)){
+			//生成任务编号
+			work_id = genSrv.getWorkCode(input.getDtbs_bk_date());
+			
+			//获取前端根路径
+			String web_root_path = CfgTool.getProjectPropterty("web.root.path");
+			if (Assert.isEmpty(web_root_path)) {
+				throw new ReadConfigFileException().addScene("FILE", "cms.properties").addScene("CONFIG", "web.root.path");
+			}
+			//生成构建日志全路径
+			String exelog_bk_path = envTaskPublicService.generateTaskRootPath(work_id) + work_id + "_log.txt";
+			String log_relative_path = exelog_bk_path.replace(web_root_path, "");
+			
+			//环境构建表
+			EnvTaskInfo envTaskInfo = new EnvTaskInfo();
+			envTaskInfo.setWork_id(work_id);
+			envTaskInfo.setTask_type(TASK_TYPE.BUILD);
+			envTaskInfo.setEnv_name(env_name);
+			envTaskInfo.setExelog_bk_path(exelog_bk_path);
+			envTaskInfo.setTask_bk_desc(task_bk_desc);
+			envTaskInfo.setProject_name(project_name);
+			envTaskInfo.setTask_status(TASK_STATUS.RUNNING);
+			envTaskInfo.setCrt_user_id(input.getOrg_user_id());
+			envTaskInfo.setCrt_bk_time(input.getDtbs_bk_time());
+			envTaskInfo.setCrt_bk_date(input.getDtbs_bk_date());
+			envTaskInfo.setExe_user_id(input.getOrg_user_id());
+			envTaskInfo.setStart_bk_tm(JaDateTime.now());
+			envTaskInfo.setEnd_bk_tm(JaDateTime.valueOf("1971-01-01 00:00:00"));
+			
+			//环境构建扩展表
+			EnvBuildTaskInfo envBuildTaskInfo = new EnvBuildTaskInfo();
+			envBuildTaskInfo.setWork_id(work_id);
+			envBuildTaskInfo.setTemplate_name(template_name);
+			envBuildTaskInfo.setBuild_step_id(BUILD_STEP_ID);
+			envBuildTaskInfo.setStart_bk_tm(JaDateTime.valueOf("1971-01-01 00:00:00"));
+			envBuildTaskInfo.setEnd_bk_tm(JaDateTime.valueOf("1971-01-01 00:00:00"));
+			
+			//插入一条记录
+			logger.info("新增环境构建任务: work_id = " + work_id + " env_name = " + env_name);
+			envTaskDaoService.insertInfo(envTaskInfo);
+			envBuildTaskDaoService.insertInfo(envBuildTaskInfo);
+			output.setExelog_bk_path(log_relative_path);
+			output.setBuild_step_id(1);
+		//修改环境构建任务
+		}else{
+			//合法性校验
+			envTaskPublicService.checkEnvTaskIsExist(work_id);
+			logger.info("修改环境构建表: work_id=" + work_id + " task_bk_desc=" + task_bk_desc + " project_name=" + project_name + " template_name=" + template_name);
+			//若应用部署已执行，则不可修改模版名，并抛出异常
+			EnvBuildTaskInfo env_build_info = envBuildTaskDaoService.getInfoByKey(work_id);
+			if(!template_name.equals(env_build_info.getTemplate_name()) && !Assert.isEmpty(env_build_info.getExelog_bk_path())){
+				throw new CanNotModifyTplException();
+			}
+			//若修改模板与之前不一致，删除构建模板相关信息
+			if(!template_name.equals(env_build_info.getTemplate_name())){
+				publistTaskService.deleteAllBuildTpInfo(work_id);
+			}
+			//修改环境构建表
+			envTaskDaoService.updateBuildTaskInfoByWorkId(task_bk_desc, project_name, work_id);
+			envBuildTaskDaoService.updateTemplateByWorkId(template_name, work_id);
+			//获取日志路径
+			output.setExelog_bk_path(envTaskDaoService.getInfoByKey(work_id).getExelog_bk_path());
+			output.setBuild_step_id(env_build_info.getBuild_step_id());
+		}
+		
+		output.setWork_id(work_id);
+		logger.info("-----------AddBuildTaskAction End----------");
+		return output;
+	}
+	
+	/**
+	 * Description: 检验环境上是否有其他任务正在执行
+	 * @param env_anme
+	 * @param work_id
+	 */
+	private void checkTask(String env_name, String work_id){
+		// 校验环境上是否存在其他任务
+		List<EnvTaskInfo> task_info_list = envTaskDaoService.getIdByEnvExceptId(env_name, work_id);
+		if (!Assert.isEmpty(task_info_list)) {
+			for (EnvTaskInfo task_info : task_info_list) {// 如果有和自己的ID不一样的就报错
+				if (work_id.equalsIgnoreCase(task_info.getRol_work_id()) && TASK_STATUS.ROLLBACKING.equals(task_info.getTask_status())) {// 如果回退中的 且其回退任务号一样 则跳过（用于发布回退）
+					continue;
+				}
+				logger.debug("影响执行的任务编号[{}]", task_info.getWork_id());
+				throw new TaskCannotExecuteException().addScene("REASON", "执行环境上存在其他正在执行的任务");
+			}
+		}
+		List<EnvTagStorageInfo> tag_list = envTagSrv.getIdByEnv(env_name);
+		if (!Assert.isEmpty(tag_list)) {
+			throw new TaskCannotExecuteException().addScene("REASON", "执行环境上存在正在执行的入库任务");
+		}
+	}
+	
+	/** 
+	 * Description: 编辑环境构建任务
+	 * @param input
+	 * @return 
+	 */
+	@Override
+	protected String getLogTxt(EditBuildTaskInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+		log_lst.add("环境构建任务名称: " + input.getEnv_name());
+		return lgsvc.getLogTxt("编辑环境构建任务", log_lst);
+	}
+
+}

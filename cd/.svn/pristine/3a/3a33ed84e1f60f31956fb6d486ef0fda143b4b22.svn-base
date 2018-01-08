@@ -1,0 +1,200 @@
+package com.wk.cd.module.info;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.module.MODULE_PURPOSE;
+import com.wk.cd.module.SCRIPT_SOURCE;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ModuleBasicInfo {
+	protected String id;
+	protected String cn_name;
+	protected String alias_name;
+	protected String bk_desc;
+	protected MODULE_TYPE type;
+	protected ParamInfo[] params;
+	protected String[] cmds;
+	protected String cmd_param;
+	protected IMPL_TYPE impl_type;
+	protected String script_file_path;
+	protected SCRIPT_SOURCE script_source;
+	protected MODULE_PURPOSE module_purpose;
+	private final List<ParamInfo> ref_params = new ArrayList<ParamInfo>();
+
+	protected final List<ModuleBasicInfo> modules = new ArrayList<ModuleBasicInfo>();
+	public static final String MODULE_TYPECN = "组件类型";
+
+	public static ModuleBasicInfo copy(ModuleBasicInfo info) {
+		if (info == null) {
+			return null;
+		}
+		ModuleBasicInfo bean = new ModuleBasicInfo();
+		bean.setId(info.getId());
+		bean.setCn_name(info.getCn_name());
+		bean.setAlias_name(info.getAlias_name());
+		bean.setBk_desc(info.getBk_desc());
+		bean.setType(info.getType());
+		bean.setParams(info.getParams());
+		bean.setCmds(info.getCmds());
+		bean.setImpl_type(info.getImpl_type());
+		bean.setRef_params(info.getRef_params());
+		bean.setModules(info.getModules());
+		return bean;
+	}
+
+	public static List<ModuleBasicInfo> copy(List<ModuleBasicInfo> infos) {
+		if (infos == null) {
+			return null;
+		}
+		List<ModuleBasicInfo> list = new ArrayList<ModuleBasicInfo>();
+		if (Assert.isEmpty(infos)) {
+			return list;
+		}
+		for (ModuleBasicInfo info : infos) {
+			list.add(copy(info));
+		}
+		return list;
+	}
+
+	public String getId() {
+		return this.id;
+	}
+
+	public void setId(String id) {
+		this.id = (id == null ? id : new String(id));
+	}
+
+	public String getCn_name() {
+		return this.cn_name;
+	}
+
+	public void setCn_name(String cn_name) {
+		this.cn_name = (cn_name == null ? cn_name : new String(cn_name));
+	}
+
+	public String getBk_desc() {
+		return this.bk_desc;
+	}
+
+	public void setBk_desc(String bk_desc) {
+		this.bk_desc = (bk_desc == null ? bk_desc : new String(bk_desc));
+	}
+
+	public MODULE_TYPE getType() {
+		return this.type;
+	}
+
+	public void setType(MODULE_TYPE type) {
+		this.type = type;
+	}
+
+	public ParamInfo[] getParams() {
+		return this.params;
+	}
+
+	public void setParams(ParamInfo[] params) {
+		this.params = ParamInfo.copy(params);
+	}
+
+	public String getAlias_name() {
+		return this.alias_name;
+	}
+
+	public void setAlias_name(String alias_name) {
+		this.alias_name = (alias_name == null ? alias_name : new String(
+				alias_name));
+	}
+
+	public String[] getCmds() {
+		return this.cmds;
+	}
+
+	public void setCmds(String[] cmds) {
+		if (cmds == null) {
+			this.cmds = null;
+			return;
+		}
+		String[] array = new String[cmds.length];
+		if (Assert.isEmpty(cmds)) {
+			this.cmds = array;
+			return;
+		}
+		for (int i = 0; i < array.length; i++) {
+			array[i] = new String(cmds[i]);
+		}
+		this.cmds = array;
+	}
+
+	public IMPL_TYPE getImpl_type() {
+		return this.impl_type;
+	}
+
+	public void setImpl_type(IMPL_TYPE impl_type) {
+		this.impl_type = impl_type;
+	}
+
+	public List<ParamInfo> getRef_params() {
+		return this.ref_params;
+	}
+
+	public void addAllRef_params(List<ParamInfo> ref_params) {
+		if (!Assert.isEmpty(ref_params))
+			this.ref_params.addAll(ParamInfo.copy(ref_params));
+	}
+
+	public void addRef_params(ParamInfo info) {
+		this.ref_params.add(ParamInfo.copy(info));
+	}
+
+	public void setRef_params(List<ParamInfo> ref_params) {
+		this.ref_params.clear();
+		addAllRef_params(ref_params);
+	}
+
+	public List<ModuleBasicInfo> getModules() {
+		return this.modules;
+	}
+
+	public void addModules(List<ModuleBasicInfo> modules) {
+		this.modules.addAll(copy(modules));
+	}
+
+	public void setModules(List<ModuleBasicInfo> modules) {
+		this.modules.clear();
+		addModules(modules);
+	}
+
+	public SCRIPT_SOURCE getScript_source() {
+		return this.script_source;
+	}
+
+	public void setScript_source(SCRIPT_SOURCE script_source) {
+		this.script_source = script_source;
+	}
+
+	public MODULE_PURPOSE getModule_purpose() {
+		return this.module_purpose;
+	}
+
+	public void setModule_purpose(MODULE_PURPOSE module_purpose) {
+		this.module_purpose = module_purpose;
+	}
+
+	public String getCmd_param() {
+		return this.cmd_param;
+	}
+
+	public void setCmd_param(String cmd_param) {
+		this.cmd_param = cmd_param;
+	}
+
+	public String getScript_file_path() {
+		return this.script_file_path;
+	}
+
+	public void setScript_file_path(String script_file_path) {
+		this.script_file_path = script_file_path;
+	}
+}

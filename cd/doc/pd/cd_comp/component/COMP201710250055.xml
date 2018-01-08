@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="PUBLISH_执行脚本" id="COMP201710250055">
+<desc>执行脚本文件</desc>
+<script type="SHELL"><![CDATA[
+if [ -f "${script_dir}/${script_file}" ]; then echo "find ${script_file}"; else echo "${script_file} is not exist"; fi;
+test -f "${script_dir}/${script_file}";
+cd "${script_dir}";
+chmod +x "${script_file}";
+sh "${script_file}";
+]]></script>
+<params>
+<param cnname="脚本文件路径" defult="" desc="脚本文件路径" hand="false" name="script_dir"/>
+<param cnname="脚本文件" defult="" desc="脚本文件" hand="false" name="script_file"/>
+</params>
+</component>

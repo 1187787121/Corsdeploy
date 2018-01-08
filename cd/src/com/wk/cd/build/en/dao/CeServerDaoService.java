@@ -1,0 +1,194 @@
+/**
+ * Title: CeServerDaoService.java
+ * File Description: 服务器表
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author AutoGen
+ * @version 1.0
+ * @date 2016-11-1
+ */
+package com.wk.cd.build.en.dao;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.build.en.bean.PageServerBean;
+import com.wk.cd.build.en.bean.ServerBean;
+import com.wk.cd.build.en.info.CeServerInfo;
+import com.wk.cd.enu.ORDER_TYPE;
+import com.wk.db.DBIterator;
+import com.wk.lang.Inject;
+import com.wk.util.StringUtil;
+
+/**
+ * Class description:服务器表
+ * @author AutoGen
+ */
+public class CeServerDaoService {
+	@Inject
+	private CeServerDao dao;
+
+	/**
+	 * 根据主键查询一条记录
+	 * @param CeServerInfo info
+	 * @return CeServerInfo
+	 */
+	public CeServerInfo getInfoByKey(CeServerInfo info) {
+		return dao.get(info);
+	}
+
+	/**
+	 * 根据服务器名查询一条记录
+	 * @param String server_name
+	 * @return CeServerInfo
+	 */
+	public CeServerInfo getInfoByServerName(String server_name) {
+		return dao.getInfoByServerName(server_name);
+	}
+	
+	/**
+	 * 根据服务器名查询一条记录
+	 * @param String server_name
+	 * @return CeServerInfo
+	 */
+	public int countByServerCnName(String server_cn_name) {
+		return dao.countByServerCnName(server_cn_name);
+	}
+
+	/**
+	 * 根据主键查询一条记录并对记录加锁
+	 * @param CeServerInfo info
+	 * @return CeServerInfo
+	 */
+	public CeServerInfo getInfoByKeyForUpdate(CeServerInfo info) {
+		return dao.getForUpdate(info);
+	}
+
+	/**
+	 * 插入一条记录
+	 * @param CeServerInfo info
+	 * @return int
+	 */
+	public int insertInfo(CeServerInfo info) {
+		return dao.insert(info);
+	}
+
+	/**
+	 * 插入多条记录
+	 * @param List<CeServerInfo>
+	 * @return int
+	 */
+	public int insertListInfo(List<CeServerInfo> infos) {
+		return dao.insert(infos);
+	}
+
+	/**
+	 * 根据主键更新一条记录
+	 * @param CeServerInfo info
+	 * @return CeServerInfo
+	 */
+	public int updateInfoByKey(CeServerInfo info) {
+		return dao.update(info);
+	}
+
+	/**
+	 * 根据服务器名删除一条记录
+	 * @param String server_name
+	 * @return int
+	 */
+	public int deleteInfoByServerName(String server_name) {
+		return dao.delete(server_name);
+	}
+
+	/**
+	 * Description: 根据名称和地址分页查询服务器
+	 * @param server_name 服务器名称
+	 * @param server_ip 服务器地址
+	 * @param start_recd 起始记录
+	 * @param limit_recd 查询条数
+	 * @return
+	 */
+	public List<PageServerBean> pageServerByNameAndIP(String server_name,
+			String server_ip, String order_col_name, ORDER_TYPE order_type,
+			int start_recd, int limit_recd) {
+		if ("default".equals(order_col_name)|| StringUtil.isEmpty(order_col_name)) {
+			return dao.pageServerByNameAndIP(server_name, server_ip,"CREATE_BK_DATE,CREATE_BK_TIME", ORDER_TYPE.DESC.getName(), start_recd, limit_recd);
+		}
+		if("create_bk_date".equals(order_col_name)) {
+			return dao.pageServerByNameAndIP(server_name, server_ip, order_col_name+" "+order_type.getName()+",create_bk_time",order_type.getName(), start_recd, limit_recd);
+		}
+		return dao.pageServerByNameAndIP(server_name, server_ip, order_col_name,order_type.getName(), start_recd, limit_recd);
+	}
+
+	/**
+	 * Description: 根据名称和地址分页统计服务器数量
+	 * @param server_name 服务器名称
+	 * @param server_ip 服务器地址
+	 * @return
+	 */
+	public int countServerByNameAndIP(String server_name, String server_ip) {
+		return dao.countServerByNameAndIP(server_name, server_ip);
+	}
+	
+	/**
+	 * Description: 根据地址统计服务器数量
+	 * @param server_ip 服务器地址
+	 * @return
+	 */
+	public int countServerByIP(String server_ip) {
+		return dao.countServerByIP(server_ip);
+	}
+
+	/**
+	 * Description: 查询所有服务器名称
+	 * @param
+	 * @return
+	 */
+	public List<ServerBean> queryAllServerName() {
+		DBIterator<ServerBean> iterator = dao.queryAllServerName();
+		List<ServerBean> list = new ArrayList<ServerBean>();
+		try {
+			while (iterator.hasNext()) {
+				list.add(iterator.next());
+			}
+		} finally {
+			iterator.close();
+		}
+		return list;
+	}
+
+	/**
+	 * Description: 根据IP模糊查询服务器信息
+	 * @param server_ip
+	 * @return
+	 */
+	public List<CeServerInfo> queryInfoByLikeIP(String server_ip) {
+		DBIterator<CeServerInfo> iterator = dao.queryInfoByLikeIP(server_ip);
+		List<CeServerInfo> list = new ArrayList<CeServerInfo>();
+		try {
+			while (iterator.hasNext()) {
+				list.add(iterator.next());
+			}
+		} finally {
+			iterator.close();
+		}
+		return list;
+	}
+	
+	/**
+	 * Description: 查询所有记录
+	 * @return
+	 */
+	public List<CeServerInfo> queryAllInfo() {
+		DBIterator<CeServerInfo> iterator = dao.queryAllInfo();
+		List<CeServerInfo> list = new ArrayList<CeServerInfo>();
+		try {
+			while (iterator.hasNext()) {
+				list.add(iterator.next());
+			}
+		} finally {
+			iterator.close();
+		}
+		return list;
+	}
+}

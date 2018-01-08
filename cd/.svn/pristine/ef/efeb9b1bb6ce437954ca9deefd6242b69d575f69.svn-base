@@ -1,0 +1,17 @@
+create db cvdb on /db2/cvdb
+    using codeset GBK territory zh_CN
+    pagesize 16 K dft_extent_sz 2
+    catalog tablespace managed by database using (
+        FILE '/db2/cvdb/cvdata1/NODE0000/SYSCATSPACE.container000' 51200,
+        FILE '/db2/cvdb/cvdata2/NODE0000/SYSCATSPACE.container001' 51200,
+        FILE '/db2/cvdb/cvdata3/NODE0000/SYSCATSPACE.container002' 51200,
+        FILE '/db2/cvdb/cvdata4/NODE0000/SYSCATSPACE.container003' 51200)
+        extentsize 2 prefetchsize 2 autoresize yes maxsize none
+    with 'CorsWork cvdb database';
+
+create db xxx on d:
+    using codeset GBK territory zh_CN
+    with 'CorsWork cvdb database';
+create db xxx on /home/core
+    using codeset GBK territory zh_CN
+    with 'CorsWork cvdb database';

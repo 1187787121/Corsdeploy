@@ -1,0 +1,531 @@
+/**
+ * Title: InteTaskInstanceService.java
+ * File Description: 
+ * @copyright: 2017
+ * @company: CORSWORK
+ * @author: Administrator
+ * @version: 1.0
+ * @date: 2017年12月14日
+ */
+package com.wk.cd.build.ea.service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.build.ea.dao.EnvBuildTaskDaoService;
+import com.wk.cd.build.ea.dao.EnvTaskDaoService;
+import com.wk.cd.build.ea.dao.UuFilelistDaoService;
+import com.wk.cd.build.ea.dao.UuSocDaoService;
+import com.wk.cd.build.ea.info.EnvTaskInfo;
+import com.wk.cd.build.ea.info.PgInteStepInfo;
+import com.wk.cd.build.ea.info.UuFilelistInfo;
+import com.wk.cd.build.ea.info.UuParamInfo;
+import com.wk.cd.build.ea.info.UuSocInfo;
+import com.wk.cd.build.exc.ServerDsNotValidException;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.CfgTool;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.enu.PROTOCOL_TYPE;
+import com.wk.cd.enu.STEP_TYPE;
+import com.wk.cd.module1.Process;
+import com.wk.cd.module1.Result;
+import com.wk.cd.module1.bean.StageSourceBean;
+import com.wk.cd.module1.entity.Instance;
+import com.wk.cd.module1.entity.Phase;
+import com.wk.cd.module1.entity.PhaseParam;
+import com.wk.cd.module1.entity.Script;
+import com.wk.cd.module1.service.InstanceGenerateService;
+import com.wk.cd.module1.service.TextLogInterceptor;
+import com.wk.cd.module1.xml1.XmlReader;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.cd.system.dt.service.DtSocService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+/**
+ * Class Description: 生成集成实例的方法
+ * @author Administrator
+ */
+public class InteTaskInstanceService {
+
+	@Inject
+	private UuFilelistDaoService uuFileSrv;
+	@Inject
+	private InstanceGenerateService instanceGenerateService;
+	@Inject
+	private PublishTaskInstanceService publishTaskInstanceService;
+	@Inject
+	private UuSocDaoService uuSocDaoService;
+	@Inject
+	private DtSocService dtSocService;
+	@Inject
+	private EnvTaskDaoService taskSrv;
+	@Inject
+	private EnvTaskPublicService taskPubSrv;
+	@Inject
+	private EnvBuildTaskDaoService envBuildSrv;
+	private static final Log logger = LogFactory.getLog();
+	public static final String TARGET_DIR = "target";
+	public static final String SRC_CODE_DIR = "source";
+
+	/**
+	 * Description: 创建实例返回实例ID
+	 * @param pg_step_list
+	 * @param env_name
+	 * @param vercode_ver_num
+	 * @return
+	 */
+	public Instance generateInstance(List<PgInteStepInfo> pg_step_list, String env_name, String code_ver_num, String instace_id) {
+		// 获取模板
+		// Template template = new Template();
+		List<Phase> phase_list = new ArrayList<Phase>();
+		if (!Assert.isEmpty(pg_step_list)) {
+			for (PgInteStepInfo pgInteStepInfo : pg_step_list) {
+				// 根据不同的类型生成不同的阶段
+				Phase phase = generatePhaseByType(pgInteStepInfo);
+				phase_list.add(phase);
+			}
+		}
+		// 获取系统参数列表
+		List<PhaseParam> system_params = new ArrayList<PhaseParam>();
+		PhaseParam verno_path = new PhaseParam();
+		verno_path.setParam_name("env_name");
+		verno_path.setParam_value(env_name);
+		system_params.add(verno_path);
+		// 任务编号
+		PhaseParam task_no1 = new PhaseParam();
+		task_no1.setParam_name("ver_num");
+		task_no1.setParam_value(code_ver_num);
+		system_params.add(task_no1);
+		Instance instance = instanceGenerateService.phaseListGenerate(phase_list, null, system_params, instace_id, null);
+		return instance;
+	}
+
+	/**
+	 * Description: 根据步骤类型生成不同组件
+	 * @param info 集成方案步骤INFO
+	 * @return
+	 */
+	private Phase generatePhaseByType(PgInteStepInfo info) {
+		// 非空校验
+		STEP_TYPE type = info.getStep_type();
+		Assert.assertNotEmpty(type, "步骤类型");
+		String desc = info.getStep_expl();
+		Assert.assertNotEmpty(desc, "步骤说明");
+		String soc_uuid = info.getSoc_uuid();
+		List<UuSocInfo> soc_list = uuSocDaoService.queryListInfoByUU(soc_uuid);
+		String version_path = formatDirA(soc_list.get(0).getCode_bk_dir());
+
+		// 根据步骤类型，获取不同的组件
+		if (STEP_TYPE.VERSION.equals(type)) {
+			return generateVersionModule(info, version_path);
+		} else if (STEP_TYPE.COMPILE.equals(type)) {
+			return generateCompileModule(info);
+		} else if (STEP_TYPE.STORAGE.equals(type)) {
+			return generateStorageModule(info, info.getStorage_list_uuid(), version_path);
+		} else {
+			return generateScriptModule(info);
+		}
+	}
+
+	/**
+	 * Description: 格式目录(加/)
+	 * @param file_path
+	 * @return
+	 */
+	private String formatDirA(String file_path) {
+		if (!Assert.isEmpty(file_path)) {
+			if ('/' != (file_path.charAt(0))) {
+				file_path = "/" + file_path;
+			}
+			if (file_path.length() > 0 && '/' != file_path.charAt(file_path.length() - 1)) {
+				file_path = file_path + "/";
+			}
+		}
+		return file_path;
+	}
+
+	/**
+	 * Description: 版本阶段
+	 * @param step_desc 步骤说明
+	 * @return
+	 */
+	private Phase generateVersionModule(PgInteStepInfo step_info, String version_path) {
+		Phase phase = new Phase();
+		phase.setPhase_no(step_info.getStep_id());
+		phase.setPhase_name(step_info.getStep_expl());
+		/**
+		 * 定义任务根目录
+		 */
+		String root_path = "${env_name}/" + SRC_CODE_DIR;
+		/**
+		 * 生成命令
+		 */
+		// 第一步：校验环境任务根目录是否存在，若存在，则删除该目录
+		String s1 = "if [ -d ./" + root_path + " ]; then rm -rf ./" + root_path + "; fi";
+
+		// 第二步：从版本机检出源码到集成环境
+		// String s2 = "co ${version_path}/${ver_num} " + root_path +
+		// "/${ver_num}";
+		String version_type = CfgTool.getProjectPropterty("version.control");
+		String s2 = null ;
+		IMPL_TYPE impl_type = null;
+		if(version_type.equalsIgnoreCase("svn")) {
+			s2 = "co " + version_path + "${ver_num} " + root_path + "/${ver_num}";
+			impl_type = IMPL_TYPE.SVN;
+		}
+		Script script = new Script();
+		script.setCmds(new String[] { s1, s2 });
+		script.setScript_type("default");
+		phase.setScript(script);
+		phase.setImpl_type(impl_type);
+		List<StageSourceBean> srv_soc = new ArrayList<StageSourceBean>();
+		srv_soc.add(getStageSourceBean(step_info.getSoc_uuid()));
+		phase.setSrv_soc(srv_soc);
+
+		return phase;
+	}
+
+	/**
+	 * Description: 编译阶段
+	 * @param step_info 集成方案步骤INFO
+	 * @return
+	 */
+	private Phase generateCompileModule(PgInteStepInfo step_info) {
+		Assert.assertNotEmpty(step_info.getCompile_type(), "编译类型");
+		Assert.assertNotEmpty(step_info.getComplie_bk_path(), "编译路径");
+		Phase phase = new Phase();
+		phase.setPhase_name(step_info.getStep_expl());
+		phase.setPhase_no(step_info.getStep_id());
+		// info.setCn_name(step_info.getStep_expl());
+		// 生成规则:环境变量（按行拆分）+ 切换到编译路径下 + 编译类型（如ant）+ 空格 + 编译参数（如jar）
+		// if(COMPILE_TYPE.ANT.equals(type)){
+		/**
+		 * 生成命令
+		 */
+		// 第一步：校验编译路径是否存在
+		String s1 = "test -d " + step_info.getComplie_bk_path();
+
+		// 第二步：执行环境变量
+		// String s2 = step_info.getEnv_variable();
+
+		// 第三步：切换到编译路径下
+		String s3 = "cd " + step_info.getComplie_bk_path();
+
+		// 第四步：执行编译命令
+		String s4 = step_info.getCompile_type().getCname() + " " + step_info.getCompile_param();
+
+		// String[] cmds = (s1 + "\r\n" + s2 + "\r\n" + s3 + "\r\n" +
+		// s4).split("\r\n");
+		String[] cmds = (s1 + "\r\n" + s3 + "\r\n" + s4).split("\r\n");
+		// }
+		Script script = new Script();
+		script.setCmds(cmds);
+		script.setScript_type("default");
+		phase.setScript(script);
+		phase.setImpl_type(IMPL_TYPE.SHELL);
+		List<StageSourceBean> srv_soc = new ArrayList<StageSourceBean>();
+		srv_soc.add(getStageSourceBean(step_info.getSoc_uuid()));
+		phase.setSrv_soc(srv_soc);
+		return phase;
+	}
+
+	/**
+	 * Description: 生成入库阶段
+	 * @param step_desc 步骤说明
+	 * @param list_uuid 入库清单UUID
+	 * @return
+	 */
+	private Phase generateStorageModule(PgInteStepInfo step_info, String list_uuid, String version_path) {
+		Assert.assertNotEmpty(list_uuid, "入库清单UUID");
+		List<String> pac_list = uuFileSrv.queryPacList(list_uuid);
+		Assert.assertNotEmpty(pac_list, "入库包名列表");
+
+		/**
+		 * 定义存放源码的目录
+		 */
+		String srcpath = step_info.getStorage_bk_path();
+
+		/**
+		 * 定义存放目标的目录
+		 */
+		String tagpath = "${env_name}/" + TARGET_DIR + "/${ver_num}";
+
+		/**
+		 * 生成命令
+		 */
+		// 第一步：校验源码目录是否存在
+		String s1 = "test -d " + srcpath;
+
+		// 第二步：切换到源码目录下
+		String s2 = "cd " + srcpath;
+
+		// 第三步：生成打包命令(一或多个)
+		String s3 = "";
+		for (String pac : pac_list) {
+			// 根据包名获取清单列表
+			String pac_type = pac.substring(pac.lastIndexOf(".") + 1);
+			List<UuFilelistInfo> file_list = uuFileSrv.queryFileByPac(list_uuid, pac);
+			// 获取包相对路径
+			String relative_path = file_list.get(0).getTarget_relative_path();
+			if (!relative_path.endsWith("/")) {
+				relative_path = relative_path + "/";
+			}
+			String cmd = "test -d " + relative_path + " || mkdir -p " + relative_path + " \r\n ";
+			// 根据打包类型生成不同命令：目前支持tar、zip
+			if ("tar".equals(pac_type)) {
+				cmd += "tar -cf " + relative_path + pac;
+			} else if ("zip".equals(pac_type)) {
+				cmd += "zip -r " + relative_path + pac;
+			} else {
+				cmd += "tar -cf " + relative_path + pac;
+			}
+			if (!Assert.isEmpty(file_list)) {
+				for (UuFilelistInfo file_info : file_list) {
+					String full_path = file_info.getFile_path() + file_info.getFile_name();
+					cmd += " " + full_path;
+				}
+			}
+			s3 += cmd + "\r\n";
+		}
+		// 替换掉命令最后的\r\n
+		s3 = s3.substring(0, s3.lastIndexOf("\r\n"));
+
+		// 第四步：检出版本到本地目标目录下
+		// String s4 = "co ${storage_path}/${ver_num} " + tagpath;
+//		String s4 = "co " + version_path + "${ver_num} " + tagpath;
+
+		// 第五步：切换至根目录下
+		String s5 = "cd";
+
+		// 删除老的清单文件
+		String delete_list = "rm ./" + tagpath + "/*.xlsx";
+
+		// 第六步：将目标包移动到目标目录下(一或多步)
+		String s6 = "";
+		for (String pac : pac_list) {
+			String relative_path = getPacRelativePath(list_uuid, pac);
+			String cmd1 = "test -d ./" + tagpath + relative_path + " || mkdir ./" + tagpath + relative_path;
+			String cmd2 = "mv " + srcpath + relative_path + pac + " ./" + tagpath + relative_path + pac;
+			s6 += cmd1 + "\r\n" + cmd2 + "\r\n";
+		}
+		// 替换掉命令最后的\r\n
+		s6 = s6.substring(0, s6.lastIndexOf("\r\n"));
+
+		// 第七步：切换至目标目录下
+		String s7 = "cd ./" + tagpath;
+
+		// 第八步：SVN添加目标包
+//		String s8 = "add * --force";
+
+		// 第九步：提交SVN
+//		String s9 = "ci -m " + "commit";
+
+		String version_type = CfgTool.getProjectPropterty("version.control");
+		String s4 = null;
+		String s8 = null;
+		String s9 = null;
+		IMPL_TYPE impl_type = null;
+		if(version_type.equalsIgnoreCase("svn")) {
+			s4 = "co " + version_path + "${ver_num} " + tagpath;
+			s8 = "add * --force";
+			s9 = "ci -m " + "commit";
+			impl_type = IMPL_TYPE.SVN;
+		}
+		
+		Phase phase = new Phase();
+		phase.setPhase_name(step_info.getStep_expl());
+		phase.setPhase_no(step_info.getStep_id());
+		Script script = new Script();
+		script.setCmds(new String[] { s1, s2, s3, s4, s5, delete_list, s6, s7, s8, s9 });
+		script.setScript_type("default");
+		phase.setScript(script);
+		phase.setImpl_type(impl_type);
+		List<StageSourceBean> srv_soc = new ArrayList<StageSourceBean>();
+		srv_soc.add(getStageSourceBean(step_info.getSoc_uuid()));
+		phase.setSrv_soc(srv_soc);
+		return phase;
+	}
+
+	/**
+	 * Description: 生成脚本组件
+	 * @param step_desc 步骤说明
+	 * @param script 脚本
+	 * @return
+	 */
+	private Phase generateScriptModule(PgInteStepInfo step_info) {
+		String step_desc = step_info.getStep_expl();
+		String cmd = step_info.getStep_bk_script();
+		Assert.assertNotEmpty(cmd, "脚本");
+		Phase phase = new Phase();
+		phase.setPhase_name(step_desc);
+		phase.setPhase_no(step_info.getStep_id());
+		Script script = new Script();
+		script.setCmds(cmd.split("\r\n"));
+		script.setScript_type("default");
+		phase.setScript(script);
+		phase.setImpl_type(IMPL_TYPE.SHELL);
+
+		List<StageSourceBean> srv_soc = new ArrayList<StageSourceBean>();
+		srv_soc.add(getStageSourceBean(step_info.getSoc_uuid()));
+		phase.setSrv_soc(srv_soc);
+		return phase;
+	}
+
+	/**
+	 * Description: 根据包名获取相对路径
+	 * @param list_uuid
+	 * @param pac_name
+	 * @return
+	 */
+	public String getPacRelativePath(String list_uuid, String pac_name) {
+		// 根据包名获取清单列表
+		List<UuFilelistInfo> file_list = uuFileSrv.queryFileByPac(list_uuid, pac_name);
+		// 获取包相对路径
+		String relative_path = file_list.get(0).getTarget_relative_path();
+		if (!relative_path.endsWith("/")) {
+			relative_path = relative_path + "/";
+		}
+		if (relative_path.startsWith(".")) {
+			relative_path = relative_path.substring(1, relative_path.length());
+		}
+		return relative_path;
+	}
+
+	/**
+	 * Description: 生成参数列表
+	 * @param env_name 环境名
+	 * @param code_ver_num 集成源码版本号
+	 * @return
+	 */
+	private List<UuParamInfo> generateParams(String env_name, String code_ver_num) {
+		// 获取参数列表
+		List<UuParamInfo> param_list = new ArrayList<UuParamInfo>();
+		// 将环境名设为参数
+		UuParamInfo param_info = new UuParamInfo();
+		param_info.setParam_value(env_name);
+		param_info.setParam_name("env_name");
+		param_list.add(param_info);
+		// 将集成源码版本号设为参数
+		UuParamInfo param_info2 = new UuParamInfo();
+		param_info2.setParam_name("ver_num");
+		param_info2.setParam_value(code_ver_num);
+		param_list.add(param_info2);
+		return param_list;
+	}
+
+	public StageSourceBean getStageSourceBean(String soc_uuid) {
+		StageSourceBean soc_bean = new StageSourceBean();
+		UuSocInfo info = new UuSocInfo();
+		info.setSoc_uuid(soc_uuid);
+		info.setSoc_bk_seq(1);
+		UuSocInfo soc_info = uuSocDaoService.getInfoByKey(info);
+
+		if (!Assert.isEmpty(soc_info.getExe_soc_name())) {
+			// String exe_soc = soc_info.getExe_soc_name();
+			DtSourceInfo exe_info = dtSocService.getInfoByKey(soc_info.getExe_soc_name());
+			// 数据源类型校检
+			PROTOCOL_TYPE type = exe_info.getProtocol_type();
+			if (type != PROTOCOL_TYPE.SSH && type != PROTOCOL_TYPE.TELNET) {
+				throw new ServerDsNotValidException();
+			}
+			soc_bean.setExe_soc_name(exe_info.getSoc_name());
+			soc_bean.setExe_ip(exe_info.getSoc_ip());
+			soc_bean.setExe_protocol_type(exe_info.getProtocol_type());
+		}
+
+		if (!Assert.isEmpty(soc_info.getVer_soc_name())) {
+			DtSourceInfo ver_info = dtSocService.getInfoByKey(soc_info.getVer_soc_name());
+			soc_bean.setVer_soc_name(ver_info.getSoc_name());
+			soc_bean.setVer_ip(ver_info.getSoc_ip());
+			soc_bean.setVer_protocol_type(ver_info.getProtocol_type());
+
+		}
+		return soc_bean;
+	}
+
+	/**
+	 * Description: 通过任务编号获取实例
+	 * @param work_id
+	 * @return
+	 */
+	public Instance readInstanceByWorkId(String work_id) {
+		logger.debug("从XML读取实例, 任务ID:[{}]", work_id);
+		EnvTaskInfo info = taskSrv.getInfoByKey(work_id);
+		String inst_id = info.getInstance_id();
+		Assert.assertNotEmpty(inst_id, "实例ID");
+		Instance instance = new Instance(inst_id);
+		instance = XmlReader.read(instance);
+		return instance;
+	}
+
+	/**
+	 * Description: 添加任务执行日志(只在第一步存表)
+	 * @param work_id 任务编号
+	 * @param step_id 步骤编号
+	 * @param proc process
+	 * @param all_steps 总步骤数
+	 */
+	public void addExeLog(String work_id, int step_id, Process proc, int all_steps) {
+		// 获取环境任务根路径
+		String task_root_path = taskPubSrv.generateTaskRootPath(work_id);
+		// 生成日志文件名（日志名称规则：LOG + WORK_ID(任务编号).txt）
+		String file_name = "LOG" + work_id + ".txt";
+		// 打印日志
+		logger.info("打印日志" + task_root_path + file_name);
+		proc.addInterceptor(new TextLogInterceptor(task_root_path + file_name, all_steps, "集成任务：" + work_id));
+		// 新增任务表日志信息
+		if (step_id == 1) {
+			taskSrv.updateExecuteLog(task_root_path + file_name, work_id);
+		}
+	}
+
+	/**
+	 * Description: 按步骤执行任务
+	 * @param work_id 任务编号
+	 * @param step_id 步骤编号
+	 * @param proc process
+	 * @param skip_flag 是否跳过标志
+	 * @return
+	 */
+	public Result executeTaskByStep(String work_id, int step_id, Process proc, boolean skip_flag) {
+		Result result = null;
+		// 若为执行跳过
+		if (skip_flag) {
+			// 执行跳过（从0开始）
+			logger.plog("执行跳过");
+			result = proc.skip(step_id - 1);
+		} else {
+			// 执行步骤并获取返回结果
+			logger.plog("开始执行");
+			// 执行步骤（从0开始）
+			String remote_relative_dir = "compTest/" + work_id;
+			result = proc.runStage(remote_relative_dir, step_id - 1, false);
+			// result = proc.run(step_id - 1);
+			logger.plog("执行结束");
+		}
+		return result;
+	}
+
+	/**
+	 * Description: 添加任务执行日志(只在第一阶段存表)
+	 * @param work_id 任务编号
+	 * @param step_id 步骤编号
+	 * @param proc process
+	 * @param all_steps 总步骤数
+	 */
+	public void addBuildExeLog(String work_id, int step_id, Process proc, int all_steps, String inst_id) {
+		// 获取环境任务根路径
+		String task_root_path = taskPubSrv.generateTaskRootPath(work_id);
+		// 生成日志文件名（日志名称规则：inst_id(实例ID)+_log.txt）
+		String file_name = inst_id + "_log.txt";
+		// 打印日志
+		logger.info("打印日志" + task_root_path + file_name);
+		proc.addInterceptor(new TextLogInterceptor(task_root_path + file_name, all_steps, "构建应用部署：" + work_id));
+		// 新增任务表日志信息
+		if (step_id == 1) {
+			envBuildSrv.updateExecuteLog(task_root_path + file_name, work_id);
+		}
+	}
+}

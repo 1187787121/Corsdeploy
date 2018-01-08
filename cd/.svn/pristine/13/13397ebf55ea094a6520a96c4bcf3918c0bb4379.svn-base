@@ -1,0 +1,64 @@
+package com.wk.cd.module.impl;
+
+import com.wk.cd.module.Module;
+import com.wk.cd.module.ProcessContext;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.info.ModuleInfo;
+
+/**
+ * Module¼Ì³Ð»ùÀà
+ *
+ * Created by ½ªÖ¾¸Õ on 2016/11/3.
+ */
+public abstract class ModuleBase implements Module {
+	
+	protected ModuleInfo info;
+	
+	protected int timeout;
+	
+	protected ProcessContext ctx;
+
+	@Override
+	public int getTimeout() {
+		return this.timeout;
+	}
+
+	@Override
+	public void setTimeout(int timeout) {
+		this.timeout = timeout;
+	}
+
+	public void setModuleInfo(ModuleInfo info) {
+		this.info = info;
+	}
+	
+	@Override
+	public ModuleInfo getModuleInfo() {
+		return this.info;
+	}
+
+	@Override
+	public boolean isStepEnabled() {
+		return this instanceof StepEnabled;
+	}
+
+	@Override
+	public boolean isLastStep(int step) {
+		throw new RuntimeException("stepinto disabled");
+	}
+
+	@Override
+	public Result stepinto(int step) {
+		throw new RuntimeException("stepinto disabled");
+	}
+
+	@Override
+	public ProcessContext getCtx() {
+		return this.ctx;
+	}
+
+	@Override
+	public void setCtx(ProcessContext ctx) {
+		this.ctx = ctx;
+	}
+}

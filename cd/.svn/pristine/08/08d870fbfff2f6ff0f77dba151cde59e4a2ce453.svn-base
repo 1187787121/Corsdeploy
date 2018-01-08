@@ -1,0 +1,148 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.sdo.ServiceData;
+import com.wk.util.JSON;
+import com.wk.util.JSONCaseType;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class StageSourceBean {
+	
+	/**
+	 * 执行数据源名
+	 */
+	private String exe_soc_name;
+	
+	public static final String EXE_SOC_NAMECN = "执行数据源名";
+	
+	/**
+	 * 版本数据源
+	 */
+	private String ver_soc_name;
+	
+	public static final String VER_SOC_NAMECN = "版本数据源";
+	
+	/**
+	 * 执行IP
+	 */
+	private String exe_ip;
+	
+	public static final String EXE_IPCN = "执行IP";
+	
+	/**
+	 * 版本机ip
+	 */
+	private String ver_ip;
+	
+	public static final String VER_IPCN = "版本机ip";
+	
+	private String[] exe_soc_list;
+	
+	private String[] ver_soc_list;
+
+	public String getExe_soc_name() {
+		return this.exe_soc_name;
+	}
+
+	public void setExe_soc_name(String exe_soc_name) {
+		this.exe_soc_name = exe_soc_name;
+	}
+
+	public String getVer_soc_name() {
+		return this.ver_soc_name;
+	}
+
+	public void setVer_soc_name(String ver_soc_name) {
+		this.ver_soc_name = ver_soc_name;
+	}
+
+	public String getExe_ip() {
+		return this.exe_ip;
+	}
+
+	public void setExe_ip(String exe_ip) {
+		this.exe_ip = exe_ip;
+	}
+
+	public String getVer_ip() {
+		return this.ver_ip;
+	}
+
+	public void setVer_ip(String ver_ip) {
+		this.ver_ip = ver_ip;
+	}
+
+	public String[] getExe_soc_list() {
+		return this.exe_soc_list;
+	}
+
+	public void setExe_soc_list(String[] exe_soc_list) {
+		this.exe_soc_list = exe_soc_list;
+	}
+
+	public String[] getVer_soc_list() {
+		return this.ver_soc_list;
+	}
+
+	public void setVer_soc_list(String[] ver_soc_list) {
+		this.ver_soc_list = ver_soc_list;
+	}
+
+	public static String toJSOCString(StageSourceBean bean) {
+		String json = JSON.fromBean(bean, JSONCaseType.DEFAULT);
+		return json;
+	}
+
+	public static StageSourceBean getInfoFromJson(String json) {
+		ServiceData sd = JSON.toServiceData(json);
+		String exe_soc_name = sd.getString("exe_soc_name");
+		String ver_soc_name = sd.getString("ver_soc_name");
+		String exe_ip = sd.getString("exe_ip");
+		String ver_ip = sd.getString("ver_ip");
+		String[] exe_soc_list = sd.getStringArray("exe_soc_list");
+		String[] ver_soc_list = sd.getStringArray("ver_soc_list");
+		StageSourceBean bean = new StageSourceBean();
+		bean.setExe_ip(exe_ip);
+		bean.setExe_soc_name(exe_soc_name);
+		bean.setVer_ip(ver_ip);
+		bean.setVer_soc_name(ver_soc_name);
+		bean.setExe_soc_list(exe_soc_list);
+		bean.setVer_soc_list(ver_soc_list);
+		return bean;
+	}
+
+	public static StageSourceBean[] getArray(String exe_soc, String ver_soc) {
+		String[] es = null;
+		if (exe_soc.contains(","))
+			es = exe_soc.split(",");
+		else {
+			es = new String[] { exe_soc };
+		}
+		String[] vs = null;
+		if (!Assert.isEmpty(ver_soc)) {
+			if (ver_soc.contains(","))
+				vs = ver_soc.split(",");
+			else {
+				vs = new String[] { ver_soc };
+			}
+		}
+		List<StageSourceBean> list = new ArrayList<StageSourceBean>();
+		for (int i = 0; i < es.length; i++) {
+			StageSourceBean bean = new StageSourceBean();
+			bean.setExe_soc_name(es[i]);
+			if (vs != null && vs.length == es.length) {
+				bean.setVer_soc_name(vs[i]);
+			}
+			list.add(bean);
+		}
+		return list.toArray(new StageSourceBean[list.size()]);
+	}
+
+	public String toString() {
+		return "StageSourceBean [exe_soc_name=" + this.exe_soc_name
+				+ ", ver_soc_name=" + this.ver_soc_name + ", exe_ip="
+				+ this.exe_ip + ", ver_ip=" + this.ver_ip + "]";
+	}
+}

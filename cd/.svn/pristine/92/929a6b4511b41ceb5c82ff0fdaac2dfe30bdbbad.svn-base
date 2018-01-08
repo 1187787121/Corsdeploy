@@ -1,0 +1,66 @@
+#########################################################################
+#用于压力测试时的配置文件  调用命令 java com.wk.test.pressure.LoadRun
+#组为同时测试的类分组,如果某组案例不需要测试,直接删除或注释掉即可
+#对于核心测试,子类的前缀可设置为:com.wk.core.test.
+#组名称可自己定义,例如worker0,worker1,xxx,a11等,printer和worker为保留字段
+#对于核心系统的测试,每组的参数有:tranclass,threads,sleep_time,iteration
+#		tranclass  为该组的交易测试类 必须设置该项
+#		threads    为该组案例同时运行的线程数
+#		sleep_time 为该组的交易每次结束线程等待时间
+#		iteration  为该组的交易循环运行的次数
+#	其余参数如果不设置,则取缺省值
+#########################################################################
+
+#输出显示刷新时间:毫秒
+printer.waittime=5000
+
+#缺省参数设置
+	#每个案例测试线程数
+	worker.threads=10
+	#每个案例每笔交易结束线程等待时间单位毫秒
+	worker.sleep_time=0
+	#每个案例测试循环次数
+	worker.iteration=10000
+	#缺省测试类,这里缺省设置为核心系统的测试类
+	worker.class=com.wk.test.pressure.CoreWorker
+	#子类的前缀
+	worker.preclspath=
+	#com.wk.core.test.
+	#预热执行次数
+	worker.pre_execute_times=1000
+
+#	worker0.tranclass = com.wk.test.performance.dao.TestInsert
+#	worker0.threads=20
+#	worker0.sleep_time=0
+#	worker0.iteration=100
+#	worker0.pre_execute_times=0
+
+	worker0.tranclass = com.wk.test.performance.dao.TestRandom
+	worker0.threads=1
+	worker0.sleep_time=0
+	worker0.iteration=100000
+	worker0.pre_execute_times=0
+
+#案例分组参数设置
+#组1	
+#	worker0.tranclass = saving.cd.pr.PressTranPersonDepositService
+#	worker0.threads=10
+#	worker0.sleep_time=0
+#	worker0.iteration=10000
+#	worker0.pre_execute_times=10
+
+#组1	
+#	worker0.class = SingleMapWorker
+#	worker0.threads=10
+#	worker0.sleep_time=0
+#	worker0.iteration=500000
+#
+
+#组1	
+#	worker0.class = IncludeMapWorker
+#	worker0.threads=10
+#	worker0.sleep_time=0
+#	worker0.iteration=500000
+#
+
+

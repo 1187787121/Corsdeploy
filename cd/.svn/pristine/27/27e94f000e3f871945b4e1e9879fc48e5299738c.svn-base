@@ -1,0 +1,63 @@
+package com.wk.cd.module.impl;
+
+import com.wk.cd.enu.CMD_STATUS;
+import com.wk.cd.module.ProcessContext;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.info.ModuleSourceInfo;
+import com.wk.cd.remote.sh.bean.ShExecRsBean;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.cd.module.impl.FTPSession;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+/**
+ * FTP模块实现
+ */
+public class FTP extends MultiStepModule {
+
+	private static final Log logger = LogFactory.getLog();
+
+	private final ModuleSourceInfo dt_info;
+
+	private ProcessContext ctx;
+	
+	private FTPSession sess;
+
+	public FTP(ModuleSourceInfo dt_info, String[] cmds) {
+		super(cmds);
+		this.dt_info = dt_info;
+	}
+
+	public FTPSession getSession() {
+		return sess;
+	}
+
+	public Result stepinto(int step) {
+		long start_time = System.currentTimeMillis();
+		DtSourceInfo dsi = dt_info.getDt_source_info();
+		if (sess == null) {
+			try {
+				sess = new FTPSession(dt_info);
+				sess.connect();
+			} catch (Throwable t) {
+				logger.error("连接数据源[{}]异常", dsi.getSoc_name(), t);
+				return new Result(t, start_time);
+			}
+
+			if (ctx != null) {
+				ctx.bindSession(this.sess);
+			}
+		}
+
+		String cmd = this.cmds[step];
+		ShExecRsBean reply = sess.sendCmd(cmd);
+		CMD_STATUS status = (reply.getIs_succ()) ? CMD_STATUS.SUCCEED
+				: CMD_STATUS.ERROR;
+		String msg = (reply.getIs_succ()) ? reply.getRs_msg() : reply
+				.getErr_msg();
+		logger.debug("命令执行结果信息：{}", msg);
+		logger.debug("命令输出：{}\n{}", Boolean.valueOf(reply.getIs_succ()), msg);
+
+		return new Result(CMD_STATUS.SUCCEED, msg, start_time);
+	}
+}

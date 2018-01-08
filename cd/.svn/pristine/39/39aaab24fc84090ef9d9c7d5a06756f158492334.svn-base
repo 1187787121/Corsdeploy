@@ -1,0 +1,75 @@
+#配置是否为测试模式，只调用subAction，不调用ActionBasic
+#  只能在单元测试阶段使用
+cms.test.mode=false
+
+#配置是否记录Joblog
+cms.write.joglog=true
+#配置java运行脚本
+cms.java.run.script=jt.bat
+
+#配置检查transient定义
+cms.transient.fld.check=user_passwd,remote_passwd
+
+#配置生成流水号段间隔
+cms.workseq.step.num=5
+#配置系统部署模式(single,mutli,mutli_ip,mutli_port)
+cms.sys.depl.mode=mutli_port
+#配置获取流水IP地址方式,第一位代表“第几段IP”，
+#                      第二位代表“从第几位开始取”，
+#                      第三位代表“取几位”
+#例如：192.168.222.123,如果取第四段IP"123"的最后一位"3"，
+#                     配置如下：431
+#
+#获取port流水号配置：第一位：必须为0，表示和IP无关
+#                    第二位：表示从第几位开始取, 如果位数超过端口长度，则表示倒数取
+#                    第三位：表示取几位
+cms.sys.workseq.ip.role=041
+#**********************异步系统配置***************************
+#cms.async.on=true|false     配置是否启动异步系统
+#配置需要启动异步系统的系统标识符,
+#  应用中使用需要根据此标识符获取服务，
+#  此处配置了几个标识，系统将启动多少个异步处理线程
+#cms.async.sysid=clsname[log],clsname[us]...
+#配置异步系统监控间隔单位(ms)
+#cms.async.monitor.interval=5000
+cms.async.monitor.interval=5000
+cms.async.on=false
+cms.async.sysid.daocls=com.wk.cd.system.lg.dao.LgLogMfDaoService[log]
+#重置密码后的默认密码
+cms.reset.pwd=123456
+#新增用户时默认的密码使用天数（大于该天数报错），在该日期段内必须做修改密码操作
+cms.max.pwdexp.date=5
+#修改密码时默认的密码使用天数（大于该天数则认为是密码过期）
+cms.default.chg.pwdexp.date=15
+
+#配置日志下载生成目录(WebAPP下目录)
+cms.lglogmf.download.home=/home/sample/corsdeploy/cdWeb/download/lglogmf
+#消息上传路径
+cms.msg.fileupload.path=upload/ms/
+#配置前端根路径
+web.root.path=/home/sample/corsdeploy/cdWeb/
+#配置前端环境任务相对路径
+ce.task.path=task
+#配置可以编辑的文件类型
+cv.edit.file=xml,ini,properties,txt,list,plist,menu,hlp,sh
+
+#目标机文件上传路径  
+remote.upload.path = corstemp/
+
+#配置项目准备时是否启用内嵌的SVN客户端
+cv.svn.use.svnkit.client=true
+
+#配置远程脚本文件的执行方式 true使用错误流的方式执行，false及其他采用set -e的方式执行
+cv.remote.execute_error_stream=true
+
+#**********************本机参数配置***************************
+#配置本机IP
+local.host=10.1.1.220
+#配置本机协议类型
+local.protocol=ssh
+#配置本机端口
+local.port=22
+#配置本机用户名
+local.user=sample
+#配置本机密码
+local.password=-+-+127c6e6c6cc298eff3bec332a41aba27

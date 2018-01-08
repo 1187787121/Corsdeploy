@@ -1,0 +1,24 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootInputBean;
+import com.wk.cd.module.info.ModuleInfo;
+
+public class UpdateModuleInputBean extends ActionRootInputBean {
+	
+	private static final long serialVersionUID = -1089999486439033207L;
+	
+	/**
+	 * 组件信息
+	 */
+	private ModuleInfo module;
+	
+	public static final String MODULECN = "组件信息";
+
+	public ModuleInfo getModule() {
+		return this.module;
+	}
+
+	public void setModule(ModuleInfo module) {
+		this.module = module;
+	}
+}

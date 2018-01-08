@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="Alpha_文件恢复" id="COMP201703030293">
+<desc>文件恢复</desc>
+<script type="SHELL"><![CDATA[
+tar xvf ${backup_dir}/${tag}.tar
+]]></script>
+<params>
+<param cnname="" defult="" desc="" hand="false" name="backup_dir"/>
+<param cnname="" defult="" desc="" hand="false" name="tag"/>
+</params>
+</component>

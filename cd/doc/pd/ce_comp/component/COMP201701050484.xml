@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="下载文件_SVN" id="COMP201701050484">
+<desc>使用SVN协议将远端文件检出至目标机器</desc>
+<script type="SVN"><![CDATA[
+co ${svn_relative_path} ${local_path}
+svn status
+]]></script>
+<params>
+<param cnname="svn相对目录" defult="/CorsManager/" desc="svn相对目录" hand="false" name="svn_relative_path"/>
+<param cnname="本地路径" defult="${upload_dir}/${tag}" desc="本地检出路径" hand="false" name="local_path"/>
+</params>
+</component>

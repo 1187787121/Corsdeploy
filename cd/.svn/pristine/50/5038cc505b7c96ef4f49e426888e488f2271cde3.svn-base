@@ -1,0 +1,114 @@
+/**
+ * Title: TestAddSystemAction.java
+ * File Description: 
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: chiss
+ * @version: 1.0
+ * @date: 2016年11月1日
+ */
+package com.wk.cd.test.build.en.action;
+
+import com.wk.Controller;
+import com.wk.beans.Injector;
+import com.wk.cd.build.en.action.PageEnvironmentAction;
+import com.wk.cd.build.en.bean.CeEnvironmentBean;
+import com.wk.cd.build.en.bean.PageEnvironmentInputBean;
+import com.wk.cd.build.en.bean.PageEnvironmentOutputBean;
+import com.wk.cd.enu.ELE_TYPE;
+import com.wk.cd.common.cm.service.CommonService;
+import com.wk.cd.enu.ORDER_TYPE;
+import com.wk.cd.enu.SUBMIT_TYPE;
+import com.wk.db.DBSource;
+import com.wk.db.Session;
+import com.wk.test.TestCase;
+import com.wk.util.JaDate;
+import com.wk.util.JaDateTime;
+import com.wk.util.JaTime;
+
+/**
+ * Class Description: 
+ * @author chiss
+ */
+public class TestPageEnvironmentAction extends TestCase{
+	private DBSource db = DBSource.get();
+
+	private Session session;
+
+	private Injector inject = Controller.getInstance().getInjector();
+
+	private PageEnvironmentAction sc = inject.getBean(PageEnvironmentAction.class);
+	
+	private CommonService cmsvc = inject.getBean(CommonService.class);
+	@Override
+	protected void setUp()
+		throws Exception {
+		if (session == null) {
+			session = db.openSession();
+			session.beginTransaction();
+		}
+	}
+
+	@Override
+	protected void setUpOnce()
+		throws Exception {
+		session = db.openSession();
+		session.beginTransaction();
+	}
+
+	@Override
+	protected void tearDown()
+		throws Exception {
+		session.commitAndResume();
+	}
+
+	@Override
+	protected void tearDownOnce()
+		throws Exception {
+		session.commit();
+	}
+	
+	public void test() {
+		PageEnvironmentInputBean input = new PageEnvironmentInputBean();
+		commonInput(input);
+		input.setSys_name("Xul测试系统");
+		//input.setSys_name("");
+		input.setOrder_col_name("create_bk_date");
+		input.setOrder_type(ORDER_TYPE.DESC);
+		input.setStart_recd(0);
+		input.setLimit_recd(10);
+		PageEnvironmentOutputBean output = sc.run(input);
+		System.out.println(output.getAll_recd());
+//		System.out.print(output.getEnvir_list());
+		for (CeEnvironmentBean bean : output.getEnvir_list()) {
+			System.out.println(bean.getEnv_name());
+			System.out.println(bean.getSys_cn_name());
+			
+		}
+		sc.run(input);
+	}
+	
+	/**
+	 * 公共赋值
+	 * @param input
+	 */
+	private void commonInput(PageEnvironmentInputBean input) {
+		// 公共赋值
+		input.setOrg_channel_code("01");
+		input.setOrg_work_code("");
+		input.setOrg_srv_name("us_AddUserAction");
+		input.setOrg_rs_code("00");
+		input.setOrg_user_id("admin");
+		input.setOrg_term_no("10.1.1.195");
+		input.setOrg_dept_id("110001");
+		input.setPbl_code("00001");
+		input.setPend_srv_name("add_work_action");
+		input.setPend_rs_code("html");
+		input.setPendwk_bk_expl("测试新增系统信息");
+		input.setSubmit_type(SUBMIT_TYPE.APPLY);
+		JaDateTime curdt = cmsvc.getCurrentDateTime();
+		input.setDtbs_bk_date(JaDate.valueOf(curdt.dateValue()));
+		input.setDtbs_bk_time(JaTime.valueOf(curdt.timeValue()));
+		
+	}
+}

@@ -1,0 +1,320 @@
+/**
+ * Title: ViewBuildTaskInputBean.java
+ * File Description: 查看配置文件改动列表输入接口
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: chiss
+ * @version: 1.0
+ * @date: 2016年12月9日
+ */
+package com.wk.cd.build.ea.bean;
+
+import java.util.List;
+
+import com.wk.cd.build.ea.info.UuParamInfo;
+import com.wk.cd.enu.CFG_TYPE;
+import com.wk.cd.enu.SCRIPT_TYPE;
+import com.wk.cd.bean.ActionRootInputBean;
+
+/**
+ * Class Description: 查看配置文件改动列表输入接口
+ * @author chiss
+ */
+public class ViewBuildTaskInputBean extends ActionRootInputBean{
+
+	private static final long serialVersionUID = -7709964226729267672L;
+	
+	/**
+	 * 环境名
+	 */
+	private String env_name;
+	
+	public static final String ENV_NAMECN = "环境名";
+	
+	/**
+	 * 任务编号
+	 */
+	private String work_id;
+	
+	public static final String WORK_IDCN = "任务编号";
+	
+	/**
+	 * 服务器地址
+	 */
+	private String server_ip;
+	
+	public static final String SERVER_IPCN = "服务器地址";
+	
+	/**
+	 * 配置类型
+	 */
+	private CFG_TYPE cfg_type;
+	
+	public static final String CFG_TYPECN = "配置类型";
+	
+	/**
+	 * 数据源名称
+	 */
+	private String soc_name;
+	
+	public static final String SOC_NAMECN = "数据源名称";
+	
+	/**
+	 * 文件相对路径
+	 */
+	private String relative_path;
+	
+	public static final String RELATIVE_PATHCN = "文件相对路径";
+	
+	/**
+	 * 文件可编辑标志
+	 */
+	private boolean mod_flag;
+	
+	public static final String MOD_FLAGCN = "文件可编辑标志";
+	
+	/**
+	 * 构建步骤数
+	 */
+	private int build_step_id;
+	
+	public static final String BUILD_STEP_IDCN = "构建步骤数";
+	
+	/**
+	 *脚本类型
+	 */
+	private SCRIPT_TYPE script_type;
+
+	public static final String SCRIPT_TYPECN = "脚本类型";
+	
+	/**
+	 * 脚本类型列表
+	 */
+	private int[] script_type_list;
+	
+	public static final String SCRIPT_TYPE_LISTCN = "脚本类型列表";
+	
+	/**
+	 * 服务器名称
+	 */
+	private String ce_server_name;
+	
+	public static final String CE_SERVER_NAMECN = "服务器名称";
+	
+	/**
+	 * 版本根路径
+	 */
+	private String ver_root_path;
+	
+	public static final String VER_ROOT_PATHCN = "版本根路径";
+	
+	/**
+	 * 模板参数列表
+	 */
+	private List<UuParamInfo> param_list;
+	
+	public static final String PARAM_LISTCN = "模板参数列表";
+	
+	/**
+	 * @return env_name 环境名
+	 */
+	public String getEnv_name() {
+		return env_name;
+	}
+
+	/**
+	 * @param env_name 环境名
+	 */
+	public void setEnv_name(String env_name) {
+		this.env_name = env_name;
+	}
+
+	/**
+	 *脚本序号
+	 */
+	private long script_bk_seq;
+
+	public static final String SCRIPT_BK_SEQCN = "脚本序号";
+
+	/**
+	 * @return work_id 任务编号
+	 */
+	public String getWork_id() {
+		return work_id;
+	}
+
+	/**
+	 * @param work_id 任务编号
+	 */
+	public void setWork_id(String work_id) {
+		this.work_id = work_id;
+	}
+
+	/**
+	 * @return server_ip 服务器地址
+	 */
+	public String getServer_ip() {
+		return server_ip;
+	}
+
+	/**
+	 * @param server_ip 服务器地址
+	 */
+	public void setServer_ip(String server_ip) {
+		this.server_ip = server_ip;
+	}
+
+	/**
+	 * @return cfg_type 配置类型
+	 */
+	public CFG_TYPE getCfg_type() {
+		return cfg_type;
+	}
+
+	/**
+	 * @param cfg_type 配置类型
+	 */
+	public void setCfg_type(CFG_TYPE cfg_type) {
+		this.cfg_type = cfg_type;
+	}
+	
+	/**
+	 * @return soc_name 数据源名
+	 */
+	public String getSoc_name() {
+		return soc_name;
+	}
+
+	/**
+	 * @param soc_name 数据源名
+	 */
+	public void setSoc_name(String soc_name) {
+		this.soc_name = soc_name;
+	}
+
+	/**
+	 * @return relative_path 文件相对路径
+	 */
+	public String getRelative_path() {
+		return relative_path;
+	}
+
+	/**
+	 * @param relative_path 文件相对路径
+	 */
+	public void setRelative_path(String relative_path) {
+		this.relative_path = relative_path;
+	}
+
+	/**
+	 * @return mod_flag 文件可编辑标志
+	 */
+	public boolean isMod_flag() {
+		return mod_flag;
+	}
+
+	/**
+	 * @param mod_flag 文件可编辑标志
+	 */
+	public void setMod_flag(boolean mod_flag) {
+		this.mod_flag = mod_flag;
+	}
+
+	/**
+	 * @return build_step_id 构建步骤数
+	 */
+	public int getBuild_step_id() {
+		return build_step_id;
+	}
+
+	/**
+	 * @param build_step_id 构建步骤数
+	 */
+	public void setBuild_step_id(int build_step_id) {
+		this.build_step_id = build_step_id;
+	}
+	
+	/**
+	 *@return script_type 脚本类型
+	 */
+	public SCRIPT_TYPE getScript_type() {
+		return this.script_type;
+	}
+
+	/**
+	 *@param script_type 脚本类型
+	 */
+	public void setScript_type(SCRIPT_TYPE script_type) {
+		this.script_type = script_type;
+	}
+
+	/**
+	 *@return script_bk_seq 脚本序号
+	 */
+	public long getScript_bk_seq() {
+		return this.script_bk_seq;
+	}
+
+	/**
+	 *@param script_bk_seq 脚本序号
+	 */
+	public void setScript_bk_seq(long script_bk_seq) {
+		this.script_bk_seq = script_bk_seq;
+	}
+
+	/**
+	 * @return script_type_list
+	 */
+	public int[] getScript_type_list() {
+		return script_type_list;
+	}
+
+	/**
+	 * @param script_type_list
+	 */
+	public void setScript_type_list(int[] script_type_list) {
+		this.script_type_list = script_type_list;
+	}
+
+	/**
+	 * @return ce_server_name 服务器名称
+	 */
+	public String getCe_server_name() {
+		return ce_server_name;
+	}
+
+	/**
+	 * @param ce_server_name 服务器名称
+	 */
+	public void setCe_server_name(String ce_server_name) {
+		this.ce_server_name = ce_server_name;
+	}
+
+	/**
+	 * @return ver_root_path 版本根路径
+	 */
+	public String getVer_root_path() {
+		return ver_root_path;
+	}
+
+	/**
+	 * @param ver_root_path 版本根路径
+	 */
+	public void setVer_root_path(String ver_root_path) {
+		this.ver_root_path = ver_root_path;
+	}
+
+	/**
+	 * @return param_list 模板参数列表
+	 */
+	public List<UuParamInfo> getParam_list() {
+		return param_list;
+	}
+
+	/**
+	 * @param param_list 模板参数列表
+	 */
+	public void setParam_list(List<UuParamInfo> param_list) {
+		this.param_list = param_list;
+	}
+}

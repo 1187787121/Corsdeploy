@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="gb2312"?>
+
+<!-- Bean配置文件 -->
+<!ELEMENT bean-config (import|include|scope|bind|bean)*>
+
+<!-- 定义java包名前缀 -->
+<!-- 由package定义的前缀可以在以后的class中省略，可以同时定义多个前缀，用','分开 -->
+<!ELEMENT import EMPTY>
+<!ATTLIST import
+	package CDATA #REQUIRED
+>
+
+<!--
+	包含另一个文件，这个文件必须和当前的文件有相同的格式
+	file: 包含文件中的文件名
+	prefix: 表示在包含文件中的服务名称必须加上这个前缀
+-->
+<!ELEMENT include EMPTY>
+<!ATTLIST include
+	file CDATA #REQUIRED
+	prefix CDATA #IMPLIED
+>
+
+<!--
+	自定义Inject的Scope
+	class: Scope的Annotation类
+	to: Scope的实现类或者
+	tobean: Scope的实现类，到bean的引用
+-->
+<!ELEMENT scope (bean?)>
+<!ATTLIST scope
+	class CDATA #REQUIRED
+	to CDATA #IMPLIED
+	tobean IDREF #IMPLIED
+>
+
+<!--
+	自定义Inject的bind
+	class: bind的源类
+	type: bind的类型，相当于Named注释
+	to: bind的目标类或者
+	tobean: bind的目标bean，到bean的引用 
+-->
+<!ELEMENT bind (bean?)>
+<!ATTLIST bind
+	class CDATA #REQUIRED
+	type CDATA #IMPLIED
+	to CDATA #IMPLIED
+	tobean IDREF #IMPLIED
+>
+
+<!--
+	定义bean
+	bean的创建过程是这样的，
+	首先检查是否有expr，如果存在，使用expr创建bean，
+	否则检查class属性是否存在，不存在报错，
+	检查factory-method是否存在，如果存在，以这个方法为主，arg为参数创建bean，
+	否则使用和arg匹配的构造函数创建bean,
+	然后设置property定义的属性，
+	最后，如果存在init-method，调用该方法
+
+	name: bean的唯一名称
+	class: bean的类
+	factory-method: 创建bean的静态工厂方法，可以包含类前缀
+	lazy-init: 是否延迟创建
+	init-method: bean的初始化方法
+-->
+<!ELEMENT bean (expr? | property* | arg*)>
+<!ATTLIST bean
+	name ID #IMPLIED
+	class CDATA #IMPLIED
+	factory-method CDATA #IMPLIED
+	lazy-init CDATA #IMPLIED
+	init-method CDATA #IMPLIED
+>
+
+<!--
+	定义一个表达式，返回一个值，可以有return，也可以没有return的简单表达式
+-->
+<!ELEMENT expr (#PCDATA)>
+
+<!--
+	定义Bean的属性
+	顺序：value, beanref, bean?, expr?
+	name: Bean的属性名称，对应Bean的Field
+	value: Bean的属性的值，可以使简单类型数据、枚举类型、和静态常量
+	beanref: 如果没有value属性，那么beanref可以定义为另一个bean的引用
+-->
+<!ELEMENT property (expr? | bean?)>
+<!ATTLIST property
+	name CDATA #REQUIRED
+	value CDATA #IMPLIED
+	beanref IDREF #IMPLIED
+>
+
+<!--
+	定义参加bean的参数
+	顺序：value, beanref, bean?, expr?
+	type: 参数的类型，用于校验
+	value: 参数的值，可以使简单类型数据、枚举类型、和静态常量
+	beanref: 如果没有value属性，那么beanref可以定义为另一个bean的引用
+-->
+<!ELEMENT arg (expr? | bean?)>
+<!ATTLIST arg
+	type CDATA #REQUIRED
+	value CDATA #IMPLIED
+	beanref IDREF #IMPLIED
+>

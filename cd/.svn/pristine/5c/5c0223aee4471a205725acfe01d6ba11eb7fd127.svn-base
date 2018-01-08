@@ -1,0 +1,13 @@
+package com.wk.cd.module;
+
+public abstract interface ModuleSession {
+	public abstract String getKey();
+
+	public abstract boolean isConnected();
+
+	public abstract void setRealDisconnect(boolean paramBoolean);
+
+	public abstract void connect();
+
+	public abstract void disconnect();
+}

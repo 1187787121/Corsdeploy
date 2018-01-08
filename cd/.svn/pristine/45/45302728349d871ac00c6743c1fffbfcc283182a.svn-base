@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="build_解压应用包" id="COMP201710250047">
+<desc>将从svn上面检出的应用包解压到用户根目录</desc>
+<script type="SHELL"><![CDATA[
+tar xf ${dir}/${relative_path}/*.tar -C ./${project_name}
+]]></script>
+<params>
+<param cnname="上传应用目录" defult="" desc="上传应用目录" hand="false" name="dir"/>
+<param cnname="应用包本地路径" defult="" desc="应用包本地路径" hand="false" name="relative_path"/>
+<param cnname="项目名称" defult="" desc="项目名称" hand="false" name="project_name"/>
+</params>
+</component>

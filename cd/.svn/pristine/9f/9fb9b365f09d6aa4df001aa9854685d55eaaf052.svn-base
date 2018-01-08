@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="文件替换" id="COMP201701050494">
+<desc>将投产包解压至用户根路径</desc>
+<script type="SHELL"><![CDATA[
+ls ${dir}/*.tar|xargs -n1 tar xf
+]]></script>
+<params>
+<param cnname="文件目录" defult="" desc="文件目录" hand="false" name="dir"/>
+</params>
+</component>

@@ -1,0 +1,333 @@
+package com.wk.cd.remote.agent.service;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.util.Properties;
+
+import com.jcraft.jsch.Channel;
+import com.jcraft.jsch.ChannelSftp;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.Session;
+import com.jcraft.jsch.SftpException;
+import com.jcraft.jsch.SftpProgressMonitor;
+import com.wk.cd.remote.agent.bean.DeployAgentBean;
+import com.wk.cl.common.util.Assert;
+import com.wk.cl.common.util.DESUtil;
+import com.wk.cl.common.util.StringUtil;
+import com.wk.cl.module.Result;
+import com.wk.cl.module.impl.DefaultProcess;
+import com.wk.cl.module.impl.Shell;
+import com.wk.cl.module.info.ModuleSourceInfo;
+import com.wk.cl.system.dt.info.DtSourceInfo;
+
+/**
+ * ssh部署Agent服务 Class Description:
+ * 
+ * @author 12049
+ */
+public class JschDeployAgentService {
+
+	private static Session session = null;
+	private static ChannelSftp channelSftp = null;
+	private static Channel channel = null;
+	private static JSch jsch = new JSch();
+
+	private InputStream is;
+	private OutputStream os;
+
+	private String unpack_tar_cmd; // 解压agent.tar包命令
+
+	private String startup_agent_cmd; // 启动Agent的命令
+
+	private String cd_to_remote_cmd;
+
+	private String cd_to_agent_cmd;
+	
+	private String mkdir_agent;       //创建Agent文件夹
+
+	private String ip;
+
+	private int port;
+
+	private String user;
+
+	private String password;
+
+	private boolean success; // 部署是否成功
+	private String rs; // 部署失败信息
+	
+	private DtSourceInfo info;
+	private String remote_path;
+
+	public DeployAgentBean deployAgent(DtSourceInfo dtSourceInfo,
+			String local_file, String remote_path, String remote_file_name) {
+		this.info = dtSourceInfo;
+		this.remote_path = remote_path;
+		unpack_tar_cmd = "cd " + remote_path + ";mkdir Agent;cp "+remote_file_name+" Agent;cd Agent;tar -xvf "
+					+ remote_file_name + ";rm -r "+ remote_file_name+"\n";
+		startup_agent_cmd = "cd Agent/bin;chmod +x startup.sh agent.sh lcp;./startup.sh\n";
+
+		ip = dtSourceInfo.getSoc_ip();
+		port = dtSourceInfo.getSoc_port();
+		user = dtSourceInfo.getRemote_uname();
+
+		String key;
+		if (Assert.isEmpty(dtSourceInfo.getKey_remote_passwd())) {
+			key = DESUtil.getDef16Key();
+		} else {
+			key = dtSourceInfo.getKey_remote_passwd();
+		}
+		String en_key = DESUtil.docryptAllowReverse(false, null, key);
+
+		// 对输入密码、密钥进行加密
+		password = DESUtil.docryptAllowReverse(false, en_key,
+				dtSourceInfo.getRemote_passwd());
+
+		uploadFile(local_file, remote_path, remote_file_name);
+
+		DeployAgentBean bean = new DeployAgentBean();
+
+		if (success) {
+			bean.setSuccess(success);
+		} else {
+			bean.setSuccess(success);
+			bean.setResult(rs);
+		}
+		
+		return bean;
+	}
+
+	/**
+	 * 
+	 * Description:
+	 * 
+	 * @param local_file
+	 *            本地全路径
+	 * @param remote_path
+	 *            远端目标路径
+	 * @param remote_file_name
+	 *            远端目标文件名
+	 */
+	public void uploadFile(String local_file, String remote_path,
+			String remote_file_name) {
+		InputStream input = null;
+		try {
+			session = createSession(ip, port, user, password);
+			channelSftp = (ChannelSftp) session.openChannel("sftp");
+			channelSftp.connect();
+
+			input = new FileInputStream(new File(local_file));
+
+			try {
+				channelSftp.cd(remote_path);
+			} catch (SftpException sException) {
+				if (channelSftp.SSH_FX_NO_SUCH_FILE == sException.id) {
+					channelSftp.mkdir(remote_path);
+					channelSftp.cd(remote_path);
+				}
+			}
+			// 改变当前路径到指定路径
+			channelSftp.put(input, remote_file_name, new MyProgressMonitor(),
+					ChannelSftp.OVERWRITE);
+			success = true;
+		} catch (FileNotFoundException e) {
+			rs = e.getMessage();
+			success = false;
+			e.printStackTrace();
+		} catch (JSchException e) {
+			rs = e.getMessage();
+			success = false;
+			e.printStackTrace();
+		} catch (SftpException e) {
+			rs = e.getMessage();
+			success = false;
+			e.printStackTrace();
+		} finally {
+			if (input != null) {
+				try {
+					input.close();
+				} catch (IOException e) {
+					rs = e.getMessage();
+					success = false;
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * 解压上传的tar包，并且执行部署 Description:
+	 */
+	public void UnpackAgentTar() {
+		try {
+			channel = session.openChannel("shell");
+			channel.connect();
+			is = channel.getInputStream();
+			os = channel.getOutputStream();
+
+			new StreamReader(is).start();
+
+
+			sendCommand(unpack_tar_cmd);
+			sendCommand(startup_agent_cmd);
+		} catch (JSchException e) {
+			rs = e.getMessage();
+			success = false;
+			e.printStackTrace();
+		} catch (IOException e) {
+			rs = e.getMessage();
+			success = false;
+			e.printStackTrace();
+		}
+
+	}
+
+	/**
+	 * 执行部署命令
+	 * Description: 
+	 * @param info
+	 * @param remote_path
+	 */
+	private void execDeployShell(DtSourceInfo info, String remote_path) {
+		 	DefaultProcess process = new DefaultProcess(null);
+	        ModuleSourceInfo msi = new ModuleSourceInfo(info.getProtocol_type(),info);
+	        
+	        String cmd = remote_path.endsWith("/") ? "cd "+ remote_path +"Agent/bin;./agent.sh\n" : "cd "+ remote_path +"/Agent/bin;./agent.sh\n";
+        	process.addModule(new Shell(msi, unpack_tar_cmd));
+	        process.addModule(new Shell(msi, startup_agent_cmd));
+	        process.addModule(new Shell(msi, cmd));
+	        process.run(0);
+	        process.run(1);
+	        Result result = process.run(2);
+	        String msg = result.getMsg();
+	        
+	        boolean flag = CheckAgentExistService.checkAgentExist(ip, port);
+		    
+		    if(flag){
+		    	success = true;
+		    }else{
+		    	 success = false;
+			     rs = msg;
+		    }
+		    
+//	        if(msg.contains("Instance start shell :")){
+//	        	success = true;
+//	        }else{
+//	        	success = false;
+//	        	rs = msg;
+//	        }
+	}
+
+	public void disConnect() {
+		try {
+			is.close();
+			os.close();
+			channel.disconnect();
+			session.disconnect();
+		} catch (IOException e) {
+			rs = e.getMessage();
+			success = false;
+			e.printStackTrace();
+		}
+	}
+
+	public void sendCommand(String cmd) {
+		try {
+			os.write(cmd.getBytes());
+			os.flush();
+			success = true;
+		} catch (Exception e) {
+			rs = e.getMessage();
+			success = false;
+			e.printStackTrace();
+		}
+	}
+
+	class StreamReader extends Thread {
+		InputStream is;
+		InputStreamReader isr;
+		BufferedReader br;
+
+		public StreamReader(InputStream is) {
+			this.is = is;
+		}
+
+		@Override
+		public void run() {
+			try {
+				isr = new InputStreamReader(is);
+				br = new BufferedReader(isr);
+
+				char ch = (char) br.read();
+				while (ch != -1) {
+					ch = (char) br.read();
+				}
+			} catch (IOException ioe) {
+				rs = ioe.getMessage();
+				success = false;
+				ioe.printStackTrace();
+			}
+
+		}
+	}
+
+	private String getRetureString(InputStream in) {
+		return StringUtil.stream2str(in);
+	}
+
+	/**
+	 * 创建会话 Description:
+	 * 
+	 * @param dstIp
+	 * @param dstPort
+	 * @param userName
+	 * @param password
+	 * @return
+	 * @throws JSchException
+	 */
+	private Session createSession(String dstIp, int dstPort, String userName,
+			String password) throws JSchException {
+		session = jsch.getSession(userName, dstIp, dstPort);
+		session.setPassword(password);
+		Properties sshConfig = new Properties();
+		sshConfig.put("StrictHostKeyChecking", "no");
+		session.setConfig(sshConfig);
+		session.connect(3000);
+		return session;
+	}
+
+	/**
+	 * 上传文件进度监控 Class Description:
+	 * 
+	 * @author 12049
+	 */
+	class MyProgressMonitor implements SftpProgressMonitor {
+		private long transfered;
+
+		@Override
+		public boolean count(long count) {
+			transfered = transfered + count;
+//			System.out.println("Currently transferred total size: "
+//					+ transfered + " bytes");
+			return true;
+		}
+
+		@Override
+		public void end() {
+//			System.out.println("Transferring done.");
+			execDeployShell(info, remote_path);
+		}
+
+		@Override
+		public void init(int op, String src, String dest, long max) {
+//			System.out.println("Transferring begin.");
+		}
+	}
+}

@@ -1,0 +1,85 @@
+package com.wk.cd.module.action;
+
+import com.wk.cd.common.cm.service.GenNoService;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.PUBLISH_STATE;
+import com.wk.cd.module.MODULE_PURPOSE;
+import com.wk.cd.module.bean.AddGroupInputBean;
+import com.wk.cd.module.bean.AddGroupOutputBean;
+import com.wk.cd.module.dao.MoModuleDaoService;
+import com.wk.cd.module.info.GroupModuleInfo;
+import com.wk.cd.module.info.MoModuleInfo;
+import com.wk.cd.module.service.ModuleCommonService;
+import com.wk.cd.module.xml.XmlPathUtil;
+import com.wk.cd.module.xml.XmlWriter;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import java.util.ArrayList;
+import java.util.List;
+
+public class AddGroupAction extends ActionBasic<AddGroupInputBean, AddGroupOutputBean> {
+
+	@Inject
+	private MoModuleDaoService tpComponentDaoService;
+
+	@Inject
+	private ModuleCommonService componentPublicService;
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+
+	@Inject
+	private GenNoService genNoSrv;
+	private static final Log logger = LogFactory.getLog();
+
+	protected AddGroupOutputBean doAction(AddGroupInputBean input) {
+		logger.info("-------------------AddGroupAction Begin------------------");
+		AddGroupOutputBean output = new AddGroupOutputBean();
+		GroupModuleInfo group = input.getModule_group();
+
+		Assert.assertNotEmpty(group, "组件组信息");
+		Assert.assertNotEmpty(group.getCn_name(), "组件组中文名");
+		Assert.assertNotEmpty(group.getBk_desc(), "组件组描述");
+		Assert.assertNotEmpty(group.getModules(), "组件组描述");
+
+		if (!Assert.isEmpty(group.getId())) {
+			if (this.componentPublicService.assertCompIdIsExist(group.getId())) {
+				output.setGroup_id(group.getId());
+				output.setOverride_flag(true);
+				return output;
+			}
+		} else
+			group.setId(this.genNoSrv.getCompCode(input.getDtbs_bk_date()));
+
+		logger.debug("写入组件文件：", XmlPathUtil.getPathByCompId(group.getId(), MODULE_TYPE.GROUP));
+		XmlWriter.writerGroup(group, group.getId());
+
+		MoModuleInfo comp_info = new MoModuleInfo();
+		comp_info.setModule_id(group.getId());
+		comp_info.setModule_type(MODULE_TYPE.GROUP);
+		comp_info.setModule_cn_name(group.getCn_name());
+		comp_info.setModule_bk_desc(group.getBk_desc());
+		comp_info.setModule_purpose(MODULE_PURPOSE.PROD);
+		comp_info.setPublish_state(PUBLISH_STATE.NO);
+		comp_info.setCrt_bk_date(input.getDtbs_bk_date());
+		comp_info.setCrt_bk_time(input.getDtbs_bk_time());
+		comp_info.setCrt_user_id(input.getOrg_user_id());
+		logger.debug("保存组件信息表：COMPID=[" + group.getId() + "]");
+		this.tpComponentDaoService.insertInfo(comp_info);
+
+		this.componentPublicService.saveCompQuoteMsg(group.getModules(), group.getId(), MODULE_TYPE.GROUP);
+
+		logger.info("-------------------AddGroupAction End------------------");
+		return output;
+	}
+
+	protected String getLogTxt(AddGroupInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+
+		return this.lgsvc.getLogTxt("新增组件组", log_lst);
+	}
+}

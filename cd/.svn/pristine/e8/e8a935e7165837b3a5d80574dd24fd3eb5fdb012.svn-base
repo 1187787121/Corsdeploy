@@ -1,0 +1,127 @@
+/**
+ * Title: TpComponentDao.java
+ * File Description: 组件信息表
+ *
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author AutoGen
+ * @version 1.0
+ * @date 2016-10-18
+ */
+package com.wk.cd.module1.dao;
+
+import java.util.List;
+
+import com.wk.cd.module1.enu.COMPONENT_PURPOSE;
+import com.wk.cd.module1.enu.MODULE_TYPE;
+import com.wk.cd.module1.info.MoComponentInfo;
+import com.wk.cd.enu.PUBLISH_STATE;
+import com.wk.db.DBIterator;
+import com.wk.db.EntityDao;
+import com.wk.db.SqlParam;
+import com.wk.util.JaDate;
+
+/**
+ * Class description:组件信息表
+ * @author AutoGen
+ */
+abstract class MoComponentDao
+		extends EntityDao<MoComponentInfo> {
+
+	/**
+	 * Description: 查看所有组件组
+	 * @return
+	 */
+	@SqlParam(sql = "SELECT * FROM mo_component WHERE (COMPONENT_CN_NAME LIKE '%${component_cn_name}%') AND MODULE_TYPE =${module_type} ORDER BY ${order_col_name} ${order_type}", dynamic = true)
+	abstract DBIterator<MoComponentInfo> queryAllComponentInfos(String component_cn_name, MODULE_TYPE module_type,
+			String order_col_name, String order_type);
+
+	/**
+	 * Description: 更新发布状态
+	 * @param publish_state
+	 * @param module_id
+	 * @return
+	 */
+	@SqlParam(updateSet = { "PUBLISH_STATE" }, condition = "PK")
+	abstract int updateCompPubStateById(PUBLISH_STATE publish_state, String module_id);
+
+	/**
+	 * Description: 根据传入类型获得已发布组件信息
+	 * @param module_type
+	 * @return
+	 */
+	@SqlParam(sql = "select * from MO_COMPONENT where (COMPONENT_CN_NAME like '%${cn_name}%') and (MODULE_TYPE = '${module_type}') and (PUBLISH_STATE=1)",dynamic = true)
+	abstract DBIterator<MoComponentInfo> queryPublishedCompByType(String cn_name, MODULE_TYPE module_type);
+
+	@SqlParam(querySet = { "CRT_USER_ID" }, distinct=true, condition = "1=1")
+	abstract List<String> queryAllCrtUser();
+	
+	/**
+	 * Description: 根据组件名获取组件ID
+	 * @param name
+	 * @return
+	 */
+//	@SqlParam(querySet = { "COMPONENT_ID" }, condition = "COMPONENT_CN_NAME=:name")
+	@SqlParam(sql = "select COMPONENT_ID from MO_COMPONENT where COMPONENT_CN_NAME = :name")
+	abstract List<String> getIdByName(String name);
+
+	/**
+	 * Description:
+	 * @param module_type
+	 * @param component_purpose
+	 * @return
+	 */
+	@SqlParam(condition = "MODULE_TYPE=${module_type} and COMPONENT_PURPOSES LIKE '%${component_purposes}%' and PUBLISH_STATE=1", dynamic = true)
+	abstract DBIterator<MoComponentInfo> queryPublishedCotCompByType(MODULE_TYPE module_type,
+			COMPONENT_PURPOSE component_purposes);
+
+	/**
+	 * Description: 不关联标签的高级搜索
+	 * @return
+	 */
+	@SqlParam(sql = "select * from MO_COMPONENT where (COMPONENT_PURPOSES LIKE '%${component_purpose}%') and (IMPL_TYPE IN (${impl_type:2:1=1})) and (CRT_USER_ID='${crt_user_id}') and (PUBLISH_STATE='${publish_state}') and (MODIFY_BK_DATE>='${start_modify_date}') and (MODIFY_BK_DATE<='${end_modify_date}') and (COMPONENT_CN_NAME LIKE '%${component_cn_name}%') order by CRT_BK_DATE ${order_type}, CRT_BK_TIME ${order_type1}", dynamic = true)
+	abstract List<MoComponentInfo> pageComponent(COMPONENT_PURPOSE component_purpose, String impl_type,
+			String crt_user_id, PUBLISH_STATE publish_state, JaDate start_modify_date, JaDate end_modify_date,
+			String component_cn_name, String order_type, String order_type1, int start_recd, int limit_recd);
+
+	/**
+	 * Description: 不关联标签的高级搜索的记录数统计
+	 * @return
+	 */
+	@SqlParam(sql = "select count(1) from MO_COMPONENT where (COMPONENT_PURPOSES LIKE '%${component_purpose}%') and (IMPL_TYPE IN (${impl_type:2:1=1})) and (CRT_USER_ID='${crt_user_id}') and (PUBLISH_STATE='${publish_state}') and (MODIFY_BK_DATE>='${start_modify_date}') and (MODIFY_BK_DATE<='${end_modify_date}') and (COMPONENT_CN_NAME LIKE '%${component_cn_name}%')", dynamic = true)
+	abstract int countComponent(COMPONENT_PURPOSE component_purpose, String impl_type, String crt_user_id,
+			PUBLISH_STATE publish_state, JaDate start_modify_date, JaDate end_modify_date, String component_cn_name);
+
+	/**
+	 * Description: 关联标签的高级搜索
+	 * @return
+	 */
+	@SqlParam(sql = "select * from MO_COMPONENT where (COMPONENT_PURPOSES LIKE '%${component_purpose}%') and (IMPL_TYPE IN (${impl_type:2:1=1})) and (CRT_USER_ID='${crt_user_id}') and (PUBLISH_STATE='${publish_state}') and (MODIFY_BK_DATE>='${start_modify_date}') and (MODIFY_BK_DATE<='${end_modify_date}') and (COMPONENT_CN_NAME LIKE '%${component_cn_name}%') and (COMPONENT_ID IN (${comp_ids:2:1=1})) order by CRT_BK_DATE ${order_type}, CRT_BK_TIME ${order_type1}", dynamic = true)
+	abstract List<MoComponentInfo> pageComponent(COMPONENT_PURPOSE component_purpose, String impl_type,
+			String crt_user_id, PUBLISH_STATE publish_state, JaDate start_modify_date, JaDate end_modify_date,
+			String component_cn_name, String comp_ids, String order_type, String order_type1, int start_recd,
+			int limit_recd);
+
+	/**
+	 * Description: 关联标签的高级搜索的记录数统计
+	 * @return
+	 */
+	@SqlParam(sql = "select count(1) from MO_COMPONENT where (COMPONENT_PURPOSES LIKE '%${component_purpose}%') and (IMPL_TYPE IN (${impl_type:2:1=1})) and (CRT_USER_ID='${crt_user_id}') and (PUBLISH_STATE='${publish_state}') and (MODIFY_BK_DATE>='${start_modify_date}') and (MODIFY_BK_DATE<='${end_modify_date}') and (COMPONENT_CN_NAME LIKE '%${component_cn_name}%') and (COMPONENT_ID IN (${comp_ids:2:1=1}))", dynamic = true)
+	abstract int countComponent(COMPONENT_PURPOSE component_purpose, String impl_type, String crt_user_id,
+			PUBLISH_STATE publish_state, JaDate start_modify_date, JaDate end_modify_date, String component_cn_name,
+			String comp_ids);
+	
+	@SqlParam(sql = "select * from MO_COMPONENT where (COMPONENT_CN_NAME like '%${cn_name}%') and (MODULE_TYPE = 1) order by CRT_BK_DATE ${order_type_str}, CRT_BK_TIME ${order_type_str2}",dynamic = true)
+	abstract List<MoComponentInfo> pageDefaultComponentList(String cn_name, String order_type_str, String order_type_str2, int start_recd, int limit_recd);
+	
+	@SqlParam(sql = "select * from MO_COMPONENT where (COMPONENT_CN_NAME like '%${cn_name}%') and (MODULE_TYPE = 1) order by ${order_col_name} ${order_type_str}, CRT_BK_TIME ${order_type_str2}",dynamic = true)
+	abstract List<MoComponentInfo> pageComponentList(String cn_name, String order_col_name, String order_type_str, String order_type_str2, int start_recd, int limit_recd);
+
+	@SqlParam(sql = "select count(1) from MO_COMPONENT where (COMPONENT_CN_NAME like '%${component_cn_name}%') and (MODULE_TYPE = 1)",dynamic = true)
+	abstract int countComponentByCnName(String component_cn_name);
+	
+
+	@SqlParam(condition = "component_id =:component_id")
+	abstract int countComponentById(String component_id);
+
+}

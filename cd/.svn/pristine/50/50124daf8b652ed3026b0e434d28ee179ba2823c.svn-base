@@ -1,0 +1,24 @@
+package com.wk.cd.module.dao;
+
+import com.wk.cd.module.info.TpInstanceInfo;
+import com.wk.db.EntityDao;
+import com.wk.db.SqlParam;
+
+import java.util.List;
+
+/**
+ * Class description:投产模版实例表
+ * @author AutoGen
+ */
+abstract class TpInstanceDao extends EntityDao<TpInstanceInfo> {
+	/**
+	 * Description: 根据系统名和项目名查询所有的实例
+	 * @param business_sys_name
+	 * @param project_name
+	 * @return
+	 */
+	@SqlParam(condition = "BUSINESS_SYS_NAME =:business_sys_name and PROJECT_NAME =:project_name")
+	abstract List<TpInstanceInfo> queryInfoByBsnAndProjn(String paramString1,
+			String paramString2);
+	
+}

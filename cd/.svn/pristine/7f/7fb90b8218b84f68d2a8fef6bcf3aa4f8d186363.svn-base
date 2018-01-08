@@ -1,0 +1,180 @@
+package com.wk.cd.module.info;
+
+import com.wk.cd.enu.TEMPLATE_TYPE;
+import com.wk.cd.module.info.ModuleBasicInfo;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.info.PackageTypeInfo;
+import com.wk.cd.module.info.ParamInfo;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+
+public class TemplateInfo {
+	
+	/**
+	 * 模板名
+	 */
+	private String cn_name;
+	public static final String TEMPLATE_CN_NAMECN = "模板名";
+	
+	/**
+	 * 模板ID
+	 */
+	private String id;
+	public static final String TEMPLATE_IDCN = "模板ID";
+	
+	/**
+	 * 模板类型
+	 */
+	private TEMPLATE_TYPE template_type;
+	public static final String TEMPLATE_TYPECN = "模板类型";
+	
+	/**
+	 * 操作系统
+	 */
+	private int[] operating_system;
+	public static final String OPERATING_SYSTEMCN = "操作系统";
+	
+	/**
+	 * 模板描述
+	 */
+	private String bk_desc;
+	public static final String TEMPLATE_BK_DESCCN = "模板描述";
+	
+	/**
+	 * 模板参数列表(只有全局参数)
+	 */
+	private ParamInfo[] params;
+	public static final String TEMPLATE_PARAMSCN = "模板参数列表";
+	
+	/**
+	 * 所有的参数 参数序号从0开始
+	 */
+	private ParamInfo[] all_params;
+	
+	public static final String ALL_PARAMSCN = "所有的参数";
+	
+	/**
+	 * 投产包类型列表
+	 */
+	private List<PackageTypeInfo> package_types;
+	
+	public static final String PACKAGE_TYPESCN ="投产包类型列表";
+		
+	protected List<ModuleBasicInfo> modules = new ArrayList<ModuleBasicInfo>();
+	public static final String TEMPLATE_MODULESCN = "模版配置信息";
+	
+	protected final List<ModuleInfo> sub_modules = new ArrayList<ModuleInfo>();
+
+	public void addSub_moduleInfo(ModuleInfo info) {
+		this.sub_modules.add(info);
+	}
+
+	public void addSub_moduleInfos(List<ModuleInfo> infos) {
+		this.sub_modules.addAll(infos);
+	}
+
+	public Iterator<ModuleInfo> submoduleIterator() {
+		return this.sub_modules.iterator();
+	}
+
+	public List<ModuleInfo> getSub_ModuleInfos() {
+		return this.sub_modules;
+	}
+
+	public List<ModuleBasicInfo> getModules() {
+		return this.modules;
+	}
+
+	public List<PackageTypeInfo> getPackage_types() {
+		return this.package_types;
+	}
+
+	public void setPackage_types(List<PackageTypeInfo> package_types) {
+		this.package_types = package_types;
+	}
+
+	public void addModule(ModuleBasicInfo module) {
+		this.modules.add(module);
+	}
+
+	public void addModules(List<ModuleBasicInfo> modules) {
+		this.modules.addAll(modules);
+	}
+
+	public void setModules(List<ModuleBasicInfo> modules) {
+		this.modules.clear();
+		addModules(modules);
+	}
+
+	public String getCn_name() {
+		return this.cn_name;
+	}
+
+	public void setCn_name(String cn_name) {
+		this.cn_name = cn_name;
+	}
+
+	public String getId() {
+		return this.id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public TEMPLATE_TYPE getTemplate_type() {
+		return this.template_type;
+	}
+
+	public void setTemplate_type(TEMPLATE_TYPE template_type) {
+		this.template_type = template_type;
+	}
+
+	public int[] getOperating_system() {
+		return this.operating_system;
+	}
+
+	public void setOperating_system(int[] operating_system) {
+		this.operating_system = operating_system;
+	}
+
+	public String getBk_desc() {
+		return this.bk_desc;
+	}
+
+	public void setBk_desc(String bk_desc) {
+		this.bk_desc = bk_desc;
+	}
+
+	public ParamInfo[] getParams() {
+		return this.params;
+	}
+
+	public void setParams(ParamInfo[] params) {
+		this.params = params;
+	}
+
+	public ParamInfo[] getAll_params() {
+		return this.all_params;
+	}
+
+	public void setAll_params(ParamInfo[] all_parmas) {
+		this.all_params = all_parmas;
+	}
+
+	/** 
+	 * Description: 
+	 * @return 
+	 */
+	@Override
+	public String toString() {
+		return "TemplateInfo [cn_name=" + cn_name + ", id=" + id + ", template_type=" + template_type + ", operating_system=" + Arrays.toString(operating_system) + ", bk_desc="
+				+ bk_desc + ", params=" + Arrays.toString(params) + ", all_params=" + Arrays.toString(all_params) + ", package_types=" + package_types + ", modules=" + modules
+				+ ", sub_modules=" + sub_modules + "]";
+	}
+	
+	
+}

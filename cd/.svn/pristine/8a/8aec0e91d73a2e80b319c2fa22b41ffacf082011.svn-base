@@ -1,0 +1,14 @@
+package com.wk.cd.module;
+
+import com.wk.db.EnumValue;
+
+public class SCRIPT_SOURCE extends EnumValue<SCRIPT_SOURCE> {
+	private static final long serialVersionUID = -8021807128623699310L;
+	public static final SCRIPT_SOURCE INPUT = new SCRIPT_SOURCE(1, "ÊäÈë");
+
+	public static final SCRIPT_SOURCE FILE = new SCRIPT_SOURCE(2, "ÎÄ¼þ");
+
+	private SCRIPT_SOURCE(int value, String name) {
+		super(value, name);
+	}
+}

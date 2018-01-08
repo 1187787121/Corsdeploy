@@ -1,0 +1,65 @@
+package com.wk.cd.module.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.PUBLISH_STATE;
+import com.wk.cd.module.bean.UpdateGroupInputBean;
+import com.wk.cd.module.bean.UpdateGroupOutputBean;
+import com.wk.cd.module.dao.MoModuleDaoService;
+import com.wk.cd.module.info.GroupModuleInfo;
+import com.wk.cd.module.service.ModuleCommonService;
+import com.wk.cd.module.xml.XmlPathUtil;
+import com.wk.cd.module.xml.XmlWriter;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class UpdateGroupAction
+		extends ActionBasic<UpdateGroupInputBean, UpdateGroupOutputBean> {
+
+	@Inject
+	private MoModuleDaoService tpComponentDaoService;
+
+	@Inject
+	private ModuleCommonService componentPublicService;
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+
+	protected UpdateGroupOutputBean doAction(UpdateGroupInputBean input) {
+		logger.info("-------------------UpdateGroupAction Begin------------------");
+		UpdateGroupOutputBean output = new UpdateGroupOutputBean();
+		GroupModuleInfo group = input.getModule_group();
+
+		Assert.assertNotEmpty(group, "组件组信息");
+		Assert.assertNotEmpty(group.getId(), "组件组ID");
+		Assert.assertNotEmpty(group.getCn_name(), "组件组中文名");
+		Assert.assertNotEmpty(group.getBk_desc(), "组件组描述");
+		Assert.assertNotEmpty(group.getModules(), "组件组描述");
+
+		logger.debug("写入组件文件：", XmlPathUtil.getPathByCompId(group.getId(), MODULE_TYPE.GROUP));
+		XmlWriter.writerGroup(group, group.getId());
+		// 修改组件组状态为未发布
+		tpComponentDaoService.updateModulePubStateById(group.getId(), PUBLISH_STATE.NO);
+
+		logger.debug("更新组件信息表：COMPID=[" + group.getId() + "]");
+		this.tpComponentDaoService.updateGroupBaseByKey(group.getCn_name(), group.getBk_desc(), input.getDtbs_bk_date(), input.getDtbs_bk_time(), input.getOrg_user_id(),
+				group.getId());
+
+		this.componentPublicService.saveCompQuoteMsg(group.getModules(), group.getId(), MODULE_TYPE.GROUP);
+		logger.info("-------------------UpdateGroupAction End------------------");
+		return output;
+	}
+
+	protected String getLogTxt(UpdateGroupInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+
+		return this.lgsvc.getLogTxt("修改组件组", log_lst);
+	}
+}

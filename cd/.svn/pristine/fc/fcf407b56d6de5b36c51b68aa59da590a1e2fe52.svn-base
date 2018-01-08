@@ -1,0 +1,36 @@
+logger.watch.interval = 30000
+logger.simplelog.type=INFO_UP
+
+logger.rootLogger=A1
+logger.rootLogger.type=INFO_UP
+
+logger.com.wk.service=A1
+logger.com.wk.service.type=DEBUG_UP
+
+logger.com.wk.service.impl.type=ERROR_UP
+
+logger.com.wk.util.type=ERROR_UP
+
+logger.com.wk.net.type=DEBUG_UP
+logger.com.wk.nio.type=DEBUG_UP
+
+logger.com.wk.db.type=ERROR_UP
+
+logger.com.wk.cl=A1
+logger.com.wk.cl.type=DEBUG_UP
+
+logger.com.wk.threadpool.type=ERROR_UP
+
+logger.com.wk.threadpool.ThreadDispatchImpl.type=ERROR_UP
+
+logger.com.wk.db.datastore.type=ERROR_UP
+
+
+appender.console.pattern=%9date [%type] [%F:%L] [%thread] [%class] -- %s %m %n
+appender.console=console
+
+ 
+appender.A1.pattern=%9date [%type] [%F:%L] [%thread] [%class] -- %s %m %n
+appender.A1=FILE
+appender.A1.fileName=${vframe.home}/log/agent%d%i.log
+appender.A1.condition= 

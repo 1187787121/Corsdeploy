@@ -1,0 +1,114 @@
+package com.wk.cd.module.xml;
+
+import java.io.File;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.CfgTool;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.exc.ReadConfigFileException;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class XmlPathUtil {
+	private static final Log logger = LogFactory.getLog();
+
+	public static String getImportFileFullPath(String relative_path) {
+		String web_path = getWebPath();
+		String file_path = web_path + relative_path;
+		return file_path;
+	}
+
+	public static String getPathByCompId(String id, MODULE_TYPE comp_type) {
+		String web_path = getWebPath();
+		String file_path = web_path + getRelativeDirByCompType(comp_type) + "/"
+				+ id + ".xml";
+		logger.debug("file_path{[]}", file_path);
+		return file_path;
+	}
+
+	public static String getRelativePathByCompId(String id,
+			MODULE_TYPE comp_type) {
+		String file_path = getRelativeDirByCompType(comp_type);
+		file_path = file_path + "/" + id + ".xml";
+		return file_path;
+	}
+
+	public static String getctPathByCompId(String id, MODULE_TYPE comp_type) {
+		String web_path = CfgTool.getProjectPropterty("web.root.path");
+		if (Assert.isEmpty(web_path)) {
+			throw new ReadConfigFileException().addScene("FILE",
+					"cms.properties").addScene("CONFIG", "web.root.path");
+		}
+		if (!web_path.endsWith("/")) {
+			web_path = web_path + "/";
+		}
+		String file_path = getRelativeDirByCompType(comp_type);
+		file_path = web_path + file_path + "/" + id + ".xml";
+		return file_path;
+	}
+
+	public static String getRelativeDirByCompType(MODULE_TYPE comp_type) {
+		String web_path = getWebPath();
+		String file_dir = "comp/";
+		if (MODULE_TYPE.COMPONENT.equals(comp_type))
+			file_dir = file_dir + "component";
+		else if (MODULE_TYPE.GROUP.equals(comp_type))
+			file_dir = file_dir + "group";
+		else if (MODULE_TYPE.TEMPLATE.equals(comp_type))
+			file_dir = file_dir + "template";
+		else if (MODULE_TYPE.INSTANCE.equals(comp_type))
+			file_dir = file_dir + "instance";
+		else if (MODULE_TYPE.PROGRAM.equals(comp_type))
+			file_dir = file_dir + "program";
+		else if (MODULE_TYPE.COLLECT.equals(comp_type))
+			file_dir = file_dir + "collect";
+		else {
+			file_dir = file_dir + comp_type.getName();
+		}
+		File dir_path = new File(web_path + file_dir + "/temp/");
+		if (!dir_path.exists()) {
+			dir_path.mkdirs();
+		}
+		return file_dir;
+	}
+
+	public static String getCtRelativeDirByType(MODULE_TYPE comp_type) {
+		String web_path = getWebPath();
+		String file_dir = "comp/";
+		if (MODULE_TYPE.COMPONENT.equals(comp_type)) {
+			file_dir = file_dir + "component";
+		}
+		File dir_path = new File(web_path + file_dir + "/collect/");
+		if (!dir_path.exists()) {
+			dir_path.mkdirs();
+		}
+		return file_dir;
+	}
+
+	public static String getTestPacakageDirectory() {
+		String file_path = "";
+		String web_root_dir = getWebPath();
+		file_path = web_root_dir + getTestRelativeDir();
+		File file = new File(file_path);
+		if (!file.exists()) {
+			file.mkdirs();
+		}
+		return file_path;
+	}
+
+	public static String getTestRelativeDir() {
+		return "module/testExecute/";
+	}
+
+	private static String getWebPath() {
+		String web_path = CfgTool.getProjectPropterty("web.root.path");
+		if (Assert.isEmpty(web_path)) {
+			throw new ReadConfigFileException().addScene("FILE",
+					"cms.properties").addScene("CONFIG", "web.root.path");
+		}
+		if (!web_path.endsWith("/")) {
+			web_path = web_path + "/";
+		}
+		return web_path;
+	}
+}

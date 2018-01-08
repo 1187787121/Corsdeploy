@@ -1,0 +1,56 @@
+package com.wk.cd.module.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.module.bean.DeleteModuleInputBean;
+import com.wk.cd.module.bean.DeleteModuleOutputBean;
+import com.wk.cd.module.service.ModuleCommonService;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class DeleteModuleAction extends
+		ActionBasic<DeleteModuleInputBean, DeleteModuleOutputBean> {
+
+//	@Inject
+//	private NodeModuleService nodeModuleSrv;
+
+	@Inject
+	private ModuleCommonService componentPublicService;
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+
+	protected DeleteModuleOutputBean doAction(DeleteModuleInputBean input) {
+		logger.info("-------------- DeleteComponentAction begin ------------");
+		DeleteModuleOutputBean output = new DeleteModuleOutputBean();
+
+		String comp_id = input.getId();
+		Assert.assertNotEmpty(comp_id, "组件ID");
+
+		componentPublicService.checkCompIdIsExist(comp_id,
+				MODULE_TYPE.COMPONENT);
+
+		componentPublicService.checkComponentNotQuote(comp_id,
+				MODULE_TYPE.COMPONENT);
+
+//		nodeModuleSrv.checkNodeModuleSysIsExist(comp_id);
+
+		componentPublicService.deleteComponent(comp_id,
+				MODULE_TYPE.COMPONENT);
+		logger.info("-------------- DeleteComponentAction end --------------");
+		return output;
+	}
+
+	protected String getLogTxt(DeleteModuleInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+		log_lst.add(input.getId());
+		return this.lgsvc.getLogTxt("删除组件", log_lst);
+	}
+}

@@ -1,0 +1,59 @@
+package com.wk.cd.module.impl;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.module.ModuleSession;
+import com.wk.cd.module.info.ModuleSourceInfo;
+
+/**
+ * Module会话连接继承基类
+ *
+ * Created by 姜志刚 on 2016/11/25.
+ */
+public abstract class ModuleSessionBase implements ModuleSession {
+	
+	private boolean connected;
+	private boolean real_close = true;
+	protected ModuleSourceInfo module_source_info;
+
+	public boolean isConnected() {
+		return connected;
+	}
+
+	@Override
+	public String getKey() {
+		Assert.assertNotEmpty(this.module_source_info.getProtocol_type(),
+				"执行协议类型");
+		Assert.assertNotEmpty(this.module_source_info.getDt_source_info(),
+				"具体执行使用数据源");
+		String type = this.module_source_info.getProtocol_type().getName();
+		String soc_name = this.module_source_info.getDt_source_info()
+				.getSoc_name();
+		return type + "_" + soc_name;
+	}
+
+	@Override
+	public void setRealDisconnect(boolean real_close) {
+		this.real_close = real_close;
+	}
+
+	@Override
+	public void connect() {
+		implConnect();
+		connected = true;
+	}
+
+	@Override
+	public void disconnect() {
+		if (real_close)
+			realDisconnect();
+	}
+
+	private void realDisconnect() {
+		connected = false;
+		implDisconnect();
+	}
+
+	protected abstract void implConnect();
+
+	protected abstract void implDisconnect();
+}

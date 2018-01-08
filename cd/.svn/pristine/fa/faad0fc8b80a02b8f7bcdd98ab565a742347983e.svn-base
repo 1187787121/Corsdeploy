@@ -1,0 +1,76 @@
+package com.wk.cd.module.service;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.module.ModuleInterceptor;
+import com.wk.cd.module.ProcessContext;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.info.ModuleSourceInfo;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import java.util.List;
+
+public class TextLogInterceptor implements ModuleInterceptor {
+	private final LogWriterService writer;
+	private final int total_phase;
+	private final String desc;
+	private static final Log logger = LogFactory.getLog();
+
+	public TextLogInterceptor(String file_path, int total_phase, String desc) {
+		this.writer = new LogWriterService(file_path);
+		this.total_phase = total_phase;
+		this.desc = desc;
+	}
+
+	public void beforeRun(ProcessContext ctx) {
+		ModuleInfo mi = ctx.getCurrentModuleInfo();
+		this.writer.writerPhase(ctx.getCurrentStage(), this.total_phase, mi.getCn_name());
+	}
+
+	public void afterRun(ProcessContext ctx) {
+	}
+
+	public void beforeStepinto(ProcessContext ctx) {
+		ModuleInfo mi = ctx.getCurrentModuleInfo();
+		this.writer.writerStep(ctx.getCurrentStep(), ctx.getCurrentCmdCount(), ctx.getCurrentCmd());
+		this.writer.writerSend(mi.getSource_info().getDt_source_info().getSoc_ip());
+	}
+
+	public void afterStepinto(ProcessContext ctx) {
+		ModuleInfo mi = ctx.getCurrentModuleInfo();
+		String ip = mi.getSource_info().getDt_source_info().getSoc_ip();
+		Result result = ctx.getLastResult();
+		this.writer.writerResult(ip, result);
+		this.writer.writerStepEnd(ip, result);
+	}
+
+	public void beforeStart(ProcessContext ctx) {
+		this.writer.writerExecuteBegin(this.desc);
+	}
+
+	public void afterEnd(ProcessContext ctx) {
+		logger.debug("-------LogInterceptor AfterEnd-------");
+		this.writer.writerEnd(this.desc);
+	}
+
+	public void skip(ProcessContext ctx) {
+		ModuleInfo mi = ctx.getCurrentModuleInfo();
+
+		String ip = mi.getSource_info().getDt_source_info().getSoc_ip();
+		List list = ctx.getResults();
+		Result result = null;
+		if (!Assert.isEmpty(list)) {
+			result = (Result) list.get(0);
+		}
+		this.writer.writerResult(ip, result);
+	}
+
+	public void skipStep(ProcessContext ctx) {
+		ModuleInfo mi = ctx.getCurrentModuleInfo();
+
+		String ip = mi.getSource_info().getDt_source_info().getSoc_ip();
+		this.writer.writerResult(ip, ctx.getLastResult());
+		this.writer.writerStepEnd(ip, ctx.getLastResult());
+	}
+}

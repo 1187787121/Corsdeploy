@@ -1,0 +1,686 @@
+/**
+ * Title: ExcuteStorageService.java
+ * File Description: 
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: xuph
+ * @version: 1.0
+ * @date: 2016年11月17日
+ */
+package com.wk.cd.build.ea.service;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.apache.commons.lang.exception.ExceptionUtils;
+
+import com.wk.cd.build.ea.bean.PhasePublishBean;
+import com.wk.cd.build.ea.bean.SrvSocBean;
+import com.wk.cd.build.ea.bean.TargetPackageBean;
+import com.wk.cd.build.ea.dao.EnvTagStorageDaoService;
+import com.wk.cd.build.ea.info.EnvTagStorageInfo;
+import com.wk.cd.build.ea.info.UuFilelistInfo;
+import com.wk.cd.build.ea.info.UuParamInfo;
+import com.wk.cd.build.ea.info.UuSocInfo;
+import com.wk.cd.enu.STORAGE_RESULT;
+import com.wk.cd.enu.STORAGE_STATUS;
+import com.wk.cd.common.cm.dao.CmSeqDaoService;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.CMD_STATUS;
+import com.wk.cd.enu.YN_FLAG;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.module.Process;
+import com.wk.cd.module.ProcessManager;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.impl.DefaultEnv;
+import com.wk.cd.module.info.InstanceInfo;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.info.ModuleSourceInfo;
+import com.wk.cd.module.info.TemplateInfo;
+import com.wk.cd.module.service.InstanceManager;
+import com.wk.cd.module.service.TextLogInterceptor;
+import com.wk.cd.module.xml.XmlReader;
+import com.wk.cd.module.xml.XmlWriter;
+import com.wk.cd.system.dt.dao.DtSourceDaoService;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.JaDateTime;
+
+/**
+ * Class Description: 执行入库
+ * @author xuph
+ */
+public class ExcuteStorageService {
+	@Inject
+	private TargetPackPublicService targetPackPublicService;
+	@Inject
+	private EnvTagStorageDaoService envTagStorageDaoService;
+	@Inject
+	private GenerateExcelListService generateExcelListSrv;
+	@Inject
+	private EnvTaskPublicService envTaskPublicSrv;
+	@Inject
+	private PublishTaskService publishTaskSrv;
+	@Inject
+	private DtSourceDaoService dtSourceDaoService;
+	@Inject
+	private CmSeqDaoService cmsvc;
+	@Inject
+	private InstanceManager instanceManager;
+	private static final Log logger = LogFactory.getLog();
+
+	/**
+	 * Description: 获得入库实例编号
+	 * @param ce_server_name
+	 * @param tar_package_list
+	 * @param versionInfo
+	 * @param exesocInfo
+	 * @param ver_socs
+	 */
+	public String getExcuteStorageId(String inte_ver_num,List<TargetPackageBean> tar_list, UuSocInfo exesocInfo, UuSocInfo ver_socs, String storage_id, String env_name) {
+		logger.debug("#########生成入库实例开始##########");
+		// 执行数据源
+		DtSourceInfo info = new DtSourceInfo();
+		info.setSoc_name(exesocInfo.getExe_soc_name());
+		DtSourceInfo dtsource = dtSourceDaoService.getInfoByKey(info);
+		logger.info("入库打包数据源：soc_name=[{}]", dtsource.getSoc_name());
+		// 目标版本
+		DtSourceInfo info1 = new DtSourceInfo();
+		info1.setSoc_name(ver_socs.getVer_soc_name());
+		DtSourceInfo ver_soc = dtSourceDaoService.getInfoByKey(info1);
+
+		DefaultEnv env = new DefaultEnv();
+		TemplateInfo template = new TemplateInfo();
+		// 打包
+		packFileListbk(inte_ver_num,tar_list, template, env, ver_soc, dtsource, ver_socs, storage_id, env_name);
+		// 实例
+		InstanceInfo inst = ProcessManager.instance.prepare(template, env);
+		ProcessManager.instance.buildProcess(inst);
+		// 生成实例文件
+		XmlWriter.writerInstance(inst);
+		// 返回实例ID
+		logger.debug("#########生成入库实例结束##########");
+		return inst.getInstanceId();
+	}
+
+	/**
+	 * Description:入库执行
+	 * @param inst_id
+	 * @param storage_id
+	 */
+	public void excuteStorage(String inst_id, String storage_id) {
+		boolean mark = true;
+		Process process = ProcessManager.instance.getProcessInstance(inst_id);
+		int total = process.getCtx().getInstance_info().getModuleCount();
+		// 日志
+		String log_path = targetPackPublicService.getStorageDirectory() + storage_id + ".txt";
+		process.addInterceptor(new TextLogInterceptor(log_path, total, storage_id));
+		logger.info("入库执行总步骤total=[{}]步", total);
+		// 执行
+		for (int j = 0; j < total; j++) {
+			logger.info("入库执行第step=[{}]步", j);
+			Result result = null;
+			try {
+				result = process.run(j);
+				if (j == total - 1) {
+					logger.info("版本信息Msg=[{}]", result.getMsg());
+					if (!Assert.isEmpty(result.getMsg())) {
+						String ver_sion = formatMsg(result.getMsg());
+						logger.info("版本ID=[{}]", ver_sion);
+						if (!Assert.isEmpty(ver_sion)) {
+							envTagStorageDaoService.updateStroageInfoByKey(ver_sion, storage_id);
+						}
+					}
+				}
+				if (result.getStatus() != CMD_STATUS.SUCCEED) {
+					mark = false;
+					envTagStorageDaoService.updateStrStatusInfoByKey(JaDateTime.now(), STORAGE_STATUS.STORAGED,storage_id);
+					cmsvc.getSession().commitAndResume();
+					envTagStorageDaoService.updateStroageResultByKey(STORAGE_RESULT.FAIL, storage_id);
+					cmsvc.getSession().commitAndResume();
+					updateStroageTm(storage_id);
+					break;
+				}
+			} catch (Exception e) {
+				logger.debug("入库执行错误信息：[{}]", ExceptionUtils.getStackTrace(e));
+				mark = false;
+				envTagStorageDaoService.updateStrStatusInfoByKey(JaDateTime.now(), STORAGE_STATUS.STORAGED, storage_id);
+				cmsvc.getSession().commitAndResume();
+				envTagStorageDaoService.updateStroageResultByKey(STORAGE_RESULT.FAIL, storage_id);
+				cmsvc.getSession().commitAndResume();
+				updateStroageTm(storage_id);
+				break;
+			}
+		}
+		if (mark) {
+			// 更改入库状态
+			envTagStorageDaoService.updateStroageResultByKey(STORAGE_RESULT.SUCCESS, storage_id);cmsvc.getSession().commitAndResume();
+			// 修改入库的时间和状态
+			envTagStorageDaoService.updateStrStatusInfoByKey(JaDateTime.now(), STORAGE_STATUS.STORAGED, storage_id);
+			cmsvc.getSession().commitAndResume();
+			updateStroageTm(storage_id);
+		}
+	}
+
+	/**
+	 * Description: 修改入库耗时
+	 * @param storage_id
+	 */
+	private void updateStroageTm(String storage_id) {
+		EnvTagStorageInfo info = envTagStorageDaoService.getInfoByKey2(storage_id);
+		JaDateTime start = info.getStart_bk_tm();
+		JaDateTime end = info.getEnd_bk_tm();
+		if (!Assert.isEmpty(start) && !Assert.isEmpty(end)) {
+			int time_use = (int) (end.longValue() - start.longValue());
+			int time_used = time_use / 1000;
+			envTagStorageDaoService.updateStroageTimeByKey(time_used, storage_id);
+		}
+		cmsvc.getSession().commitAndResume();
+	}
+
+	/**
+	 * Description: 打包执行
+	 * @param ce_server_name
+	 * @param tar_package_list
+	 */
+	public void packFileList(List<TargetPackageBean> tar_list, TemplateInfo template, DefaultEnv env,
+			DtSourceInfo ver_soc, DtSourceInfo dtsource, UuSocInfo versionInfo, String storage_id, String env_name) {
+		ModuleInfo mdl = new ModuleInfo();
+		// 阶段一
+		logger.info("创建打包目录：soc_name=[{}]", dtsource.getSoc_name());
+		ModuleSourceInfo msi = new ModuleSourceInfo(dtsource.getProtocol_type(),dtsource);
+		mdl.setCn_name("创建打包目录");
+		mdl.setCmds(("test -d ./" + env_name + "/" + storage_id + " || mkdir -p ./" + env_name + "/" + storage_id + "")
+				.split("\n"));
+		mdl.setImpl_type(IMPL_TYPE.SHELL);
+		template.addSub_moduleInfo(mdl);
+		env.addStageNode(0, msi);
+
+		logger.info("SVN检出数据源：soc_name=[{}]", ver_soc.getSoc_name());
+		// SVN检出
+		mdl = new ModuleInfo();
+		ModuleSourceInfo msi_svn = new ModuleSourceInfo(dtsource,ver_soc);
+		String svn_check = "co " + formatDirA(versionInfo.getCode_bk_dir()) + " " + env_name + "/" + storage_id;
+		mdl.setCn_name("svn检出操作");
+		mdl.setCmds(svn_check.split("\n"));
+		mdl.setImpl_type(IMPL_TYPE.SVN);
+
+		template.addSub_moduleInfo(mdl);
+		env.addStageNode(1, msi_svn);
+
+		logger.info("打包数据源：soc_name=[{}]", ver_soc.getSoc_name());
+		// 打包操作
+		int i = 2;
+		List<String> tarname_list = new ArrayList<String>();
+		for (TargetPackageBean tarbean : tar_list) {
+			List<UuFilelistInfo> file_list = tarbean.getFile_list();
+			String packname = tarbean.getPackage_name();
+			StringBuffer cmd = new StringBuffer();
+			cmd.append("cd " + formatDirA(dtsource.getUser_root_path()) + env_name + "/" + storage_id + "");
+			cmd.append("\n tar -rf " + packname + " ");
+			mdl = new ModuleInfo();
+			for (UuFilelistInfo lis : file_list) {
+				mdl.setCn_name("打包生成" + packname + ".tar");
+				mdl.setImpl_type(IMPL_TYPE.SHELL);
+				// 命令信息
+				String filename = lis.getFile_name();
+				String filepath = formatDirA(lis.getFile_path());
+				cmd.append(filepath + filename + " ");
+			}
+			mdl.setCmds(cmd.toString().split("\n"));
+			template.addSub_moduleInfo(mdl);
+			env.addStageNode(i, msi);
+			tarname_list.add(packname);
+			i++;
+		}
+		logger.info("SVN上传数据源：soc_name=[{}]", ver_soc.getSoc_name());
+		// 执行数据源根目录
+		String local_root = formatDirA(dtsource.getUser_root_path()) + env_name + "/" + storage_id + "/";
+		mdl = new ModuleInfo();
+		// SVN上传
+		String cmd_add[] = new String[tarname_list.size()];
+		int j = 0;
+		for (String addname : tarname_list) {
+			cmd_add[j] = "add " + local_root + addname;
+			j++;
+		}
+		mdl.setCn_name("SVN上传");
+		mdl.setCmds(cmd_add);
+		mdl.setImpl_type(IMPL_TYPE.SVN);
+		template.addSub_moduleInfo(mdl);  
+		env.addStageNode(i, msi_svn);
+		i++;
+		logger.info("SVN提交：soc_name=[{}]", ver_soc.getSoc_name());
+		mdl = new ModuleInfo();
+		mdl.setCn_name("SVN提交入库包");
+		mdl.setImpl_type(IMPL_TYPE.SVN);
+		String[] cmd_svn = new String[2];
+		cmd_svn[0] = ("cd " + formatDirA(dtsource.getUser_root_path()) + env_name + "/" + storage_id + "");
+		cmd_svn[1] = ("ci \"svn commit test\"");
+		mdl.setCmds(cmd_svn);
+		template.addSub_moduleInfo(mdl);
+		env.addStageNode(i, msi_svn);
+	}
+	
+	
+	/**
+	 * Description: 打包执行
+	 * @param ce_server_name
+	 * @param tar_package_list
+	 */
+	private void packFileListbk(String inte_ver_num,List<TargetPackageBean> tar_list, TemplateInfo template, DefaultEnv env,
+			DtSourceInfo ver_soc, DtSourceInfo dtsource, UuSocInfo versionInfo, String storage_id, String env_name) {
+		logger.debug("#########打包执行开始#####");
+		ModuleInfo mdl = new ModuleInfo();
+		ModuleSourceInfo msi = new ModuleSourceInfo(dtsource.getProtocol_type(),dtsource);
+		ModuleSourceInfo msi_svn = new ModuleSourceInfo(dtsource,ver_soc);
+		String local_root_path  = env_name + "/" + storage_id + "/" + inte_ver_num;
+		// 阶段一：创建打包目录
+		logger.info("创建打包目录：soc_name=[{}]", dtsource.getSoc_name());
+		mdl.setCn_name("创建打包目录");
+		mdl.setCmds(("test -d ./" + env_name + "/" + storage_id + " || mkdir -p ./" + env_name + "/" + storage_id + "")
+				.split("\n"));
+		mdl.setImpl_type(IMPL_TYPE.SHELL);
+		template.addSub_moduleInfo(mdl);
+		env.addStageNode(0, msi);
+
+		logger.info("SVN检出数据源：soc_name=[{}]", ver_soc.getSoc_name());
+		// 阶段二：SVN检出
+		mdl = new ModuleInfo();
+		String svn_check = "co " + formatDirA(versionInfo.getCode_bk_dir()) + " " + env_name + "/" + storage_id;
+		mdl.setCn_name("svn检出操作");
+		mdl.setCmds(svn_check.split("\n"));
+		mdl.setImpl_type(IMPL_TYPE.SVN);
+		template.addSub_moduleInfo(mdl);
+		env.addStageNode(1, msi_svn);
+
+		logger.info("打包数据源：soc_name=[{}]", ver_soc.getSoc_name());
+		// 阶段三：创建版本相对目录
+		int i = 2;
+		List<String> tarname_list = new ArrayList<String>();
+		for (TargetPackageBean tarbean : tar_list) {
+			StringBuffer cmd = new StringBuffer();
+			String reltive_path = tarbean.getTarget_relative_path();
+			cmd.append("cd " + formatDirA(dtsource.getUser_root_path()) + local_root_path + "");
+			if(!Assert.isEmpty(reltive_path)){
+				cmd.append("\n mkdir -p "+ formatDirD(tarbean.getTarget_relative_path()));
+			}
+			mdl = new ModuleInfo();
+			mdl.setCn_name("创建版本相对目录");
+			mdl.setImpl_type(IMPL_TYPE.SHELL);
+			mdl.setCmds(cmd.toString().split("\n"));
+			template.addSub_moduleInfo(mdl);
+			env.addStageNode(i, msi);
+			i++;
+		}
+		// 阶段四：生成打目标包
+		for (TargetPackageBean tarbean : tar_list) {
+			List<UuFilelistInfo> file_list = tarbean.getFile_list();
+			String packname = tarbean.getPackage_name();
+			String root_path = formatDirA(tarbean.getStorage_bk_path());
+			StringBuffer cmd = new StringBuffer();
+			cmd.append("cd " + root_path);
+			cmd.append("\n tar -rf " + packname + " ");
+			mdl = new ModuleInfo();
+			for (UuFilelistInfo lis : file_list) {
+				mdl.setCn_name("打包生成" + packname + ".tar");
+				String file_path = formatDirA(lis.getFile_path());
+				mdl.setImpl_type(IMPL_TYPE.SHELL);
+				// 命令信息
+				String tar_file_path = file_path.replace(root_path, "");
+				String filename = lis.getFile_name();
+				cmd.append(tar_file_path+filename + " ");
+			}
+			mdl.setCmds(cmd.toString().split("\n"));
+			template.addSub_moduleInfo(mdl);
+			env.addStageNode(i, msi);
+			tarname_list.add(packname);
+			i++;
+		}
+		// 阶段五：移动目标包
+		for (TargetPackageBean tarbean : tar_list) {
+			String packname = tarbean.getPackage_name();
+			StringBuffer cmd = new StringBuffer();
+			cmd.append("cd " + formatDirA(tarbean.getStorage_bk_path()));
+			cmd.append("\n mv "+ packname +" "+ formatDirA(dtsource.getUser_root_path()) + genernateRelPath(env_name,storage_id,inte_ver_num) + formatDirD(tarbean.getTarget_relative_path()));
+			mdl = new ModuleInfo();
+			mdl.setCn_name("移动目标包" + packname);
+			mdl.setImpl_type(IMPL_TYPE.SHELL);
+			mdl.setCmds(cmd.toString().split("\n"));
+			template.addSub_moduleInfo(mdl);
+			env.addStageNode(i, msi);
+			i++;
+		}
+		// 阶段六：移动清单文件
+		String tar_file_name = envTaskPublicSrv.generateListName(inte_ver_num, storage_id);
+		mdl = new ModuleInfo();
+		StringBuffer cmd = new StringBuffer();
+		cmd.append(("test -d ./" + env_name + "/" + storage_id + "/" + inte_ver_num + " || mkdir -p ./" + env_name + "/" + storage_id + "/" +inte_ver_num+""));
+		cmd.append("\n cd " + formatDirA(dtsource.getUser_root_path()));
+		cmd.append("\n mv "+ tar_file_name +" "+ formatDirA(dtsource.getUser_root_path()) + env_name + "/" + storage_id + "/" + inte_ver_num);
+		mdl.setCn_name("移动清单Excel文件" + tar_file_name);
+		mdl.setImpl_type(IMPL_TYPE.SHELL);
+		mdl.setCmds(cmd.toString().split("\n"));
+		template.addSub_moduleInfo(mdl);
+		env.addStageNode(i, msi);
+		i++;
+		
+		// 阶段七：SVN 上传操作
+		logger.info("SVN上传数据源：soc_name=[{}]", ver_soc.getSoc_name());
+		String local_roots = formatDirA(dtsource.getUser_root_path()) + env_name + "/" + storage_id;
+		String[] cmd_svns = new String[2];
+		cmd_svns[0] = ("cd " + local_roots);
+		cmd_svns[1] = ("add * --force");
+		mdl = new ModuleInfo();
+		// SVN上传
+		mdl.setCn_name("SVN上传");
+		mdl.setCmds(cmd_svns);
+		mdl.setImpl_type(IMPL_TYPE.SVN);
+		template.addSub_moduleInfo(mdl);
+		env.addStageNode(i, msi_svn);
+		i++;
+		
+		logger.info("SVN提交：soc_name=[{}]", ver_soc.getSoc_name());
+		mdl = new ModuleInfo();
+		mdl.setCn_name("SVN提交入库包");
+		mdl.setImpl_type(IMPL_TYPE.SVN);
+		String[] cmd_svn = new String[2];
+		cmd_svn[0] = ("cd " + formatDirA(dtsource.getUser_root_path()) + env_name + "/" + storage_id + "");
+		cmd_svn[1] = ("ci \"svn commit test\"");
+		mdl.setCmds(cmd_svn);
+		logger.debug("svn提交命令：[{}]",Arrays.toString(cmd_svn));
+		template.addSub_moduleInfo(mdl);
+		env.addStageNode(i, msi_svn);
+		logger.debug("##########%%%%%%生成入库实例结束#######");
+	}
+
+	/**
+	 * Description: 生成版本tar包存放目录
+	 * @param env_name
+	 * @param storage_id
+	 * @param inte_ver_num
+	 * @return
+	 */
+	public String genernateRelPath(String env_name,String storage_id,String inte_ver_num){
+		if(Assert.isEmpty(inte_ver_num)){
+			return env_name + "/" + storage_id + "/";
+		}else{
+			return env_name + "/" + storage_id + "/" + inte_ver_num + "/";
+		}
+	}
+	/**
+	 * Description: 格式目录(加/)
+	 * @param file_path
+	 * @return
+	 */
+	public String formatDirA(String file_path) {
+		if (!Assert.isEmpty(file_path)) {
+			if ('/' != (file_path.charAt(0))) {
+				file_path = "/" + file_path;
+			}
+			if (file_path.length() > 0 && '/' != file_path.charAt(file_path.length() - 1)) {
+				file_path = file_path + "/";
+			}
+		}
+		return file_path;
+	}
+	
+	/**
+	 * Description: 截取相对路径
+	 * @param reletive_path
+	 * @return
+	 */
+	public String getRelativePath(String reletive_path){
+		if(!Assert.isEmpty(reletive_path)){
+			reletive_path = reletive_path.substring(0,reletive_path.indexOf("/", 2));
+		}
+		return reletive_path;
+	}
+	/**
+	 * Description: 格式目录(减/)
+	 * @param file_path
+	 * @return
+	 */
+	public String formatDirD(String file_path) {
+		if (!Assert.isEmpty(file_path)) {
+			if ('/' == (file_path.charAt(0))) {
+				file_path = file_path.substring(1);
+			}
+			if (file_path.length() > 0 && '/' == file_path.charAt(file_path.length() - 1)) {
+				file_path = file_path.substring(0, file_path.length() - 1);
+			}
+		}
+		return file_path;
+	}
+
+	/**
+	 * Description: 格式化信息
+	 * @param msg
+	 * @return
+	 */
+	private String formatMsg(String msg) {
+		String tar_msg = "";
+		if (msg != null) {
+			String mss[] = msg.split("\n");
+			String[] msgg = mss[mss.length - 1].trim().split(" ");
+			tar_msg = msgg[msgg.length - 1].trim().substring(0, msgg[msgg.length - 1].length() - 1);
+		}
+		String regex = "^[0-9]{1,10}$";
+		boolean flag = tar_msg.matches(regex);
+		if (flag) {
+			return tar_msg;
+		}
+		return "";
+	}
+	
+	/**
+	 * Description: 从xml文件里读取模板实例
+	 * @param work_id
+	 * @return
+	 */
+	public InstanceInfo readInstanceByXml(String storage_id) {
+		return XmlReader.readInstance(storage_id);
+	}
+
+	/**
+	 * Description: 生成实例
+	 * @param template 模板
+	 * @param env_name 环境名
+	 * @return
+	 */
+	public InstanceInfo getInstance(TemplateInfo template, DefaultEnv env) {
+		InstanceInfo inst = ProcessManager.instance.prepare(template, env);
+		return inst;
+	}
+
+	/**
+	 * Description: 获得入库实例编号(读xml)
+	 * @param ce_server_name
+	 * @param tar_package_list
+	 * @param versionInfo
+	 * @param exesocInfo
+	 */
+	public String getExcuteStorageInstId(String storage_id) {
+		InstanceInfo inst = readInstanceByXml(storage_id);
+		ProcessManager.instance.buildProcess(inst);
+		return inst.getInstanceId();
+	}
+
+	/**
+	 * Description: 打包执行
+	 * @param ce_server_name
+	 * @param tar_package_list
+	 */
+	public void getStorageIdBk(List<TargetPackageBean> tar_list, UuSocInfo exesocInfo, UuSocInfo ver_socs, String storage_id, String env_name) {
+		logger.info("-----------------getStorageIdBk begin----------------");
+		
+		// 执行数据源
+		DtSourceInfo info = new DtSourceInfo();
+	    info.setSoc_name(exesocInfo.getExe_soc_name());
+	    DtSourceInfo dtsource = dtSourceDaoService.getInfoByKey(info);
+	    logger.info("入库打包数据源：soc_name=[{}]", dtsource.getSoc_name());
+		// 目标版本
+		DtSourceInfo info1 = new DtSourceInfo();
+		info1.setSoc_name(ver_socs.getVer_soc_name());
+		DtSourceInfo ver_soc = dtSourceDaoService.getInfoByKey(info1);
+//		System.out.println("####:"+ver_soc.getSoc_name());
+		TemplateInfo template_info = XmlReader.readTemplate("COMP201701050483");
+//		DtSourceInfo svn_source = instanceManager.combineSource(ver_soc, dtsource);
+		System.out.println(ver_soc.getSoc_params());
+		List<UuParamInfo> param_list = new ArrayList<UuParamInfo>();
+		UuParamInfo param1 = new UuParamInfo();
+		param1.setParam_name("env_name");
+		param1.setParam_value(env_name);
+		param_list.add(param1);
+		
+		UuParamInfo param2 = new UuParamInfo();
+		param2.setParam_name("storage_id");
+		param2.setParam_value(storage_id);
+		param_list.add(param2);
+		
+		UuParamInfo param3 = new UuParamInfo();
+		param3.setParam_name("code_bk_dir");
+		param3.setParam_value(formatDirA(ver_socs.getCode_bk_dir()));
+		param_list.add(param3);
+		
+		UuParamInfo param4 = new UuParamInfo();
+		param4.setParam_name("code_bk_dir");
+		param4.setParam_value(formatDirA(ver_socs.getCode_bk_dir()));
+		param_list.add(param4);
+		
+		UuParamInfo param5 = new UuParamInfo();
+		param5.setParam_name("user_root_path");
+		param5.setParam_value(formatDirA(dtsource.getUser_root_path()));
+		param_list.add(param5);
+		
+		UuParamInfo param6 = new UuParamInfo();
+		param6.setParam_name("packname");
+		param6.setParam_group("name");
+		
+		UuParamInfo param7 = new UuParamInfo();
+		param7.setParam_name("file_path");
+		param7.setParam_group("name");
+		
+		StringBuffer sb_tar = new StringBuffer();
+		StringBuffer sb_file = new StringBuffer();
+		for(TargetPackageBean bean: tar_list){
+			sb_tar.append(bean.getPackage_name()+".tar,");
+			StringBuffer sb_file_child = new StringBuffer();
+			for(UuFilelistInfo file : bean.getFile_list()){
+				sb_file_child.append(formatDirA(file.getFile_path())+file.getFile_name()+" ");
+			}
+			sb_file.append(sb_file_child.toString()+",");
+			logger.info("sb_file_child:[{}]",sb_file_child.toString());
+		}
+		param6.setParam_value(sb_tar.toString());
+		param7.setParam_value(sb_file.toString());
+		logger.debug("sb_file+[{}]",sb_file.toString());
+		logger.debug("sb_tar:[{}]",sb_tar.toString());
+		param_list.add(param6);
+		param_list.add(param7);
+		
+		logger.info("sb_tar:[{}]", sb_tar.toString());
+		UuParamInfo param8 = new UuParamInfo();
+		param8.setParam_name("tar_list");
+		param8.setParam_value(sb_tar.toString().substring(0, sb_tar.length()-1));
+		param_list.add(param8);
+		
+		List<PhasePublishBean> phase_list = new ArrayList<PhasePublishBean> ();
+		PhasePublishBean ppb1= new PhasePublishBean();
+		ppb1.setGen_flag(YN_FLAG.YES);
+		ppb1.setImpl_type(IMPL_TYPE.SHELL);
+		List<SrvSocBean>srv_soc1 = new ArrayList<SrvSocBean>();
+		SrvSocBean ssb1 = new SrvSocBean();
+		ssb1.setExe_soc_name(dtsource.getSoc_name());
+		srv_soc1.add(ssb1);
+		ppb1.setSrv_soc(srv_soc1.toArray(new SrvSocBean[srv_soc1.size()] ));
+		phase_list.add(ppb1);
+		
+		PhasePublishBean ppb2= new PhasePublishBean();
+		ppb2.setGen_flag(YN_FLAG.YES);
+		List<SrvSocBean>srv_soc2 = new ArrayList<SrvSocBean>();
+		SrvSocBean ssb2 = new SrvSocBean();
+		ssb2.setVer_soc_name(ver_soc.getSoc_name());
+		ssb2.setExe_soc_name(dtsource.getSoc_name());
+//		System.out.println(ver_soc.getSoc_name() + dtsource.getSoc_name());
+		srv_soc2.add(ssb2);
+		ppb2.setImpl_type(IMPL_TYPE.SVN);
+		ppb2.setSrv_soc(srv_soc2.toArray(new SrvSocBean[srv_soc2.size()] ));
+		phase_list.add(ppb2);
+		
+		PhasePublishBean ppb3= new PhasePublishBean();
+		ppb3.setGen_flag(YN_FLAG.YES);
+		List<SrvSocBean>srv_soc3 = new ArrayList<SrvSocBean>();
+		SrvSocBean ssb3 = new SrvSocBean();
+		ssb3.setExe_soc_name(dtsource.getSoc_name());
+		srv_soc3.add(ssb3);
+		ppb3.setSrv_soc(srv_soc3.toArray(new SrvSocBean[srv_soc3.size()] ));
+		ppb3.setImpl_type(IMPL_TYPE.SHELL);
+		phase_list.add(ppb3);
+		
+		PhasePublishBean ppb4= new PhasePublishBean();
+		ppb4.setGen_flag(YN_FLAG.YES);
+		List<SrvSocBean>srv_soc4 = new ArrayList<SrvSocBean>();
+		SrvSocBean ssb4 = new SrvSocBean();
+		ssb4.setExe_soc_name(dtsource.getSoc_name());
+		ssb4.setVer_soc_name(ver_soc.getSoc_name());
+		srv_soc4.add(ssb4);
+		ppb4.setImpl_type(IMPL_TYPE.SVN);
+		ppb4.setSrv_soc(srv_soc4.toArray(new SrvSocBean[srv_soc4.size()] ));
+		phase_list.add(ppb4);
+		
+		PhasePublishBean ppb5= new PhasePublishBean();
+		ppb5.setGen_flag(YN_FLAG.YES);
+		List<SrvSocBean>srv_soc5 = new ArrayList<SrvSocBean>();
+		SrvSocBean ssb5 = new SrvSocBean();
+		ssb5.setExe_soc_name(dtsource.getSoc_name());
+		ssb5.setVer_soc_name(ver_soc.getSoc_name());
+		srv_soc5.add(ssb5);
+		ppb5.setImpl_type(IMPL_TYPE.SVN);
+		ppb5.setSrv_soc(srv_soc5.toArray(new SrvSocBean[srv_soc5.size()] ));
+		phase_list.add(ppb5);
+		
+		InstanceInfo inst = publishTaskSrv.generateInstance(template_info, param_list, phase_list, null);
+		logger.info("inst_id:[{}]",inst.getInstanceId());
+		XmlWriter.writerInstance(inst);
+		ProcessManager.instance.buildProcess(inst);
+		String inst_id = inst.getInstanceId();
+		excuteStorage(inst_id,storage_id);
+		/*	for (TargetPackageBean tarbean : tar_list) {
+		//String reltive_paths = tarbean.getTarget_relative_path();
+		// 执行数据源根目录
+		//String local_root = formatDirA(dtsource.getUser_root_path()) + env_name + "/" + storage_id + getRelativePath(formatDirA(tarbean.getTarget_relative_path()));
+		String local_roots =  env_name + "/" + storage_id;
+		//String cmd_add = "add ./"+local_roots+" --force";
+			String cmd_add = "add " + local_root;
+		System.out.println("cmd: "+cmd_add);
+		if(Assert.isEmpty(reltive_paths)){
+			cmd_add = "add " + local_root +"/"+ tarbean.getPackage_name();
+		}
+		
+		String[] cmd_svns = new String[2];
+		cmd_svns[0] = ("cd " + formatDirA(dtsource.getUser_root_path()));
+		cmd_svns[1] = ("add ./"+local_roots+" --force");
+		mdl = new ModuleInfo();
+		// SVN上传
+		mdl.setCn_name("SVN上传");
+		mdl.setCmds(cmd_svns);
+		mdl.setImpl_type(IMPL_TYPE.SVN);
+		template.addSub_moduleInfo(mdl);
+		env.addStageNode(i, msi_svn);
+		i++;
+	}
+	int total  = inst.getModuleCount();
+	Process process = ProcessManager.instance.getProcessInstance(inst.getInstanceId());
+	for (int j = 0; j < total; j++) {
+		Result result = process.run(j);
+	    System.out.println(result.getStatus()+" -- "+result.getMsg());
+	}
+	*/
+		logger.info("-----------------getStorageIdBk end----------------");
+	}
+	
+}

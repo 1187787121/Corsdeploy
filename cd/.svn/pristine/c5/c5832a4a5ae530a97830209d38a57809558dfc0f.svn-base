@@ -1,0 +1,24 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootOutputBean;
+import com.wk.cd.module.info.TemplateInfo;
+
+public class ImportTemplateOutputBean extends ActionRootOutputBean {
+	
+	private static final long serialVersionUID = -3827647960067193490L;
+	
+	/**
+	 * 流程模板信息
+	 */
+	private TemplateInfo template;
+	
+	public static final String TEMP_DETAILCN = "流程模板信息";
+
+	public TemplateInfo getTemplate() {
+		return this.template;
+	}
+
+	public void setTemplate(TemplateInfo template) {
+		this.template = template;
+	}
+}

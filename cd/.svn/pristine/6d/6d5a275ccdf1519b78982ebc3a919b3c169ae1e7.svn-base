@@ -1,0 +1,50 @@
+package com.wk.cd.module.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.module.bean.DeleteGroupInputBean;
+import com.wk.cd.module.bean.DeleteGroupOutputBean;
+import com.wk.cd.module.service.ModuleCommonService;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class DeleteGroupAction extends
+		ActionBasic<DeleteGroupInputBean, DeleteGroupOutputBean> {
+
+	@Inject
+	private ModuleCommonService componentPublicService;
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+
+	protected DeleteGroupOutputBean doAction(DeleteGroupInputBean input) {
+		logger.info("------------------- DeleteGroupAction Begin ---------------------");
+		DeleteGroupOutputBean output = new DeleteGroupOutputBean();
+		String comp_id = input.getId();
+
+		Assert.assertNotEmpty(comp_id, "组件组ID");
+
+		this.componentPublicService.checkCompIdIsExist(comp_id,
+				MODULE_TYPE.GROUP);
+
+		this.componentPublicService.checkComponentNotQuote(comp_id,
+				MODULE_TYPE.GROUP);
+
+		this.componentPublicService.deleteComponent(comp_id, MODULE_TYPE.GROUP);
+		logger.info("----------------- DeleteGroupAction End ----------------------");
+		return output;
+	}
+
+	protected String getLogTxt(DeleteGroupInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+		log_lst.add(input.getId());
+		return this.lgsvc.getLogTxt("删除组件组", log_lst);
+	}
+}

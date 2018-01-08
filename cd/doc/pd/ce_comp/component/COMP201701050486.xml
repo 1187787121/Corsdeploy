@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="执行脚本_sh" id="COMP201701050486">
+<desc>执行shell脚本</desc>
+<script type="SHELL"><![CDATA[
+test -f "${script_dir}/${script_file}";
+cd "${script_dir}";
+sh "${script_file}";
+]]></script>
+<params>
+<param cnname="脚本目录" defult="" desc="脚本目录" hand="false" name="script_dir"/>
+<param cnname="脚本文件" defult="" desc="脚本文件" hand="false" name="script_file"/>
+</params>
+</component>

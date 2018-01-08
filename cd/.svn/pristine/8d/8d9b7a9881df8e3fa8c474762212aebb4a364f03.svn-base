@@ -1,0 +1,24 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootInputBean;
+import com.wk.cd.module.info.GroupModuleInfo;
+
+public class AddGroupInputBean extends ActionRootInputBean {
+	
+	private static final long serialVersionUID = 3336099178626875862L;
+	
+	/**
+	 * 组件组信息
+	 */
+	private GroupModuleInfo module_group;
+	
+	public static final String MODULE_GROUP_INFOCN = "组件组信息";
+
+	public GroupModuleInfo getModule_group() {
+		return this.module_group;
+	}
+
+	public void setModule_group(GroupModuleInfo module_group) {
+		this.module_group = module_group;
+	}
+}

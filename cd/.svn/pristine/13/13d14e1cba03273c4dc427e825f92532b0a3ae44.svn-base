@@ -1,0 +1,117 @@
+package com.wk.cd.remote.agent.util;
+
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.util.Enumeration;
+
+import com.wk.cd.remote.agent.bean.ShellBean;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.Md5Util;
+
+/**
+ * Agent的帮助类
+ * Class Description: 
+ * @author 12049
+ */
+public class AgentHelperUtil {
+
+	private static final String CONNECTOR = "&";                                             
+
+	/**
+	 * 获取服务器IP地址
+	 * 
+	 * @return String
+	 * @throws SocketException 
+	 * @throws UnknownHostException 
+	 */
+	public static String getServerIP() throws SocketException, UnknownHostException{
+		 if (isWindowsOS()) {
+	            return InetAddress.getLocalHost().getHostAddress();
+	        } else {
+	            return getLinuxLocalIp();
+	        }
+	}
+	
+	/**
+     * 判断操作系统是否是Windows
+     *
+     * @return boolean
+     */
+    public static boolean isWindowsOS() {
+        boolean isWindowsOS = false;
+        String osName = System.getProperty("os.name");
+        if (osName.toLowerCase().indexOf("windows") > -1) {
+            isWindowsOS = true;
+        }
+        return isWindowsOS;
+    }
+    
+    /**
+     * 获取服务器名称
+     */
+    public static String getServerHostName() throws UnknownHostException {
+        return InetAddress.getLocalHost().getHostName();
+    }
+    
+    /**
+     * 获取Linux下的IP地址
+     *
+     * @return IP地址
+     * @throws SocketException
+     */
+    private static String getLinuxLocalIp() throws SocketException {
+        String ip = "";
+        try {
+            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
+                NetworkInterface intf = en.nextElement();
+                String name = intf.getName();
+                if (!name.contains("docker") && !name.contains("lo")) {
+                    for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
+                        InetAddress inetAddress = enumIpAddr.nextElement();
+                        if (!inetAddress.isLoopbackAddress()) {
+                            String ipaddress = inetAddress.getHostAddress().toString();
+                            if (!ipaddress.contains("::") && !ipaddress.contains("0:0:") && !ipaddress.contains("fe80")) {
+                                ip = ipaddress;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (SocketException ex) {
+            ip = "127.0.0.1";
+            ex.printStackTrace();
+        }
+        return ip;
+    }
+    
+    
+    /**
+	 * 对cmd,rs_flag,result,摘要进行加密，以便传到客户端进行密钥验证 Description:
+	 * 
+	 * @param osbean
+	 * @return
+	 */
+	public static ShellBean getMD5Code(ShellBean osbean) {
+		String md5Str = null;
+		if (!Assert.isEmpty(osbean.getShell())) {
+			md5Str += osbean.getShell() + CONNECTOR;
+		}
+
+		if (!Assert.isEmpty(osbean.getRs_flag())) {
+			md5Str += osbean.getRs_flag() + CONNECTOR;
+		}
+
+		if (!Assert.isEmpty(osbean.getResult())) {
+			md5Str += osbean.getResult() + CONNECTOR;
+		}
+
+		if (!Assert.isEmpty(md5Str)) {
+			osbean.setDigest(Md5Util.GetMD5Code(md5Str.substring(0,
+					md5Str.length() - 1)));
+		}
+		return osbean;
+	}
+    
+}

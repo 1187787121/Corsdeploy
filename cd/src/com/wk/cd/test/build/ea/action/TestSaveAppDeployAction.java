@@ -1,0 +1,132 @@
+/**
+ * Title: TestSaveAppDeployAction.java
+ * File Description: 测试保存应用部署信息
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: Xul
+ * @version: 1.0
+ * @date: 2016年12月12日
+ */
+package com.wk.cd.test.build.ea.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.Controller;
+import com.wk.beans.Injector;
+import com.wk.cd.build.ea.action.SaveAppDeployAction;
+import com.wk.cd.build.ea.bean.PhasePublishBean;
+import com.wk.cd.build.ea.bean.SaveAppDeployInputBean;
+import com.wk.cd.build.ea.bean.SrvSocBean;
+import com.wk.cd.build.ea.info.UuParamInfo;
+import com.wk.cd.common.cm.service.CommonService;
+import com.wk.cd.enu.MODIFY_FLAG;
+import com.wk.cd.enu.SUBMIT_TYPE;
+import com.wk.cd.enu.YN_FLAG;
+import com.wk.cd.module1.entity.PhaseParam;
+import com.wk.db.DBSource;
+import com.wk.db.Session;
+import com.wk.test.TestCase;
+import com.wk.util.JaDate;
+import com.wk.util.JaDateTime;
+import com.wk.util.JaTime;
+
+/**
+ * Class Description: 测试保存应用部署信息
+ * @author Xul
+ */
+public class TestSaveAppDeployAction extends TestCase{
+	private DBSource db = DBSource.get();
+	private Session session;
+	private Injector inject=Controller.getInstance().getInjector();
+	private SaveAppDeployAction sc = inject.getBean(SaveAppDeployAction.class);
+	private CommonService cmsvc = inject.getBean(CommonService.class);
+	
+	@Override
+	protected void setUpOnce() {
+		session = db.openSession();
+		session.beginTransaction();
+	}
+
+	@Override
+	protected void tearDownOnce() {
+		// session.commit();
+		session.rollback();
+		// session.close();
+	}
+
+	@Override
+	protected void setUp() {
+		if (session == null) {
+			session = db.openSession();
+			session.beginTransaction();
+		}
+	}
+
+	@Override
+	protected void tearDown() {
+//		session.rollbackAndResume();
+		session.commitAndResume();
+	}
+	
+	public void test1(){
+		SaveAppDeployInputBean input = new SaveAppDeployInputBean();
+		commonInput(input);
+		input.setWork_id("TK201612130005");
+		input.setTemplate_name("test");
+		//设置参数列表
+		List<PhaseParam> param_list = new ArrayList<PhaseParam>();
+		PhaseParam tpb = new PhaseParam();
+		tpb.setParam_name("remote_dir");
+		tpb.setParam_value("kek,dirdir");
+		tpb.setModify_flag(MODIFY_FLAG.YES);
+		param_list.add(tpb);
+		
+		PhaseParam tpb1 = new PhaseParam();
+		tpb1.setParam_name("local_dir");
+		tpb1.setParam_value("kek,dirdir");
+		tpb1.setModify_flag(MODIFY_FLAG.YES);
+		param_list.add(tpb1);
+		input.setParam_list(param_list);
+		
+		List<PhasePublishBean> phases = new ArrayList<PhasePublishBean>();
+		PhasePublishBean bean = new PhasePublishBean();
+		bean.setGen_flag(YN_FLAG.YES);
+		SrvSocBean[]srv_soc = new SrvSocBean[2];
+		SrvSocBean scb = new SrvSocBean();
+		scb.setExe_server_name("220ssh");
+		scb.setExe_soc_name("220telnet");
+		srv_soc[0] = scb;
+		
+		SrvSocBean scb1 = new SrvSocBean();
+		scb1.setExe_server_name("228服务器");
+		scb1.setExe_soc_name("228ssh");
+		srv_soc[1] = scb1;
+		bean.setSrv_soc(srv_soc);
+		phases.add(bean);
+		sc.run(input);
+	}
+	
+	/**
+	 * 公共赋值 
+	 * @param input
+	 */
+	private void commonInput(SaveAppDeployInputBean input) {
+		// 公共赋值
+		input.setOrg_channel_code("01");
+		input.setOrg_work_code("");
+		input.setOrg_srv_name("ea_SaveAppDeployAction");
+		input.setOrg_rs_code("00");
+		input.setOrg_user_id("admin");
+		input.setOrg_term_no("10.1.1.195");
+		input.setOrg_dept_id("110001");
+		input.setPbl_code("00001");
+		input.setPend_srv_name("add_work_action");
+		input.setPend_rs_code("html");
+		input.setPendwk_bk_expl("保存应用部署信息");
+		input.setSubmit_type(SUBMIT_TYPE.APPLY);
+		JaDateTime curdt = cmsvc.getCurrentDateTime();
+		input.setDtbs_bk_date(JaDate.valueOf(curdt.dateValue()));
+		input.setDtbs_bk_time(JaTime.valueOf(curdt.timeValue()));
+	}
+}

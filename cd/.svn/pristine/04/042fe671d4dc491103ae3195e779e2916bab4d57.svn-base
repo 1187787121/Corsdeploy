@@ -1,0 +1,36 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootOutputBean;
+
+public class AddGroupOutputBean extends ActionRootOutputBean {
+	
+	private static final long serialVersionUID = -8417953206824745554L;
+	
+	/**
+	 * 组件组ID
+	 */
+	private String group_id;
+	public static final String GROUP_IDCN = "组件组ID";
+	
+	/**
+	 * 重复标识
+	 */
+	private boolean override_flag;
+	public static final String OVERRIDE_FLAGCN = "重复标识";
+
+	public String getGroup_id() {
+		return this.group_id;
+	}
+
+	public void setGroup_id(String group_id) {
+		this.group_id = group_id;
+	}
+
+	public boolean isOverride_flag() {
+		return this.override_flag;
+	}
+
+	public void setOverride_flag(boolean override_flag) {
+		this.override_flag = override_flag;
+	}
+}

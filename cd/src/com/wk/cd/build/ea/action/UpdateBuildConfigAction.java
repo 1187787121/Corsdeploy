@@ -1,0 +1,170 @@
+/**
+ * Title: UpdateBuildConfigAction.java
+ * File Description: 修改构建配置文件服务
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: chiss
+ * @version: 1.0
+ * @date: 2016年12月9日
+ */
+package com.wk.cd.build.ea.action;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.build.ea.bean.UpdateBuildConfigInputBean;
+import com.wk.cd.build.ea.bean.UpdateBuildConfigOutputBean;
+import com.wk.cd.build.ea.dao.BuildConfigfileDaoService;
+import com.wk.cd.build.ea.info.BuildConfigfileInfo;
+import com.wk.cd.build.en.dao.CeServerDaoService;
+import com.wk.cd.build.en.info.CeServerInfo;
+import com.wk.cd.build.en.service.EnvironmentPublicService;
+import com.wk.cd.build.en.service.ServerCommonService;
+import com.wk.cd.enu.CFG_TYPE;
+import com.wk.cd.enu.FOPT_TYPE;
+import com.wk.cd.enu.OPT_STATUS;
+import com.wk.cd.common.cm.service.CommonService;
+import com.wk.cd.common.cm.service.GenNoService;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.CfgTool;
+import com.wk.cd.common.util.FileStringService;
+import com.wk.cd.common.util.FileTool;
+import com.wk.cd.enu.YN_FLAG;
+import com.wk.cd.exc.ReadConfigFileException;
+import com.wk.cd.remote.fp.bean.FTPBean;
+import com.wk.cd.remote.fp.service.FTPRCallService;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+/**
+ * Class Description: 修改构建配置文件服务
+ * 
+ * @author chiss
+ */
+public class UpdateBuildConfigAction extends ActionBasic<UpdateBuildConfigInputBean, UpdateBuildConfigOutputBean> {
+	@Inject
+	private BuildConfigfileDaoService buildConfigfileDaoService;
+	@Inject
+	private EnvironmentPublicService environmentPublicService;
+	@Inject
+	private ServerCommonService serverCommonService;
+	@Inject
+	private GenNoService genNoSrv;
+	@Inject
+	private CeServerDaoService ceServerDaoService;
+	@Inject
+	private FileStringService fileStringService;
+	@Inject
+	private CommonService commonService;
+	@Inject
+	private FTPRCallService ftprcallSrv;
+	@Inject
+	private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+
+	// 定义下载配置文件本地存放路径
+	private static final String LOCAL_PATH = "temp";
+
+	/**
+	 * Description: 修改构建配置文件服务
+	 * 
+	 * @param input
+	 * @return
+	 */
+	@Override
+	protected UpdateBuildConfigOutputBean doAction(UpdateBuildConfigInputBean input) {
+		logger.info("-----------------UpdateBuildConfigAction Begin------------------");
+		UpdateBuildConfigOutputBean output = new UpdateBuildConfigOutputBean();
+		String env_name = input.getEnv_name();
+		String ce_server_name = input.getCe_server_name();
+		String work_id = input.getWork_id();
+		String relative_path = input.getRelative_path();
+		String encoding = input.getEncoding();
+		String config_string = input.getConfig_string();
+		CFG_TYPE cfg_type = input.getCfg_type();
+		String system = input.getSystem();
+
+		// 非空校验
+		Assert.assertNotEmpty(env_name, UpdateBuildConfigInputBean.ENV_NAMECN);
+		Assert.assertNotEmpty(ce_server_name, UpdateBuildConfigInputBean.CE_SERVER_NAMECN);
+		Assert.assertNotEmpty(work_id, UpdateBuildConfigInputBean.WORK_IDCN);
+		Assert.assertNotEmpty(relative_path, UpdateBuildConfigInputBean.RELATIVE_PATHCN);
+		Assert.assertNotEmpty(encoding, UpdateBuildConfigInputBean.ENCODINGCN);
+		Assert.assertNotEmpty(cfg_type, UpdateBuildConfigInputBean.CFG_TYPECN);
+
+		// 合法新校验
+		environmentPublicService.checkEnvNameIsExist(env_name);
+		serverCommonService.checkServerIsExist(ce_server_name);
+
+		String soc_name = serverCommonService.getFtpConfigSocByServerName(ce_server_name);
+
+		// 获取文件名及文件目录
+		String file_name = FileTool.getFileName(relative_path);
+		String file_path = FileTool.getFilePath(relative_path);
+		// 获取文件流水号
+		String file_work_seq = genNoSrv.getWorkSeq(input.getDtbs_bk_date(), input.getServer_name(), input.getServer_port());
+		// 获取本地存放路径(规则：前端根路径+临时文件夹+文件流水号文件夹+文件名)
+		String web_root_path = CfgTool.getProjectPropterty("web.root.path");
+		if (Assert.isEmpty(web_root_path)) {
+			throw new ReadConfigFileException().addScene("FILE", "cms.properties").addScene("CONFIG", "web.root.path");
+		}
+		// 获取本地文件生成目录
+		String local_path = web_root_path + LOCAL_PATH + "/" + file_work_seq;
+		File dir = new File(local_path);
+		if (!dir.exists()) {
+			dir.mkdirs();
+		}
+		String local_full_path = local_path + "/" + file_name;
+		// 在本地生成修改后文件
+		fileStringService.writeFile(config_string, local_full_path, encoding, system);
+		// 根据数据源名获取ftp或sftp连接实例
+		FTPBean ftpBean = commonService.getFTPBeanBySocName(soc_name, input.getWork_seq());
+		// 上传修改后的环境配置文件
+		ftprcallSrv.uploadFile(ftpBean, relative_path, local_full_path);
+
+		// 删除生成的临时文件
+		File file = new File(local_full_path);
+		if (file.exists()) {
+			file.delete();
+			dir.delete();
+		}
+
+		// 新增构建任务配置文件变更表
+		BuildConfigfileInfo info = new BuildConfigfileInfo();
+		info.setFile_work_seq(file_work_seq);
+		info.setWork_id(work_id);
+		info.setCfg_type(cfg_type);
+		info.setServer_name(ce_server_name);
+		// 根据服务器名称查询服务器地址
+		CeServerInfo server_info = ceServerDaoService.getInfoByServerName(ce_server_name);
+		info.setServer_ip(Assert.isEmpty(server_info) ? null : server_info.getServer_ip());
+		info.setFopt_type(FOPT_TYPE.MODIFY);
+		info.setFile_bk_fname(file_name);
+		info.setFile_bk_path(file_path);
+		info.setDir_yn_flag(YN_FLAG.NO);
+		info.setOpt_status(OPT_STATUS.SUCCESS);
+		info.setModify_user_id(input.getOrg_user_id());
+		info.setModify_bk_date(input.getDtbs_bk_date());
+		info.setModify_bk_time(input.getDtbs_bk_time());
+		buildConfigfileDaoService.insertInfo(info);
+		logger.info("-----------------UpdateBuildConfigAction End------------------");
+		return output;
+	}
+
+	/**
+	 * Description: 修改构建配置文件服务
+	 * @param input
+	 * @return
+	 */
+	@Override
+	protected String getLogTxt(UpdateBuildConfigInputBean input) {
+		List<String> lst_val = new ArrayList<String>();
+		lst_val.add("服务器名：" + input.getCe_server_name());
+		lst_val.add("相对路径：" + input.getRelative_path());
+		return lgsvc.getLogTxt("修改配置文件服务", lst_val);
+	}
+}

@@ -1,0 +1,60 @@
+package com.wk.cd.module.dao;
+
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.PUBLISH_STATE;
+import com.wk.cd.module.MODULE_PURPOSE;
+import com.wk.cd.module.SCRIPT_SOURCE;
+import com.wk.cd.module.info.MoModuleInfo;
+import com.wk.db.DBIterator;
+import com.wk.db.EntityDao;
+import com.wk.db.SqlParam;
+import com.wk.util.JaDate;
+import com.wk.util.JaTime;
+
+abstract class MoModuleDao extends EntityDao<MoModuleInfo> {
+
+	@SqlParam(condition = "MODULE_ID =:module_id")
+	abstract int countModuleById(String paramString);
+
+	@SqlParam(condition = "MODULE_ID =:module_id")
+	abstract MoModuleInfo getModuleInfoById(String paramString);
+
+	@SqlParam(sql = "SELECT * FROM mo_module WHERE (MODULE_CN_NAME LIKE '%${module_cn_name}%') AND MODULE_TYPE =1 ORDER BY ${order_col_name} ${order_type}", dynamic = true)
+	abstract DBIterator<MoModuleInfo> queryAllModuleInfos(String paramString1,
+			String paramString2, String paramString3);
+
+	@SqlParam(condition = "MODULE_PURPOSE =:module_purpose")
+	abstract DBIterator<MoModuleInfo> findAllModulenfos(
+			MODULE_PURPOSE paramMODULE_PURPOSE);
+
+	@SqlParam(sql = "SELECT * FROM mo_module WHERE (MODULE_CN_NAME LIKE '%${module_cn_name}%') AND MODULE_TYPE =2 ORDER BY ${order_col_name} ${order_type}", dynamic = true)
+	abstract DBIterator<MoModuleInfo> queryAllGroupInfos(String paramString1,
+			String paramString2, String paramString3);
+
+	@SqlParam(updateSet = { "PUBLISH_STATE" }, condition = "PK")
+	abstract int updateModulePubStateById(PUBLISH_STATE paramPUBLISH_STATE,
+			String paramString);
+
+	@SqlParam(updateSet = { "MODULE_PURPOSE", "SCRIPT_SOURCE",
+			"MODULE_CN_NAME", "MODULE_BK_DESC", "IMPL_TYPE", "MODIFY_BK_DATE",
+			"MODIFY_BK_TIME", "MODIFY_USER_ID" }, condition = "PK")
+	abstract int updateModuleBaseByKey(MODULE_PURPOSE paramMODULE_PURPOSE,
+			SCRIPT_SOURCE paramSCRIPT_SOURCE, String paramString1,
+			String paramString2, IMPL_TYPE paramIMPL_TYPE, JaDate paramJaDate,
+			JaTime paramJaTime, String paramString3, String paramString4);
+
+	@SqlParam(updateSet = { "MODULE_CN_NAME", "MODULE_BK_DESC",
+			"MODIFY_BK_DATE", "MODIFY_BK_TIME", "MODIFY_USER_ID" }, condition = "PK")
+	abstract int updateGroupBaseByKey(String paramString1, String paramString2,
+			JaDate paramJaDate, JaTime paramJaTime, String paramString3,
+			String paramString4);
+
+	@SqlParam(condition = "MODULE_TYPE=:module_type and PUBLISH_STATE=1")
+	abstract DBIterator<MoModuleInfo> queryPublishedModuleByType(
+			MODULE_TYPE paramMODULE_TYPE);
+
+	@SqlParam(condition = "MODULE_TYPE=:module_type and MODULE_PURPOSE =:module_purpose and PUBLISH_STATE=1", dynamic = true)
+	abstract DBIterator<MoModuleInfo> queryPublishedCotModuleByType(
+			MODULE_TYPE paramMODULE_TYPE, MODULE_PURPOSE paramMODULE_PURPOSE);
+}

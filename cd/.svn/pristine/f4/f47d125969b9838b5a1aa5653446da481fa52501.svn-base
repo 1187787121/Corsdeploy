@@ -1,0 +1,249 @@
+package com.wk.cd.module;
+
+import com.wk.Controller;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.enu.PROTOCOL_TYPE;
+import com.wk.cd.enu.YN_FLAG;
+import com.wk.cd.module.impl.DefaultProcess;
+import com.wk.cd.module.impl.FTP;
+import com.wk.cd.module.impl.SVN;
+import com.wk.cd.module.impl.Shell;
+import com.wk.cd.module.impl.WAS;
+import com.wk.cd.module.impl.WebLogic;
+import com.wk.cd.module.info.InstanceInfo;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.info.ModuleSourceInfo;
+import com.wk.cd.module.info.TemplateInfo;
+import com.wk.cd.system.dt.service.DtSocService;
+import com.wk.lang.Inject;
+import com.wk.lang.SystemException;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.sdo.ServiceData;
+
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class ProcessManager {
+	public static final ProcessManager instance = new ProcessManager();
+
+	private static Log logger = LogFactory.getLog();
+
+	private final ConcurrentHashMap<String, InstanceItem> insts = new ConcurrentHashMap<String, InstanceItem>();
+
+	private final Map<String, SessItem> sesses = new HashMap<String, SessItem>();
+
+	@Inject
+	private DtSocService dtSocService;
+
+	private ProcessManager() {
+		Controller.getInstance().getInjector().inject(this);
+	}
+
+	public synchronized String createInstanceId() {
+		return UUID.randomUUID().toString();
+	}
+
+	public InstanceInfo prepare(TemplateInfo template, Env env) {
+		logger.debug("######prepare-----begin------>>>>######");
+		env.setParamInfos(template.getAll_params());
+		InstanceInfo inst = new InstanceInfo(createInstanceId(), template, env);
+		List<ModuleInfo> infos = template.getSub_ModuleInfos();
+		int template_phase_no = 0;
+		for (int stage = 0; stage < infos.size(); ++stage) {
+			++template_phase_no;
+			ModuleInfo info = infos.get(stage);
+			if ((!(Assert.isEmpty(info.getGen_yn_flag()))) && (YN_FLAG.NO.equals(info.getGen_yn_flag()))) {
+				continue;
+			}
+			String[] cmds = ParamUtil.resolveParam(stage, info.getCmds(), env);
+			if ((IMPL_TYPE.SHELL == info.getImpl_type()) || (IMPL_TYPE.FTP == info.getImpl_type()) || (IMPL_TYPE.WAS == info.getImpl_type())
+					|| (IMPL_TYPE.SVN == info.getImpl_type()) || (IMPL_TYPE.WEBLOGIC == info.getImpl_type())) {
+				List<ModuleSourceInfo> dtInfos = env.getStageNodes(stage);
+				if ((dtInfos == null) || (dtInfos.size() <= 0)) {
+					throw new SystemException("SYS_SHELL_MUST_HAVE_DTSOURCE").addScene("Instance", inst.getInstanceId()).addScene("Stage", Integer.valueOf(stage));
+				}
+				for (ModuleSourceInfo dtinfo : dtInfos) {
+					ModuleInfo impl_info = ModuleInfo.copy(info);
+					impl_info.setSource_info(dtinfo);
+					impl_info.setCmds(cmds);
+					impl_info.setTemplate_phase_no(Integer.valueOf(template_phase_no));
+					impl_info.setCn_name((Assert.isEmpty(info.getAlias_name())) ? info.getCn_name() : info.getAlias_name());
+					inst.addModuleInfo(impl_info);
+				}
+			} else {
+				ModuleInfo impl_info = ModuleInfo.copy(info);
+				impl_info.setCmds(cmds);
+				impl_info.setTemplate_phase_no(Integer.valueOf(template_phase_no));
+				inst.addModuleInfo(impl_info);
+			}
+		}
+		logger.debug("######prepare-----end------>>>>######");
+		return inst;
+	}
+
+	@SuppressWarnings("hiding")
+	public Process buildProcess(InstanceInfo instance) {
+		checkProcessExpires();
+
+		DefaultProcess process = new DefaultProcess(instance);
+		logger.debug(">>>>>>>>>>>>>>build--->process:[{}]",instance.getInstanceId());
+		for (Iterator<ModuleInfo> it = instance.moduleIterator(); it.hasNext();) {
+			ModuleInfo info = it.next();
+			logger.debug("Module:protocol[{}],impl:[{}]",info.getSource_info().getProtocol_type().getCname(),info.getImpl_type().getCname());
+			process.addModule(createModule(info, instance.getEnv()));
+		}
+		insts.put(instance.getInstanceId(), new InstanceItem(process));
+		logger.debug("{} add instance {}", this, instance.getInstanceId());
+		return process;
+	}
+
+	private void checkProcessExpires() {
+		for (Iterator<Map.Entry<String, InstanceItem>> it = this.insts.entrySet().iterator(); it.hasNext();) {
+			Map.Entry<String, InstanceItem> entry = it.next();
+			InstanceItem item = entry.getValue();
+			if (item.isExpire()) {
+				it.remove();
+				logger.info("{}'s instance {} expired", item.proc.getCtx().getInstance_info().getInstanceId(), item.proc);
+			}
+		}
+	}
+
+	public Process getProcessInstance(String inst_id) {
+		logger.debug("{} get instance {}", this, inst_id);
+		logger.debug("current instance names: {}", this.insts.keySet());
+		InstanceItem item = this.insts.get(inst_id);
+		if (item == null) {
+			throw new SystemException("SYS_INSTANCE_NOT_FOUND").addScene("Instance", inst_id);
+		}
+		return item.proc;
+	}
+
+	public Process removeProcessInstance(String inst_id) {
+		if (this.insts.containsKey(inst_id)) {
+			return this.insts.remove(inst_id).proc;
+		}
+
+		return null;
+	}
+
+	public Module createModule(ModuleInfo info, Env env) {
+		logger.debug("current soc:[{}]",info.getSource_info().getDt_source_info().getSoc_name());
+		logger.debug("current module protocol:" + info.getSource_info().getProtocol_type().getCname());
+		logger.debug("current module impl_type:" + info.getImpl_type().getCname());
+		if (IMPL_TYPE.SHELL == info.getImpl_type()) {
+			ModuleSourceInfo dt_info = info.getSource_info();
+			if ((PROTOCOL_TYPE.SSH == dt_info.getProtocol_type()) || (PROTOCOL_TYPE.TELNET == dt_info.getProtocol_type())) {
+				Shell module = new Shell(dt_info, info.getCmds());
+				module.setModuleInfo(info);
+				return module;
+			}
+			throw new RuntimeException("PROTOCOL_TYPE[" + dt_info.getProtocol_type() + "] not supported!");
+		}
+		if (IMPL_TYPE.SVN == info.getImpl_type()) {
+			ModuleSourceInfo dt_info = info.getSource_info();
+			ServiceData data = dt_info.getData();
+			Assert.assertNotEmpty(data, "svn connect param");
+			logger.debug("svn connect param [{}]", data);
+			SVN model = new SVN(dt_info, info.getCmds());
+			model.setModuleInfo(info);
+			return model;
+		}
+		if (IMPL_TYPE.FTP == info.getImpl_type()) {
+			ModuleSourceInfo dt_info = info.getSource_info();
+			FTP model = new FTP(dt_info, info.getCmds());
+			model.setModuleInfo(info);
+			return model;
+		}
+		if (IMPL_TYPE.WAS == info.getImpl_type()) {
+			ModuleSourceInfo dt_info = info.getSource_info();
+			ServiceData data = dt_info.getData();
+			Assert.assertNotEmpty(data, "was connect param");
+			logger.debug("was connect param [{}]", data);
+			WAS model = new WAS(dt_info, info.getCmds());
+			model.setModuleInfo(info);
+			return model;
+		}
+		if (IMPL_TYPE.WEBLOGIC == info.getImpl_type()) {
+			ModuleSourceInfo dt_info = info.getSource_info();
+			ServiceData data = dt_info.getData();
+			Assert.assertNotEmpty(data, "weblogic connect param");
+			logger.debug("weblogic connect param [{}]", data);
+			WebLogic model = new WebLogic(dt_info, info.getCmds());
+			model.setModuleInfo(info);
+			return model;
+		}
+		throw new RuntimeException("Impl_Type[" + info.getImpl_type().getCname() + "] not supported!");
+	}
+
+	public void registerModuleSession(ModuleSession sess) {
+		checkSessExpires();
+		this.sesses.put(sess.getKey(), new SessItem(sess));
+	}
+
+	public ModuleSession removeModuleSession(String id) {
+		SessItem item = this.sesses.remove(id);
+		return ((item != null) ? item.sess : null);
+	}
+
+	public void closeSessByIds(Set<String> ids) {
+		for (String id : ids) {
+			SessItem item = this.sesses.get(id);
+			if ((item != null) && (item.sess != null))
+				realCloseSess(item.sess);
+		}
+	}
+
+	private void realCloseSess(ModuleSession sess) {
+		try {
+			sess.setRealDisconnect(true);
+			sess.disconnect();
+			logger.info("{}'s session {} closed", sess.getKey(), sess);
+		} catch (Throwable t) {
+			logger.error("{}'s session {} close error", sess.getKey(), sess, t);
+		}
+	}
+
+	private void checkSessExpires() {
+		for (Map.Entry<String, SessItem> entry : this.sesses.entrySet()) {
+			SessItem item = entry.getValue();
+			if ((item != null) && (item.sess != null) && (item.isExpire()))
+				realCloseSess(item.sess);
+		}
+	}
+
+	private class InstanceItem {
+		private final Process proc;
+		private final long create_time;
+
+		private InstanceItem(Process paramProcess) {
+			this.proc = paramProcess;
+			this.create_time = System.currentTimeMillis();
+		}
+
+		boolean isExpire() {
+			long current = System.currentTimeMillis();
+			return (current - this.create_time > 604800000L);
+		}
+	}
+
+	private class SessItem {
+		final ModuleSession sess;
+		final long timestamp;
+
+		SessItem(ModuleSession paramModuleSession) {
+			this.sess = paramModuleSession;
+			this.timestamp = System.currentTimeMillis();
+		}
+
+		boolean isExpire() {
+			return (System.currentTimeMillis() - 3600000L > this.timestamp);
+		}
+	}
+}

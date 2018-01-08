@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="PUBLISH_应用文件备份" id="COMP201710250056">
+<desc>发布应用文件备份</desc>
+<script type="SHELL"><![CDATA[
+dateTime=`date '+%Y%m%d%H%M%S'`
+bakFile=${backup_dir}/${tag}.tar
+if [ -f "$bakFile" ]; then bakFile=${backup_dir}/${tag}$dateTime.tar; fi
+backup(){ if [ ! -f "$bakFile" ]; then tar -cvf $bakFile $1; else tar -rvf $bakFile $1;fi; }
+while read line; do if [ -f $line ];then backup $line;fi;done < ${upload_dir}/${relative_path}/${tag}.list
+]]></script>
+<params>
+<param cnname="备份目录" defult="./backup/" desc="备份目录" hand="false" name="backup_dir"/>
+<param cnname="区分标识" defult="${task_no}" desc="区分标识" hand="false" name="tag"/>
+<param cnname="应用目录" defult="./upload/${task_no}" desc="应用目录" hand="false" name="upload_dir"/>
+<param cnname="应用相对路径" defult="" desc="应用相对路径" hand="false" name="relative_path"/>
+</params>
+</component>

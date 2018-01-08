@@ -1,0 +1,195 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootInputBean;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.ORDER_TYPE;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.module.MODULE_PURPOSE;
+import com.wk.cd.module.info.ModuleBasicInfo;
+import com.wk.cd.module.info.ParamInfo;
+import java.util.List;
+
+public class ViewModuleInputBean extends ActionRootInputBean {
+	
+	private static final long serialVersionUID = -3181209154554978088L;
+	
+	/**
+	 * 查询关键字
+	 */
+	private String key_word;
+	
+	public static final String KEY_WORDCN = "查询关键字";
+	
+	/**
+	 * ID
+	 */
+	private String id;
+	
+	public static final String ID_CN = "ID";
+	
+	/**
+	 * ID列表
+	 */
+	private String[] id_list;
+	
+	public static final String ID_LISTCN = "ID列表";
+	
+	/**
+	 * 组件类型
+	 */
+	private MODULE_TYPE type;
+	
+	public static final String MODULE_TYPECN = "组件类型";
+	
+	/**
+	 * 组件用途
+	 */
+	private MODULE_PURPOSE module_purpose;
+	
+	public static final String MODULE_PURPOSE = "组件用途";
+	
+	/**
+	 * 模板名称
+	 */
+	private String cn_name;
+	
+	public static final String CN_NAMECN = "模板名称";
+	
+	/**
+	 * 节点IP
+	 */
+	private String server_ip;
+	
+	public static final String SERVER_IPCN = "节点IP";
+	
+	/**
+	 * 执行类别
+	 */
+	private IMPL_TYPE impl_type;
+	
+	public static final String IMPL_TYPECN = "执行类别";
+	
+	/**
+	 * 排序字段
+	 */
+	private String order_col_name;
+	
+	public static final String ORDER_COL_NAMECN = "排序字段";
+	
+	/**
+	 * 排序类型
+	 */
+	private ORDER_TYPE order_type;
+	
+	public static final String ORDER_TYPECN = "排序类型";
+	
+	/**
+	 * 组件组信息列表
+	 */
+	private List<ModuleBasicInfo> groups;
+	
+	public static final String GROUPSCN = "组件组信息列表";
+	
+	/**
+	 * 参数列表
+	 */
+	private ParamInfo[] params;
+	
+	public static final String PARAMSCN = "参数列表";
+
+	public String getKey_word() {
+		return this.key_word;
+	}
+
+	public void setKey_word(String key_word) {
+		this.key_word = key_word;
+	}
+
+	public String getId() {
+		return this.id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public String[] getId_list() {
+		return this.id_list;
+	}
+
+	public void setId_list(String[] id_list) {
+		this.id_list = id_list;
+	}
+
+	public MODULE_TYPE getType() {
+		return this.type;
+	}
+
+	public void setType(MODULE_TYPE type) {
+		this.type = type;
+	}
+
+	public String getCn_name() {
+		return this.cn_name;
+	}
+
+	public void setCn_name(String cn_name) {
+		this.cn_name = cn_name;
+	}
+
+	public String getServer_ip() {
+		return this.server_ip;
+	}
+
+	public void setServer_ip(String server_ip) {
+		this.server_ip = server_ip;
+	}
+
+	public String getOrder_col_name() {
+		return this.order_col_name;
+	}
+
+	public void setOrder_col_name(String order_col_name) {
+		this.order_col_name = order_col_name;
+	}
+
+	public ORDER_TYPE getOrder_type() {
+		return this.order_type;
+	}
+
+	public void setOrder_type(ORDER_TYPE order_type) {
+		this.order_type = order_type;
+	}
+
+	public IMPL_TYPE getImpl_type() {
+		return this.impl_type;
+	}
+
+	public void setImpl_type(IMPL_TYPE impl_type) {
+		this.impl_type = impl_type;
+	}
+
+	public List<ModuleBasicInfo> getGroups() {
+		return this.groups;
+	}
+
+	public void setGroups(List<ModuleBasicInfo> groups) {
+		this.groups = groups;
+	}
+
+	public ParamInfo[] getParams() {
+		return this.params;
+	}
+
+	public void setParams(ParamInfo[] params) {
+		this.params = params;
+	}
+
+	public MODULE_PURPOSE getModule_purpose() {
+		return this.module_purpose;
+	}
+
+	public void setModule_purpose(MODULE_PURPOSE module_purpose) {
+		this.module_purpose = module_purpose;
+	}
+}

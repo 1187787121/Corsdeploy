@@ -1,0 +1,86 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootInputBean;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.module.info.ParamInfo;
+import java.util.List;
+
+public class DppModuleTestInputBean extends ActionRootInputBean {
+	
+	private static final long serialVersionUID = -6391532039068200866L;
+	
+	/**
+	 * 组件或组件组组ID
+	 */
+	private String id;
+	
+	public static final String IDCN = "组件或组件组组ID";
+	
+	/**
+	 * 组件类型
+	 */
+	private MODULE_TYPE type;
+	
+	public static final String TYPECN = "组件类型";
+	
+	/**
+	 * 参数列表
+	 */
+	private ParamInfo[] params;
+	
+	public static final String PARAMSCN = "参数列表";
+	
+	/**
+	 * 阶段信息列表
+	 */
+	List<PhaseTestBean> phase_list;
+	
+	public static final String PHASE_LISTCN = "阶段信息列表";
+	
+	/**
+	 * 投产包及投产包参数
+	 */
+	List<DppBean> pro_package;
+	
+	public static final String PRO_PACKAGECN = "投产包及投产包参数";
+
+	public String getId() {
+		return this.id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public MODULE_TYPE getType() {
+		return this.type;
+	}
+
+	public void setType(MODULE_TYPE type) {
+		this.type = type;
+	}
+
+	public ParamInfo[] getParams() {
+		return this.params;
+	}
+
+	public void setParams(ParamInfo[] params) {
+		this.params = params;
+	}
+
+	public List<PhaseTestBean> getPhase_list() {
+		return this.phase_list;
+	}
+
+	public void setPhase_list(List<PhaseTestBean> phase_list) {
+		this.phase_list = phase_list;
+	}
+
+	public List<DppBean> getPro_package() {
+		return this.pro_package;
+	}
+
+	public void setPro_package(List<DppBean> pro_package) {
+		this.pro_package = pro_package;
+	}
+}

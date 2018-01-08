@@ -1,0 +1,164 @@
+package com.wk.cd.module.bean;
+
+import com.wk.Controller;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.PUBLISH_STATE;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.module.MODULE_PURPOSE;
+import com.wk.cd.module.info.MoModuleInfo;
+import com.wk.cd.system.us.service.UsGetUserInfoService;
+import com.wk.util.JaDate;
+import com.wk.util.JaTime;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class ModuleBeanForList {
+	
+	private UsGetUserInfoService usGetUserInfoService = Controller.getInstance().getInjector().getBean(UsGetUserInfoService.class);
+	
+	private String id;
+	
+	private String cn_name;
+	
+	private IMPL_TYPE impl_type;
+	
+	private PUBLISH_STATE publish_state;
+	
+	private JaDate crt_bk_date;
+	
+	private JaTime crt_bk_time;
+	
+	private JaDate modify_bk_date;
+	
+	private JaTime modify_bk_time;
+	
+	private String crt_user_name;
+	
+	private String modify_user_name;
+	
+	private MODULE_PURPOSE module_purpose;
+
+	/**
+	 * Description: 将组件（组）信息转换为前端标准字段
+	 * @param info_list
+	 * @return
+	 */
+	public static List<ModuleBeanForList> parseModuleList(List<MoModuleInfo> info_list) {
+		List<ModuleBeanForList> bean_list = new ArrayList<ModuleBeanForList>();
+		if (!Assert.isEmpty(info_list)) {
+			for (MoModuleInfo info : info_list) {
+				bean_list.add(new ModuleBeanForList(info));
+			}
+		}
+		return bean_list;
+	}
+
+	public ModuleBeanForList(MoModuleInfo module_info) {
+		this.id = module_info.getModule_id();
+		this.cn_name = module_info.getModule_cn_name();
+		this.impl_type = module_info.getImpl_type();
+		this.publish_state = module_info.getPublish_state();
+		this.crt_user_name = this.usGetUserInfoService
+				.getUserCnNameByUserId(module_info.getCrt_user_id());
+		this.crt_bk_date = module_info.getCrt_bk_date();
+		this.crt_bk_time = module_info.getCrt_bk_time();
+		this.modify_bk_date = module_info.getModify_bk_date();
+		this.modify_bk_time = module_info.getModify_bk_time();
+		this.module_purpose = module_info.getModule_purpose();
+		if (!Assert.isEmpty(module_info.getModify_user_id()))
+			this.modify_user_name = this.usGetUserInfoService
+					.getUserCnNameByUserId(module_info.getModify_user_id());
+	}
+
+	public ModuleBeanForList() {
+	}
+
+	public String getId() {
+		return this.id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public String getCn_name() {
+		return this.cn_name;
+	}
+
+	public void setCn_name(String cn_name) {
+		this.cn_name = cn_name;
+	}
+
+	public IMPL_TYPE getImpl_type() {
+		return this.impl_type;
+	}
+
+	public void setImpl_type(IMPL_TYPE impl_type) {
+		this.impl_type = impl_type;
+	}
+
+	public JaDate getCrt_bk_date() {
+		return this.crt_bk_date;
+	}
+
+	public void setCrt_bk_date(JaDate crt_bk_date) {
+		this.crt_bk_date = crt_bk_date;
+	}
+
+	public JaTime getCrt_bk_time() {
+		return this.crt_bk_time;
+	}
+
+	public void setCrt_bk_time(JaTime crt_bk_time) {
+		this.crt_bk_time = crt_bk_time;
+	}
+
+	public JaDate getModify_bk_date() {
+		return this.modify_bk_date;
+	}
+
+	public void setModify_bk_date(JaDate modify_bk_date) {
+		this.modify_bk_date = modify_bk_date;
+	}
+
+	public JaTime getModify_bk_time() {
+		return this.modify_bk_time;
+	}
+
+	public void setModify_bk_time(JaTime modify_bk_time) {
+		this.modify_bk_time = modify_bk_time;
+	}
+
+	public String getCrt_user_name() {
+		return this.crt_user_name;
+	}
+
+	public void setCrt_user_name(String crt_user_name) {
+		this.crt_user_name = crt_user_name;
+	}
+
+	public String getModify_user_name() {
+		return this.modify_user_name;
+	}
+
+	public void setModify_user_name(String modify_user_name) {
+		this.modify_user_name = modify_user_name;
+	}
+
+	public PUBLISH_STATE getPublish_state() {
+		return this.publish_state;
+	}
+
+	public void setPublish_state(PUBLISH_STATE publish_state) {
+		this.publish_state = publish_state;
+	}
+
+	public MODULE_PURPOSE getModule_purpose() {
+		return this.module_purpose;
+	}
+
+	public void setModule_purpose(MODULE_PURPOSE module_purpose) {
+		this.module_purpose = module_purpose;
+	}
+}

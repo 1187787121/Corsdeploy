@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+
+<!--
+	这是ms的Build文件
+	如果需要编译源程序就执行 ant
+-->
+
+<project name="ces" basedir="." default="compile">
+	<path id="classpath">
+		<pathelement path="src"/>
+		<pathelement path="."/>
+		<pathelement path="classes"/>
+		<fileset dir="lib" includes="*.jar"/>
+	</path>
+
+	<!-- 编译所有的源文件 -->
+	<target name="compile">
+		<mkdir dir="classes" />
+		<javac compiler="modern" srcdir="src" destdir="classes" debug="true" memorymaximumsize="512m" fork="true" encoding="gbk" 
+			includeantruntime="false">
+				<compilerarg value="-Xlint"/>  			
+				<!-- compilerarg value="-verbose" /-->  			
+			<classpath refid="classpath"/>
+		</javac>
+	</target>
+
+	<!-- 生成corslares.jar文件 -->
+	<target name="jar" depends="compile">
+		<jar jarfile="dist/corsdeploy.jar">
+			<fileset dir="classes">
+				<or>
+					<none>
+						<filename name="com/wk/cd/test/**/*"/>
+					</none>
+				</or>
+			</fileset>
+		</jar>
+	</target>
+
+	<!-- 清除编译后的class文件和其它中间文件 -->
+	<target name="clean">
+		<delete dir="classes"/>
+	</target>
+
+</project>

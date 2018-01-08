@@ -1,0 +1,231 @@
+package com.wk.cd.module.impl;
+
+import com.wk.cd.module.Module;
+import com.wk.cd.module.ModuleInterceptor;
+import com.wk.cd.module.MultiResult;
+import com.wk.cd.module.ProcessContext;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.info.InstanceInfo;
+import com.wk.cd.module.Process;
+import com.wk.cd.enu.CMD_STATUS;
+import com.wk.cd.module.impl.StepEnabled;
+import com.wk.lang.SystemException;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+/**
+ * 流程缺省实现 按阶段和步骤顺序执行，提供拦截器功能扩展
+ */
+public class DefaultProcess implements Process {
+	
+	private static final Log logger = LogFactory.getLog();
+
+	protected final List<Module> modules = new ArrayList<Module>();
+
+	protected final List<ModuleInterceptor> interceptors = new ArrayList<ModuleInterceptor>();
+	
+	protected final InstanceInfo inst_info;
+	
+	protected final ProcessContext ctx;
+
+	public DefaultProcess(InstanceInfo inst_info) {
+		this.inst_info = inst_info;
+		this.ctx = new ProcessContext(inst_info);
+	}
+
+	public void addModule(Module module) {
+		modules.add(module);
+	}
+
+	public void addInterceptor(ModuleInterceptor interceptor) {
+		if (interceptor != null)
+			interceptors.add(interceptor);
+	}
+
+	public void removeInterceptor(ModuleInterceptor interceptor) {
+		for (Iterator<ModuleInterceptor> it = this.interceptors.iterator(); it
+				.hasNext();) {
+			ModuleInterceptor i = it.next();
+			if (i == interceptor)
+				it.remove();
+		}
+	}
+
+	public ProcessContext getCtx() {
+		return ctx;
+	}
+
+	public Result run(int stage) {
+		Module module = modules.get(stage);
+		if (module.isStepEnabled()) {
+			MultiResult result = new MultiResult();
+			for (int i = 0; i < ((StepEnabled) module).getStepCount(); i++) {
+				Result step_result = stepInto(stage, i);
+				result.addResult(step_result);
+				if (CMD_STATUS.SUCCEED != result.getStatus()) {
+					break;
+				}
+			}
+			return result;
+		} else {
+			before(stage, -1);
+
+			module.setCtx(ctx);
+			Result result = module.run();
+
+			after(result, false, stage, -1);
+			return result;
+		}
+
+	}
+
+	private boolean isLastStage(int stage) {
+		return stage == modules.size() - 1;
+	}
+
+	public Result stepInto(int stage, int step) {
+		before(stage, step);
+
+		Module module = modules.get(stage);
+		module.setCtx(ctx);
+		Result result = module.stepinto(step);
+		result.setPhase_no(stage);
+		result.setStep_no(step);
+		after(result, module.isLastStep(step), stage, step);
+		return result;
+	}
+
+	@Override
+	public Result skip(int stage) {
+		long start_time = System.currentTimeMillis();
+		before(stage, -1);
+
+		for (ModuleInterceptor inter : this.interceptors) {
+			inter.skip(ctx);
+		}
+
+		Result result = new Result(CMD_STATUS.SKIP, "执行跳过", start_time);
+		result.setPhase_no(stage);
+		after(result, false, stage, -1);
+		return result;
+	}
+
+	@Override
+	public Result skipStep(int stage, int step) {
+		long start_time = System.currentTimeMillis();
+		before(stage, step);
+
+		for (ModuleInterceptor inter : interceptors) {
+			inter.skip(ctx);
+		}
+		Module module = modules.get(stage);
+		Result result = new Result(CMD_STATUS.SKIP, "执行跳过", start_time);
+		result.setPhase_no(stage);
+		result.setStep_no(step);
+		after(result, module.isLastStep(step), stage, step);
+		return result;
+	}
+
+	private void before(int stage, int step) {
+		logger.debug("curren: {} - {}",
+				Integer.valueOf(ctx.getCurrentStage()),
+				Integer.valueOf(ctx.getCurrentStep()));
+		logger.debug("run before: {} - {}", Integer.valueOf(stage),
+				Integer.valueOf(step));
+		ctx.setCurrentStage(stage);
+		ctx.setCurrentStep(step);
+
+		checkStageStep(stage, step);
+
+		if (step < 0) {
+			if (stage == 0) {
+				logger.debug("before start");
+				for (ModuleInterceptor inter : interceptors) {
+					inter.beforeStart(ctx);
+				}
+			}
+			logger.debug("before run");
+			for (ModuleInterceptor inter : interceptors)
+				inter.beforeRun(ctx);
+		} else {
+			if (step == 0) {
+				if (stage == 0) {
+					logger.debug("before start");
+					for (ModuleInterceptor inter : interceptors) {
+						inter.beforeStart(ctx);
+					}
+				}
+				logger.debug("before run");
+				for (ModuleInterceptor inter : interceptors) {
+					inter.beforeRun(ctx);
+				}
+			}
+			logger.debug("before step into");
+			for (ModuleInterceptor inter : interceptors)
+				inter.beforeStepinto(ctx);
+		}
+	}
+
+	private void after(Result result, boolean is_last_step, int stage, int step) {
+		logger.debug("curren: {} - {}",
+				Integer.valueOf(ctx.getCurrentStage()),
+				Integer.valueOf(ctx.getCurrentStep()));
+
+		checkStageStep(stage, step);
+
+		this.ctx.addResult(result);
+
+		logger.debug("result: {} - {}", result.getStatus(), result.getMsg());
+
+		if (step < 0) {
+			logger.debug("after run");
+			for (ModuleInterceptor inter : interceptors) {
+				inter.afterRun(ctx);
+			}
+			if (isLastStage(stage))
+				reachEnd();
+		} else {
+			logger.debug("after step into");
+			for (ModuleInterceptor inter : interceptors) {
+				inter.afterStepinto(ctx);
+			}
+			if (is_last_step) {
+				logger.debug("after run");
+				for (ModuleInterceptor inter : interceptors) {
+					inter.afterRun(ctx);
+				}
+				if (isLastStage(stage)) {
+					reachEnd();
+				}
+			}
+		}
+		logger.debug("run after: {} - {}", Integer.valueOf(stage),
+				Integer.valueOf(step));
+	}
+
+	private void reachEnd() {
+		logger.debug("after end");
+		for (ModuleInterceptor inter : interceptors) {
+			inter.afterEnd(ctx);
+		}
+		ctx.clean();
+	}
+
+	private void checkStageStep(int stage, int step) {
+		if ((stage < 0) || (stage >= modules.size())) {
+			throw new SystemException("SYS_MODULE_INVALID_STAGE").addScene(
+					"Stage", Integer.valueOf(stage));
+		}
+		if (step >= 0) {
+			Module module = modules.get(stage);
+			if ((step < 0) || (step >= ((StepEnabled) module).getStepCount()))
+				throw new SystemException("SYS_MODULE_INVALID_STEP").addScene(
+						"Stage", Integer.valueOf(stage)).addScene("Step",
+						Integer.valueOf(step));
+		}
+	}
+}

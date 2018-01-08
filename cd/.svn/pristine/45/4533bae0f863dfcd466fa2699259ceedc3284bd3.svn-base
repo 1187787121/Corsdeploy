@@ -1,0 +1,23 @@
+package com.wk.cd.module;
+
+import com.wk.cd.module.info.ModuleInfo;
+
+public abstract interface Module {
+	public abstract ModuleInfo getModuleInfo();
+
+	public abstract boolean isStepEnabled();
+
+	public abstract int getTimeout();
+
+	public abstract boolean isLastStep(int paramInt);
+
+	public abstract void setTimeout(int paramInt);
+
+	public abstract ProcessContext getCtx();
+
+	public abstract void setCtx(ProcessContext paramProcessContext);
+
+	public abstract Result run();
+
+	public abstract Result stepinto(int paramInt);
+}

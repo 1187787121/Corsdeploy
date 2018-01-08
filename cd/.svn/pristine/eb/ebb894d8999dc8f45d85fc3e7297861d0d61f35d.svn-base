@@ -1,0 +1,102 @@
+package com.wk.cd.module.info;
+
+import com.wk.cd.module.bean.PhaseTestBean;
+//import com.wk.cl.release.bs.bean.ProgTypeBean;
+import java.util.List;
+import java.util.Map;
+
+public class ProgramInfo {
+	
+	private String program_id;
+	
+	private String program_type;
+	
+	private List<PhaseTestBean> phase_list;
+	
+	private List<ParamInfo> param_list;
+	
+	private List<ParamInfo> ref_param_list;
+	
+	private List<PackageTypeInfo> package_types;
+	
+	private Map<String, PackageCombine> package_combine_map;
+	
+	private String template_name;
+
+	// private List<ProgTypeBean> prog_type_list;
+
+	public String getProgram_id() {
+		return this.program_id;
+	}
+
+	public void setProgram_id(String program_id) {
+		this.program_id = program_id;
+	}
+
+	public List<PhaseTestBean> getPhase_list() {
+		return this.phase_list;
+	}
+
+	public void setPhase_list(List<PhaseTestBean> phase_list) {
+		this.phase_list = phase_list;
+	}
+
+	public List<ParamInfo> getParam_list() {
+		return this.param_list;
+	}
+
+	public void setParam_list(List<ParamInfo> param_list) {
+		this.param_list = param_list;
+	}
+
+	public List<PackageTypeInfo> getPackage_types() {
+		return this.package_types;
+	}
+
+	public void setPackage_types(List<PackageTypeInfo> package_types) {
+		this.package_types = package_types;
+	}
+
+	public Map<String, PackageCombine> getPackage_combine_map() {
+		return this.package_combine_map;
+	}
+
+	public void setPackage_combine_map(
+			Map<String, PackageCombine> package_combine_map) {
+		this.package_combine_map = package_combine_map;
+	}
+
+	public String getTemplate_name() {
+		return this.template_name;
+	}
+
+	public void setTemplate_name(String template_name) {
+		this.template_name = template_name;
+	}
+
+	// public List<ProgTypeBean> getProg_type_list()
+	// {
+	// return this.prog_type_list;
+	// }
+	//
+	// public void setProg_type_list(List<ProgTypeBean> prog_type_list)
+	// {
+	// this.prog_type_list = prog_type_list;
+	// }
+
+	public List<ParamInfo> getRef_param_list() {
+		return this.ref_param_list;
+	}
+
+	public void setRef_param_list(List<ParamInfo> ref_param_list) {
+		this.ref_param_list = ref_param_list;
+	}
+
+	public String getProgram_type() {
+		return this.program_type;
+	}
+
+	public void setProgram_type(String program_type) {
+		this.program_type = program_type;
+	}
+}

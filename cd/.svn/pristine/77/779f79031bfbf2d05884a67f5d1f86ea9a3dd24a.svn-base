@@ -1,0 +1,22 @@
+package com.wk.cd.module;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class MultiResult extends Result {
+	protected final List<Result> result_list = new ArrayList<Result>();
+
+	public void addResult(Result result) {
+		this.result_list.add(result);
+		this.status = result.status;
+		this.msg = result.msg;
+	}
+
+	public List<Result> getResults() {
+		return this.result_list;
+	}
+
+	public String toString() {
+		return this.result_list.toString();
+	}
+}

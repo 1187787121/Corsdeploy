@@ -1,0 +1,89 @@
+package com.wk.cd.module.action;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.bean.ModuleTestInputBean;
+import com.wk.cd.module.bean.ModuleTestOutputBean;
+import com.wk.cd.module.info.GroupModuleInfo;
+import com.wk.cd.module.info.InstanceInfo;
+import com.wk.cd.module.info.ParamInfo;
+import com.wk.cd.module.info.TemplateInfo;
+import com.wk.cd.module.service.InstanceManager;
+import com.wk.cd.module.service.ModuleCommonService;
+import com.wk.cd.module.xml.XmlPathUtil;
+import com.wk.cd.module.xml.XmlReader;
+import com.wk.cd.module.xml.XmlSystemParamUtils;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.dt.service.DtSocService;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class ModuleTestAction extends
+		ActionBasic<ModuleTestInputBean, ModuleTestOutputBean> {
+
+	@Inject
+	private ModuleCommonService componentPublicService;
+
+	@Inject
+	private DtSocService dtSocService;
+
+	@Inject
+	InstanceManager instanceManager;
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+
+	protected ModuleTestOutputBean doAction(ModuleTestInputBean input) {
+		logger.debug("--------------ModuleTestAction Begin------------------");
+		checkNull(input);
+		ModuleTestOutputBean output = new ModuleTestOutputBean();
+		String id = input.getId();
+		logger.debug("----当前测试的组件则的ID为[{}]", id);
+		ParamInfo[] params = input.getParams();
+
+		logger.debug("传入的参数的长度[{}]", Integer.valueOf(params.length));
+		XmlSystemParamUtils.replaceParamValue(Arrays.asList(params), null);
+		MODULE_TYPE type = input.getType();
+		TemplateInfo template_info = new TemplateInfo();
+		if (MODULE_TYPE.COMPONENT.equals(type))
+			template_info.addSub_moduleInfo(XmlReader.readerModule(id));
+		else if (MODULE_TYPE.GROUP.equals(type)) {
+			template_info = GroupModuleInfo.getTemplateForInstance(id);
+		}
+		InstanceInfo inst_old = instanceManager.prepare(template_info,
+				input.getPhase_list(), params);
+
+		InstanceInfo inst = componentPublicService.generateInst(id,
+				inst_old);
+
+		Result result = componentPublicService.executeToEnd(inst);
+		if (!(Assert.isEmpty(result))) {
+			output.setLast_status(result.getStatus());
+		}
+		output.setLog_file_path(XmlPathUtil.getTestRelativeDir() + id + ".txt");
+		logger.debug("--------------ModuleTestAction End------------------");
+		return output;
+	}
+
+	protected String getLogTxt(ModuleTestInputBean input) {
+		List<String> log_list = new ArrayList<String>();
+		log_list.add("测试ID" + input.getId());
+		return this.lgsvc.getLogTxt("组件组件组测试", log_list);
+	}
+
+	private void checkNull(ModuleTestInputBean input) {
+		logger.debug("非空校验");
+		Assert.assertNotEmpty(input.getId(), "组件或组件组组ID");
+		Assert.assertNotEmpty(input.getPhase_list(), "据源名列表");
+
+		Assert.assertNotEmpty(input.getType(), "组件类型");
+	}
+}

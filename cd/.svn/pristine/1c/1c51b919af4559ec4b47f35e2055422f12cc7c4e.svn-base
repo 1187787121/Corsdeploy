@@ -1,0 +1,1221 @@
+package com.wk.cd.module.xml;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODIFY_FLAG;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.PARAM_TYPE;
+import com.wk.cd.enu.YN_FLAG;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.module.bean.NodeBean;
+import com.wk.cd.module.bean.PhaseTestBean;
+import com.wk.cd.module.bean.StageSourceBean;
+import com.wk.cd.module.exc.CheckElementNodeIsEmptyException;
+import com.wk.cd.module.exc.GetFileDocumentException;
+import com.wk.cd.module.info.GroupModuleInfo;
+import com.wk.cd.module.info.InstanceInfo;
+import com.wk.cd.module.info.ModuleBasicInfo;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.info.ModuleSourceInfo;
+import com.wk.cd.module.info.PackageCombine;
+import com.wk.cd.module.info.PackageTypeInfo;
+import com.wk.cd.module.info.ParamInfo;
+import com.wk.cd.module.info.ProgramInfo;
+import com.wk.cd.module.info.TemplateInfo;
+import com.wk.cd.remote.exc.FileNotExistException;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.sdo.ServiceData;
+import com.wk.util.JSON;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.apache.commons.lang.StringUtils;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
+
+public class XmlReader {
+	private final Document document;
+	private static final Log logger = LogFactory.getLog();
+
+	public static ModuleInfo readerModuleByPath(String file_path) {
+		XmlReader reader = getInstanceByPath(file_path, MODULE_TYPE.COMPONENT);
+		return readerModule(reader);
+	}
+
+	public static ModuleInfo readerModule(String id) {
+		XmlReader reader = xmlReaderInstanceFactory(id, MODULE_TYPE.COMPONENT);
+		return readerModule(reader);
+	}
+
+	public static GroupModuleInfo readerGroupByPath(String file_path) {
+		XmlReader reader = getInstanceByPath(file_path, MODULE_TYPE.GROUP);
+		return readerGroup(reader);
+	}
+
+	public static GroupModuleInfo readerGroup(String id) {
+		XmlReader reader = xmlReaderInstanceFactory(id, MODULE_TYPE.GROUP);
+		return readerGroup(reader);
+	}
+
+	public static TemplateInfo readTemplateByPath(String file_path) {
+		XmlReader reader = getInstanceByPath(file_path, MODULE_TYPE.TEMPLATE);
+		return readTemplate(reader);
+	}
+
+	public static TemplateInfo readTemplate(String id) {
+		XmlReader reader = xmlReaderInstanceFactory(id, MODULE_TYPE.TEMPLATE);
+		return readTemplate(reader);
+	}
+
+	public static InstanceInfo readInstance(String id) {
+		XmlReader reader = xmlReaderInstanceFactory(id, MODULE_TYPE.INSTANCE);
+		return readInstance(reader);
+	}
+
+	public static InstanceInfo readInstanceByPath(String file_path) {
+		XmlReader reader = getInstanceByPath(file_path, MODULE_TYPE.INSTANCE);
+		return readInstance(reader);
+	}
+
+	public static ProgramInfo readProgram(String id) {
+		XmlReader reader = xmlReaderInstanceFactory(id, MODULE_TYPE.PROGRAM);
+		return readProgram(reader);
+	}
+
+	public static ProgramInfo readProgram1(String id) {
+		XmlReader reader = xmlReaderInstanceFactory(id, MODULE_TYPE.PROGRAM);
+		return readProgram1(reader);
+	}
+
+	public static List<ProgramInfo> readProgram2(String id) {
+		XmlReader reader = xmlReaderInstanceFactory(id, MODULE_TYPE.PROGRAM);
+		return readProgram2(reader);
+	}
+
+	public static List<ProgramInfo> readProgramByPath(String file_path) {
+		XmlReader reader = getInstanceByPath(file_path, MODULE_TYPE.PROGRAM);
+		return readProgram2(reader);
+	}
+
+	private static ProgramInfo readProgram(XmlReader reader) {
+		ProgramInfo program_info = new ProgramInfo();
+		Element program = reader.getDocumentSubElement("program");
+		String program_id = program.getAttribute("id");
+		program_info.setProgram_id(program_id);
+		NodeList stage_list = program.getElementsByTagName("stage");
+		if (!Assert.isEmpty(stage_list)) {
+			List<PhaseTestBean> phase_list = new ArrayList<PhaseTestBean>();
+			for (int i = 0; i < stage_list.getLength(); i++) {
+				PhaseTestBean phase = new PhaseTestBean();
+				Element stage = (Element) stage_list.item(i);
+				String gen = stage.getAttribute("generate");
+				phase.setGen_flag(YN_FLAG.valueOf(YN_FLAG.class, gen));
+				String desc = stage.getAttribute("desc");
+				phase.setCn_name(desc);
+				String phase_no = stage.getAttribute("phaseno");
+				phase.setPhase_no(Integer.parseInt(phase_no));
+
+				Element script = reader.getSubElement(stage, "script", true);
+				String type = script.getAttribute("type");
+				phase.setImpl_type(reader.judgeImplType(type));
+
+				String[] cmds = reader.getCmd(script.getTextContent());
+				phase.setCmds(cmds);
+
+				Element node = reader.getSubElement(stage, "nodesoc", false);
+				if (!Assert.isEmpty(node)) {
+					phase.setSrv_soc(reader.getStageSource(node));
+				}
+				Element configs = reader.getSubElement(stage, "config_nodes", false);
+				if (!Assert.isEmpty(configs)) {
+					phase.setConfig_nodes(reader.getConfigs(configs));
+				}
+				phase.setGen_flag(YN_FLAG.YES);
+				phase_list.add(phase);
+			}
+			program_info.setPhase_list(phase_list);
+		}
+
+		Element params_ele = reader.getSubElement(program, "params", false);
+		ParamInfo[] params = reader.getParamBeans(params_ele);
+		program_info.setParam_list(Arrays.asList(params));
+
+		Element ref_params_ele = reader.getSubElement(program, "ref_params", false);
+		List<ParamInfo> ref_params = reader.getRefParams(ref_params_ele);
+		program_info.setRef_param_list(ref_params);
+
+		Element package_ele = reader.getSubElement(program, "package_types", false);
+		if (!Assert.isEmpty(package_ele)) {
+			List<PackageTypeInfo> package_types = reader.getPkTypes(package_ele);
+			program_info.setPackage_types(package_types);
+		}
+
+		Element combines_ele = reader.getSubElement(program, "package_combines", false);
+		Map<String, PackageCombine> package_combine_map = reader.getPkCombines(combines_ele);
+		program_info.setPackage_combine_map(package_combine_map);
+		return program_info;
+	}
+
+	private static ProgramInfo readProgram1(XmlReader reader) {
+		ProgramInfo program_info = new ProgramInfo();
+		Element program = reader.getDocumentSubElement("program");
+		String program_id = program.getAttribute("id");
+		program_info.setProgram_id(program_id);
+		NodeList stage_list = program.getElementsByTagName("stage");
+		if (!Assert.isEmpty(stage_list)) {
+			List<PhaseTestBean> phase_list = new ArrayList<PhaseTestBean>();
+			for (int i = 0; i < stage_list.getLength(); i++) {
+				PhaseTestBean phase = new PhaseTestBean();
+				Element stage = (Element) stage_list.item(i);
+
+				String gen = stage.getAttribute("generate");
+				phase.setGen_flag(YN_FLAG.valueOf(YN_FLAG.class, gen));
+
+				String desc = stage.getAttribute("desc");
+				phase.setCn_name(desc);
+
+				String phase_no = stage.getAttribute("phaseno");
+				phase.setPhase_no(Integer.parseInt(phase_no));
+
+				String bk_desc = stage.getAttribute("bk_desc");
+				phase.setBk_desc(bk_desc);
+
+				String module_type = stage.getAttribute("moduletype");
+				phase.setType(MODULE_TYPE.valueOf(MODULE_TYPE.class, module_type));
+
+				if (module_type.equals("组件组")) {
+					NodeList stage1_list = stage.getElementsByTagName("group_stage");
+					if (!Assert.isEmpty(stage1_list)) {
+						List<PhaseTestBean> modules = new ArrayList<PhaseTestBean>();
+						for (int j = 0; j < stage1_list.getLength(); j++) {
+							PhaseTestBean phase1 = new PhaseTestBean();
+							Element stage1 = (Element) stage1_list.item(j);
+
+							String gen1 = stage1.getAttribute("generate");
+							phase1.setGen_flag(YN_FLAG.valueOf(YN_FLAG.class, gen1));
+
+							String desc1 = stage1.getAttribute("desc");
+							phase1.setCn_name(desc1);
+
+							String phase_no1 = stage1.getAttribute("phaseno");
+							phase1.setPhase_no(Integer.parseInt(phase_no1));
+
+							String bk_desc1 = stage1.getAttribute("bk_desc");
+							phase1.setBk_desc(bk_desc1);
+
+							String module_type1 = stage1.getAttribute("moduletype");
+							phase1.setType(MODULE_TYPE.valueOf(MODULE_TYPE.class, module_type1));
+
+							Element param_names = reader.getSubElement(stage, "ref_param_names", true);
+
+							NodeList param_name_list = param_names.getElementsByTagName("ref_param_name");
+							if (!Assert.isEmpty(param_name_list)) {
+								List<ParamInfo> params = new ArrayList<ParamInfo>();
+								for (int k = 0; k < param_name_list.getLength(); k++) {
+									ParamInfo paramInfo = new ParamInfo();
+									Element param_ame = (Element) param_name_list.item(k);
+
+									String param_bk_desc = param_ame.getAttribute("param_bk_desc");
+									paramInfo.setParam_bk_desc(param_bk_desc);
+
+									String param_cn_name = param_ame.getAttribute("param_cn_name");
+									paramInfo.setParam_cn_name(param_cn_name);
+
+									String param_group = param_ame.getAttribute("param_group");
+									paramInfo.setParam_group(param_group);
+
+									String param_name = param_ame.getAttribute("param_name");
+									paramInfo.setParam_name(param_name);
+
+									String param_value = param_ame.getAttribute("param_value");
+									paramInfo.setParam_value(param_value);
+
+									String param_index = param_ame.getAttribute("param_index");
+									paramInfo.setIndex(Integer.valueOf(param_index).intValue());
+
+									String hand_param = param_ame.getAttribute("param_is_used");
+									paramInfo.setHand_param(Boolean.valueOf(hand_param).booleanValue());
+
+									params.add(paramInfo);
+								}
+
+								phase1.setParams(params);
+							}
+
+							List<ParamInfo> param_list = new ArrayList<ParamInfo>();
+
+							Element ref_params = reader.getSubElement(stage1, "ref_params", true);
+
+							NodeList ref_list = ref_params.getElementsByTagName("ref_param");
+
+							for (int k = 0; k < ref_list.getLength(); k++) {
+								ParamInfo paramInfo = new ParamInfo();
+								Element ref_param = (Element) ref_list.item(k);
+
+								String param_bk_desc = ref_param.getAttribute("param_bk_desc");
+								paramInfo.setParam_bk_desc(param_bk_desc);
+
+								String param_cn_name = ref_param.getAttribute("param_cn_name");
+								paramInfo.setParam_cn_name(param_cn_name);
+
+								String param_group = ref_param.getAttribute("param_group");
+								paramInfo.setParam_group(param_group);
+
+								String param_name = ref_param.getAttribute("param_name");
+								paramInfo.setParam_name(param_name);
+
+								String param_type = ref_param.getAttribute("param_type");
+								paramInfo.setParam_type(PARAM_TYPE.valueOf(PARAM_TYPE.class, param_type));
+
+								String param_result = ref_param.getAttribute("param_result");
+								paramInfo.setRef(param_result);
+
+								String param_index = ref_param.getAttribute("param_index");
+								paramInfo.setIndex(Integer.valueOf(param_index).intValue());
+
+								String hand_param = ref_param.getAttribute("param_is_used");
+								paramInfo.setHand_param(Boolean.valueOf(hand_param).booleanValue());
+
+								param_list.add(paramInfo);
+							}
+
+							phase1.setRef_params(param_list);
+
+							Element script1 = reader.getSubElement(stage1, "script", true);
+							String type1 = script1.getAttribute("type");
+							phase1.setImpl_type(reader.judgeImplType(type1));
+
+							String[] cmds1 = reader.getCmd(script1.getTextContent());
+							phase1.setCmds(cmds1);
+
+							Element node1 = reader.getSubElement(stage1, "nodesoc", false);
+							if (!Assert.isEmpty(node1)) {
+								phase1.setSrv_soc(reader.getStageSource(node1));
+							}
+							Element configs1 = reader.getSubElement(stage1, "config_nodes", false);
+							if (!Assert.isEmpty(configs1)) {
+								phase1.setConfig_nodes(reader.getConfigs(configs1));
+							}
+							phase1.setGen_flag(YN_FLAG.YES);
+
+							modules.add(phase1);
+						}
+
+						phase.setModules(modules);
+					}
+
+				} else {
+					Element param_names = reader.getSubElement(stage, "ref_param_names", true);
+
+					NodeList param_name_list = param_names.getElementsByTagName("ref_param_name");
+					if (!Assert.isEmpty(param_name_list)) {
+						List<ParamInfo> params = new ArrayList<ParamInfo>();
+						for (int k = 0; k < param_name_list.getLength(); k++) {
+							ParamInfo paramInfo = new ParamInfo();
+							Element param_ame = (Element) param_name_list.item(k);
+
+							String param_bk_desc = param_ame.getAttribute("param_bk_desc");
+							paramInfo.setParam_bk_desc(param_bk_desc);
+
+							String param_cn_name = param_ame.getAttribute("param_cn_name");
+							paramInfo.setParam_cn_name(param_cn_name);
+
+							String param_group = param_ame.getAttribute("param_group");
+							paramInfo.setParam_group(param_group);
+
+							String param_name = param_ame.getAttribute("param_name");
+							paramInfo.setParam_name(param_name);
+
+							String param_value = param_ame.getAttribute("param_value");
+							paramInfo.setParam_value(param_value);
+
+							String param_index = param_ame.getAttribute("param_index");
+							paramInfo.setIndex(Integer.valueOf(param_index).intValue());
+
+							String hand_param = param_ame.getAttribute("param_is_used");
+							paramInfo.setHand_param(Boolean.valueOf(hand_param).booleanValue());
+
+							params.add(paramInfo);
+						}
+
+						phase.setParams(params);
+					}
+
+					Element ref_params = reader.getSubElement(stage, "ref_params", true);
+
+					NodeList ref_list = ref_params.getElementsByTagName("ref_param");
+					if (!Assert.isEmpty(ref_list)) {
+						List<ParamInfo> param_list = new ArrayList<ParamInfo>();
+						for (int k = 0; k < ref_list.getLength(); k++) {
+							ParamInfo paramInfo = new ParamInfo();
+							Element ref_param = (Element) ref_list.item(k);
+
+							String param_bk_desc = ref_param.getAttribute("param_bk_desc");
+							paramInfo.setParam_bk_desc(param_bk_desc);
+
+							String param_cn_name = ref_param.getAttribute("param_cn_name");
+							paramInfo.setParam_cn_name(param_cn_name);
+
+							String param_group = ref_param.getAttribute("param_group");
+							paramInfo.setParam_group(param_group);
+
+							String param_name = ref_param.getAttribute("param_name");
+							paramInfo.setParam_name(param_name);
+
+							String param_type = ref_param.getAttribute("param_type");
+							paramInfo.setParam_type(PARAM_TYPE.valueOf(PARAM_TYPE.class, param_type));
+
+							String param_result = ref_param.getAttribute("param_result");
+							paramInfo.setRef(param_result);
+
+							String param_index = ref_param.getAttribute("param_index");
+							paramInfo.setIndex(Integer.valueOf(param_index).intValue());
+
+							String hand_param = ref_param.getAttribute("param_is_used");
+							paramInfo.setHand_param(Boolean.valueOf(hand_param).booleanValue());
+
+							param_list.add(paramInfo);
+						}
+
+						phase.setRef_params(param_list);
+					}
+
+					Element script = reader.getSubElement(stage, "script", true);
+					String type = script.getAttribute("type");
+					phase.setImpl_type(reader.judgeImplType(type));
+
+					String[] cmds = reader.getCmd(script.getTextContent());
+					phase.setCmds(cmds);
+
+					Element node = reader.getSubElement(stage, "nodesoc", false);
+					if (!Assert.isEmpty(node)) {
+						phase.setSrv_soc(reader.getStageSource(node));
+					}
+					Element configs = reader.getSubElement(stage, "config_nodes", false);
+					if (!Assert.isEmpty(configs)) {
+						phase.setConfig_nodes(reader.getConfigs(configs));
+					}
+					phase.setGen_flag(YN_FLAG.YES);
+				}
+
+				phase_list.add(phase);
+			}
+			program_info.setPhase_list(phase_list);
+		}
+
+		Element params_ele = reader.getSubElement(program, "params", false);
+		ParamInfo[] params = reader.getParamBeans(params_ele);
+		if (!Assert.isEmpty(params)) {
+			program_info.setParam_list(Arrays.asList(params));
+		}
+
+		Element ref_params_ele = reader.getSubElement(program, "ref_params", false);
+		List<ParamInfo> ref_params = reader.getRefParams(ref_params_ele);
+		if (!Assert.isEmpty(ref_params)) {
+			program_info.setRef_param_list(ref_params);
+		}
+		Element package_ele = reader.getSubElement(program, "package_types", false);
+		if (!Assert.isEmpty(package_ele)) {
+			List<PackageTypeInfo> package_types = reader.getPkTypes(package_ele);
+			program_info.setPackage_types(package_types);
+		}
+
+		return program_info;
+	}
+
+	private static List<ProgramInfo> readProgram2(XmlReader reader) {
+		List<ProgramInfo> programInfoList = new ArrayList<ProgramInfo>();
+
+		Element program = reader.getDocumentSubElement("program");
+		String program_id = program.getAttribute("id");
+
+		NodeList program_type_list = program.getElementsByTagName("program_type");
+
+		if (!Assert.isEmpty(program_type_list)) {
+			for (int a = 0; a < program_type_list.getLength(); a++) {
+				ProgramInfo program_info = new ProgramInfo();
+				program_info.setProgram_id(program_id);
+
+				Element program_type = (Element) program_type_list.item(a);
+				String program_type_id = program_type.getAttribute("id");
+
+				program_info.setProgram_type(program_type_id);
+
+				NodeList stage_list = program_type.getElementsByTagName("stage");
+				if (!Assert.isEmpty(stage_list)) {
+					List<PhaseTestBean> phase_list = new ArrayList<PhaseTestBean>();
+					for (int i = 0; i < stage_list.getLength(); i++) {
+						PhaseTestBean phase = new PhaseTestBean();
+						Element stage = (Element) stage_list.item(i);
+
+						String gen = stage.getAttribute("generate");
+						phase.setGen_flag(YN_FLAG.valueOf(YN_FLAG.class, gen));
+
+						String desc = stage.getAttribute("desc");
+						phase.setCn_name(desc);
+
+						String phase_no = stage.getAttribute("phaseno");
+						phase.setPhase_no(Integer.parseInt(phase_no));
+
+						String bk_desc = stage.getAttribute("bk_desc");
+						phase.setBk_desc(bk_desc);
+
+						String module_type = stage.getAttribute("moduletype");
+						phase.setType(MODULE_TYPE.valueOf(MODULE_TYPE.class, module_type));
+
+						if (module_type.equals("组件组")) {
+							NodeList stage1_list = stage.getElementsByTagName("group_stage");
+							if (!Assert.isEmpty(stage1_list)) {
+								List<PhaseTestBean> modules = new ArrayList<PhaseTestBean>();
+								for (int j = 0; j < stage1_list.getLength(); j++) {
+									PhaseTestBean phase1 = new PhaseTestBean();
+									Element stage1 = (Element) stage1_list.item(j);
+
+									String gen1 = stage1.getAttribute("generate");
+									phase1.setGen_flag(YN_FLAG.valueOf(YN_FLAG.class, gen1));
+
+									String desc1 = stage1.getAttribute("desc");
+									phase1.setCn_name(desc1);
+
+									String phase_no1 = stage1.getAttribute("phaseno");
+									phase1.setPhase_no(Integer.parseInt(phase_no1));
+
+									String bk_desc1 = stage1.getAttribute("bk_desc");
+									phase1.setBk_desc(bk_desc1);
+
+									String module_type1 = stage1.getAttribute("moduletype");
+									phase1.setType(MODULE_TYPE.valueOf(MODULE_TYPE.class, module_type1));
+
+									Element param_names = reader.getSubElement(stage, "ref_param_names", true);
+
+									NodeList param_name_list = param_names.getElementsByTagName("ref_param_name");
+									if (!Assert.isEmpty(param_name_list)) {
+										List<ParamInfo> params = new ArrayList<ParamInfo>();
+										for (int k = 0; k < param_name_list.getLength(); k++) {
+											ParamInfo paramInfo = new ParamInfo();
+											Element param_ame = (Element) param_name_list.item(k);
+
+											String param_bk_desc = param_ame.getAttribute("param_bk_desc");
+											paramInfo.setParam_bk_desc(param_bk_desc);
+
+											String param_cn_name = param_ame.getAttribute("param_cn_name");
+											paramInfo.setParam_cn_name(param_cn_name);
+
+											String param_group = param_ame.getAttribute("param_group");
+											paramInfo.setParam_group(param_group);
+
+											String param_name = param_ame.getAttribute("param_name");
+											paramInfo.setParam_name(param_name);
+
+											String param_value = param_ame.getAttribute("param_value");
+											paramInfo.setParam_value(param_value);
+
+											String param_index = param_ame.getAttribute("param_index");
+											paramInfo.setIndex(Integer.valueOf(param_index).intValue());
+
+											String hand_param = param_ame.getAttribute("param_is_used");
+											paramInfo.setHand_param(Boolean.valueOf(hand_param).booleanValue());
+
+											params.add(paramInfo);
+										}
+
+										phase1.setParams(params);
+									}
+
+									List<ParamInfo> param_list = new ArrayList<ParamInfo>();
+
+									Element ref_params = reader.getSubElement(stage1, "ref_params", true);
+
+									NodeList ref_list = ref_params.getElementsByTagName("ref_param");
+
+									for (int k = 0; k < ref_list.getLength(); k++) {
+										ParamInfo paramInfo = new ParamInfo();
+										Element ref_param = (Element) ref_list.item(k);
+
+										String param_bk_desc = ref_param.getAttribute("param_bk_desc");
+										paramInfo.setParam_bk_desc(param_bk_desc);
+
+										String param_cn_name = ref_param.getAttribute("param_cn_name");
+										paramInfo.setParam_cn_name(param_cn_name);
+
+										String param_group = ref_param.getAttribute("param_group");
+										paramInfo.setParam_group(param_group);
+
+										String param_name = ref_param.getAttribute("param_name");
+										paramInfo.setParam_name(param_name);
+
+										String param_type = ref_param.getAttribute("param_type");
+										paramInfo.setParam_type(PARAM_TYPE.valueOf(PARAM_TYPE.class, param_type));
+
+										String param_result = ref_param.getAttribute("param_result");
+										paramInfo.setRef(param_result);
+
+										String param_index = ref_param.getAttribute("param_index");
+										paramInfo.setIndex(Integer.valueOf(param_index).intValue());
+
+										String hand_param = ref_param.getAttribute("param_is_used");
+										paramInfo.setHand_param(Boolean.valueOf(hand_param).booleanValue());
+
+										param_list.add(paramInfo);
+									}
+
+									phase1.setRef_params(param_list);
+
+									Element script1 = reader.getSubElement(stage1, "script", true);
+									String type1 = script1.getAttribute("type");
+									phase1.setImpl_type(reader.judgeImplType(type1));
+
+									String[] cmds1 = reader.getCmd(script1.getTextContent());
+									phase1.setCmds(cmds1);
+
+									Element node1 = reader.getSubElement(stage1, "nodesoc", false);
+									if (!Assert.isEmpty(node1)) {
+										phase1.setSrv_soc(reader.getStageSource(node1));
+									}
+									Element configs1 = reader.getSubElement(stage1, "config_nodes", false);
+									if (!Assert.isEmpty(configs1)) {
+										phase1.setConfig_nodes(reader.getConfigs(configs1));
+									}
+									phase1.setGen_flag(YN_FLAG.YES);
+
+									modules.add(phase1);
+								}
+
+								phase.setModules(modules);
+							}
+
+						} else {
+							Element param_names = reader.getSubElement(stage, "ref_param_names", true);
+
+							NodeList param_name_list = param_names.getElementsByTagName("ref_param_name");
+							if (!Assert.isEmpty(param_name_list)) {
+								List<ParamInfo> params = new ArrayList<ParamInfo>();
+								for (int k = 0; k < param_name_list.getLength(); k++) {
+									ParamInfo paramInfo = new ParamInfo();
+									Element param_ame = (Element) param_name_list.item(k);
+
+									String param_bk_desc = param_ame.getAttribute("param_bk_desc");
+									paramInfo.setParam_bk_desc(param_bk_desc);
+
+									String param_cn_name = param_ame.getAttribute("param_cn_name");
+									paramInfo.setParam_cn_name(param_cn_name);
+
+									String param_group = param_ame.getAttribute("param_group");
+									paramInfo.setParam_group(param_group);
+
+									String param_name = param_ame.getAttribute("param_name");
+									paramInfo.setParam_name(param_name);
+
+									String param_value = param_ame.getAttribute("param_value");
+									paramInfo.setParam_value(param_value);
+
+									String param_index = param_ame.getAttribute("param_index");
+									paramInfo.setIndex(Integer.valueOf(param_index).intValue());
+
+									String hand_param = param_ame.getAttribute("param_is_used");
+									paramInfo.setHand_param(Boolean.valueOf(hand_param).booleanValue());
+
+									params.add(paramInfo);
+								}
+
+								phase.setParams(params);
+							}
+
+							Element ref_params = reader.getSubElement(stage, "ref_params", true);
+
+							NodeList ref_list = ref_params.getElementsByTagName("ref_param");
+							if (!Assert.isEmpty(ref_list)) {
+								List<ParamInfo> param_list = new ArrayList<ParamInfo>();
+								for (int k = 0; k < ref_list.getLength(); k++) {
+									ParamInfo paramInfo = new ParamInfo();
+									Element ref_param = (Element) ref_list.item(k);
+
+									String param_bk_desc = ref_param.getAttribute("param_bk_desc");
+									paramInfo.setParam_bk_desc(param_bk_desc);
+
+									String param_cn_name = ref_param.getAttribute("param_cn_name");
+									paramInfo.setParam_cn_name(param_cn_name);
+
+									String param_group = ref_param.getAttribute("param_group");
+									paramInfo.setParam_group(param_group);
+
+									String param_name = ref_param.getAttribute("param_name");
+									paramInfo.setParam_name(param_name);
+
+									String param_type = ref_param.getAttribute("param_type");
+									paramInfo.setParam_type(PARAM_TYPE.valueOf(PARAM_TYPE.class, param_type));
+
+									String param_result = ref_param.getAttribute("param_result");
+									paramInfo.setRef(param_result);
+
+									String param_index = ref_param.getAttribute("param_index");
+									paramInfo.setIndex(Integer.valueOf(param_index).intValue());
+
+									String hand_param = ref_param.getAttribute("param_is_used");
+									paramInfo.setHand_param(Boolean.valueOf(hand_param).booleanValue());
+
+									param_list.add(paramInfo);
+								}
+
+								phase.setRef_params(param_list);
+							}
+
+							Element script = reader.getSubElement(stage, "script", true);
+							String type = script.getAttribute("type");
+							phase.setImpl_type(reader.judgeImplType(type));
+
+							String[] cmds = reader.getCmd(script.getTextContent());
+							phase.setCmds(cmds);
+
+							Element node = reader.getSubElement(stage, "nodesoc", false);
+							if (!Assert.isEmpty(node)) {
+								phase.setSrv_soc(reader.getStageSource(node));
+							}
+							Element configs = reader.getSubElement(stage, "config_nodes", false);
+							if (!Assert.isEmpty(configs)) {
+								phase.setConfig_nodes(reader.getConfigs(configs));
+							}
+							phase.setGen_flag(YN_FLAG.YES);
+						}
+
+						phase_list.add(phase);
+					}
+					program_info.setPhase_list(phase_list);
+				}
+
+				Element params_ele = reader.getSubElement(program, "params", false);
+				ParamInfo[] params = reader.getParamBeans(params_ele);
+				if (!Assert.isEmpty(params)) {
+					program_info.setParam_list(Arrays.asList(params));
+				}
+
+				Element ref_params_ele = reader.getSubElement(program, "ref_params", false);
+				List<ParamInfo> ref_params = reader.getRefParams(ref_params_ele);
+				if (!Assert.isEmpty(ref_params)) {
+					program_info.setRef_param_list(ref_params);
+				}
+				Element package_ele = reader.getSubElement(program, "package_types", false);
+				if (!Assert.isEmpty(package_ele)) {
+					List<PackageTypeInfo> package_types = reader.getPkTypes(package_ele);
+					program_info.setPackage_types(package_types);
+				}
+				System.out.println("erroe" + programInfoList.size());
+
+				if (program_type_list.getLength() > 1) {
+					programInfoList.add(program_info);
+				} else if (program_type_id.equals("发布流程")) {
+					programInfoList.add(program_info);
+					programInfoList.add(null);
+				} else if (program_type_id.equals("回退流程")) {
+					programInfoList.add(null);
+					programInfoList.add(program_info);
+				}
+			}
+
+		}
+
+		return programInfoList;
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, PackageCombine> getPkCombines(Element combines_ele) {
+		Map<String, PackageCombine> combines = new HashMap<String, PackageCombine>();
+		if (!Assert.isEmpty(combines_ele)) {
+			NodeList combines_node = combines_ele.getElementsByTagName("package_combine");
+			if (!Assert.isEmpty(combines_node)) {
+				for (int i = 0; i < combines_node.getLength(); i++) {
+					Element combine = (Element) combines_node.item(i);
+					String id = combine.getAttribute("id");
+					String gen_phase_json = getSubElement(combine, "genphaseno", false).getTextContent();
+					ServiceData gen_sd = JSON.toServiceData("{phase:" + gen_phase_json + "}");
+					int[] gen_phase_nos = gen_sd.getIntArray("phase");
+					List<Integer> gen_phase_no_list = new ArrayList<Integer>();
+					if (!Assert.isEmpty(gen_phase_nos)) {
+						int[] arrayOfInt1;
+						int j = (arrayOfInt1 = gen_phase_nos).length;
+						for (int n = 0; n < j; n++) {
+							Integer no = Integer.valueOf(arrayOfInt1[n]);
+							gen_phase_no_list.add(no);
+						}
+					}
+					String sel_phase_json = getSubElement(combine, "selphaseno", false).getTextContent();
+					ServiceData sel_sd = JSON.toServiceData("{phase:" + sel_phase_json + "}");
+					int[] sel_phase_nos = sel_sd.getIntArray("phase");
+					List<Integer> sel_phase_no_list = new ArrayList<Integer>();
+					if (!Assert.isEmpty(sel_phase_nos)) {
+						int[] arrayOfInt2;
+						int m = (arrayOfInt2 = sel_phase_nos).length;
+						for (int k = 0; k < m; k++) {
+							Integer no = Integer.valueOf(arrayOfInt2[k]);
+							sel_phase_no_list.add(no);
+						}
+					}
+
+					String param_json = getSubElement(combine, "param", false).getTextContent();
+					ServiceData param_sd = JSON.toServiceData("{param:" + param_json + "}");
+					List<String> param_name_list = param_sd.getList("param");
+					PackageCombine pk_combine = new PackageCombine();
+					pk_combine.setGen_phase_list(gen_phase_no_list);
+					pk_combine.setSelectable_phase_list(sel_phase_no_list);
+					pk_combine.setParam_name_list(param_name_list);
+					combines.put(id, pk_combine);
+				}
+			}
+		}
+		return combines;
+	}
+
+	private static InstanceInfo readInstance(XmlReader reader) {
+		Element instance = reader.getDocumentSubElement("instance");
+		String instance_id = instance.getAttribute("id");
+		InstanceInfo ins = new InstanceInfo(instance_id, null, null);
+		NodeList stage_list = instance.getElementsByTagName("stage");
+		if (!Assert.isEmpty(stage_list)) {
+			for (int i = 0; i < stage_list.getLength(); i++) {
+				ModuleInfo mi = new ModuleInfo();
+				Element stage = (Element) stage_list.item(i);
+				String desc = stage.getAttribute("desc");
+				String id = stage.getAttribute("id");
+				Element script = reader.getSubElement(stage, "script", true);
+				String type = script.getAttribute("type");
+				String[] cmds = reader.getCmd(script.getTextContent());
+				mi.setCmds(cmds);
+				mi.setImpl_type(reader.judgeImplType(type));
+				mi.setCn_name(desc);
+				mi.setId(id);
+				Element node = reader.getSubElement(stage, "nodesoc", true);
+				mi.setSource_info(reader.getSource(node));
+				ins.addModuleInfo(mi);
+			}
+		}
+		Element params_ele = reader.getSubElement(instance, "params", false);
+		ParamInfo[] params = reader.getParamBeans(params_ele);
+		ins.setParams(params);
+		return ins;
+	}
+
+	private static TemplateInfo readTemplate(XmlReader reader) {
+		TemplateInfo template_info = new TemplateInfo();
+		Element template = reader.getDocumentSubElement("template");
+		template_info.setId(template.getAttribute("id"));
+		String cn_name = template.getAttribute("cnname");
+		Element desc = reader.getSubElement(template, "desc", false);
+		template_info.setCn_name(cn_name);
+		if ((!Assert.isEmpty(desc)) && (!Assert.isEmpty(desc.getTextContent()))) {
+			template_info.setBk_desc(desc.getTextContent().trim());
+		}
+		Element params_ele = reader.getSubElement(template, "params", false);
+		ParamInfo[] params = reader.getParamBeans(params_ele);
+
+		Element package_type = reader.getSubElement(template, "package_types", false);
+		List<PackageTypeInfo> package_types = reader.getPkTypes(package_type);
+		NodeList children = template.getChildNodes();
+		if (!Assert.isEmpty(children)) {
+			int index = 1;
+			for (int i = 0; i < children.getLength(); i++) {
+				Node node = children.item(i);
+				String tag = node.getNodeName();
+				if (tag.equalsIgnoreCase("references")) {
+					Element child = (Element) children.item(i);
+
+					ModuleBasicInfo module = reader.paserReference(child);
+					if (MODULE_TYPE.GROUP.equals(module.getType())) {
+						GroupModuleInfo group = GroupModuleInfo.copyByBasic(module);
+						GroupModuleInfo group1 = GroupModuleInfo.copyByBasic(module);
+						group1.cleanModules();
+						List<ModuleBasicInfo> list = group.getModules();
+						for (ModuleBasicInfo info : list) {
+							info.setRef_params(ParamInfo.getParamByPhaseNo(params, index++));
+							group1.addModule(info);
+							template_info.addSub_moduleInfo(ModuleInfo.copyToChild(info));
+						}
+						template_info.addModule(group1);
+					} else if (MODULE_TYPE.COMPONENT.equals(module.getType())) {
+						module.addAllRef_params(ParamInfo.getParamByPhaseNo(params, index++));
+						template_info.addModule(module);
+						template_info.addSub_moduleInfo(ModuleInfo.copyToChild(module));
+					}
+				} else if (tag.equalsIgnoreCase("stage")) {
+					Element child = (Element) children.item(i);
+					template_info.addModule(reader.paserStage(child));
+					template_info.addSub_moduleInfo(ModuleInfo.copyToChild(reader.paserStage(child)));
+					index++;
+				}
+			}
+		}
+
+		List<ParamInfo> pl = ParamInfo.PhaseNoMinus(params == null || params.length == 0 ? new ArrayList<ParamInfo>() : Arrays.asList(params));
+		template_info.setAll_params(pl.toArray(new ParamInfo[pl.size()]));
+		template_info.setParams(ParamInfo.getGeneralParams(params));
+		template_info.setPackage_types(package_types);
+		return template_info;
+	}
+
+	private static ModuleInfo readerModule(XmlReader reader) {
+		ModuleInfo module_info = new ModuleInfo();
+		Element component = reader.getDocumentSubElement("component");
+		String inner_id = component.getAttribute("id");
+		String cn_name = component.getAttribute("cnname");
+		Element desc = reader.getSubElement(component, "desc", false);
+		module_info.setId(inner_id);
+		module_info.setCn_name(cn_name);
+		module_info.setBk_desc(desc.getTextContent());
+		module_info.setType(MODULE_TYPE.COMPONENT);
+		Element script = reader.getSubElement(component, "script", true);
+		String type = script.getAttribute("type");
+		module_info.setImpl_type(reader.judgeImplType(type));
+		String cmd = script.getTextContent();
+		if (!Assert.isEmpty(cmd)) {
+			String[] cmds = reader.getCmd(cmd);
+			module_info.setCmds(cmds);
+		}
+		Element params_ele = reader.getSubElement(component, "params", false);
+		ParamInfo[] params = reader.getParamBeans(params_ele);
+		module_info.setParams(params);
+		return module_info;
+	}
+
+	private static GroupModuleInfo readerGroup(XmlReader reader) {
+		GroupModuleInfo group_info = new GroupModuleInfo();
+		Element group = reader.getDocumentSubElement("group");
+		String inner_id = group.getAttribute("id");
+		String cn_name = group.getAttribute("cnname");
+		Element desc = reader.getSubElement(group, "desc", false);
+		group_info.setId(inner_id);
+		group_info.setCn_name(cn_name);
+		group_info.setBk_desc(desc.getTextContent());
+		group_info.setType(MODULE_TYPE.GROUP);
+		Element params_ele = reader.getSubElement(group, "params", false);
+		ParamInfo[] params = reader.getParamBeans(params_ele);
+		NodeList children = group.getChildNodes();
+		int index = 1;
+		if (!Assert.isEmpty(children)) {
+			for (int i = 0; i < children.getLength(); i++) {
+				Node child = children.item(i);
+				String tag = child.getNodeName();
+				if ("references".equalsIgnoreCase(tag)) {
+					Element ele = (Element) child;
+					List<ParamInfo> private_params = ParamInfo.getParamByPhaseNo(params, index++);
+					ModuleBasicInfo module = reader.paserReference(ele);
+					module.addAllRef_params(private_params);
+					group_info.addModule(module);
+				} else if ("stage".equalsIgnoreCase(tag)) {
+					Element ele = (Element) child;
+					group_info.addModule(reader.paserStage(ele));
+					index++;
+				}
+			}
+		}
+
+		group_info.setParams(ParamInfo.getGeneralParams(params));
+		return group_info;
+	}
+
+	private DocumentBuilder getDocumentBuilder() {
+		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+
+		DocumentBuilder db = null;
+		try {
+			db = dbf.newDocumentBuilder();
+		} catch (ParserConfigurationException e) {
+			throw new GetFileDocumentException();
+		}
+		return db;
+	}
+
+	private File judgeFileExist(String path) {
+		if (Assert.isEmpty(path)) {
+			throw new FileNotExistException().addScene("FILE", path);
+		}
+		File file = new File(path);
+		if (!file.exists()) {
+			throw new FileNotExistException().addScene("FILE", path);
+		}
+		return file;
+	}
+
+	private Element getDocumentSubElement(String tag) {
+		NodeList node_list = this.document.getElementsByTagName(tag);
+		if ((node_list == null) || (node_list.getLength() == 0)) {
+			throw new CheckElementNodeIsEmptyException().addScene("TAG", tag);
+		}
+		Element element = (Element) node_list.item(0);
+		return element;
+	}
+
+	private Element getSubElement(Element element, String tag, boolean check_null) {
+		NodeList node_list = element.getElementsByTagName(tag);
+		if ((check_null) && ((node_list == null) || (node_list.getLength() == 0))) {
+			throw new CheckElementNodeIsEmptyException().addScene("ELEMENT", element.getTagName()).addScene("TAG", tag);
+		}
+		return (Element) node_list.item(0);
+	}
+
+	private String[] getCmd(String cmd) {
+		List<String> cmds = new ArrayList<String>();
+		String[] cmd_arr = cmd.split("\n");
+		for (String str : cmd_arr) {
+			if (!Assert.isEmpty(str)) {
+				cmds.add(str.trim());
+			}
+		}
+		return cmds.toArray(new String[cmds.size()]);
+	}
+
+	private MODULE_TYPE judgeCompType(String type) {
+		if ("component".equalsIgnoreCase(type))
+			return MODULE_TYPE.COMPONENT;
+		if ("group".equalsIgnoreCase(type))
+			return MODULE_TYPE.GROUP;
+		if ("template".equalsIgnoreCase(type))
+			return MODULE_TYPE.TEMPLATE;
+		if ("phase".equalsIgnoreCase(type)) {
+			return MODULE_TYPE.PHASE;
+		}
+		return null;
+	}
+
+	private IMPL_TYPE judgeImplType(String type) {
+		if ("shell".equalsIgnoreCase(type))
+			return IMPL_TYPE.SHELL;
+		if ("ftp".equalsIgnoreCase(type))
+			return IMPL_TYPE.FTP;
+		if ("was".equalsIgnoreCase(type))
+			return IMPL_TYPE.WAS;
+		if ("svn".equalsIgnoreCase(type))
+			return IMPL_TYPE.SVN;
+		if ("weblogic".equalsIgnoreCase(type)) {
+			return IMPL_TYPE.WEBLOGIC;
+		}
+		return null;
+	}
+
+	private ModuleBasicInfo paserReference(Element reference) {
+		ModuleBasicInfo bean = null;
+		String type = reference.getAttribute("type").trim();
+		MODULE_TYPE comp_type = judgeCompType(type);
+		String id = reference.getAttribute("id").trim();
+		String alias = reference.getAttribute("alias");
+		Assert.assertNotEmpty(id, "引用的ID不能为空");
+		if (MODULE_TYPE.COMPONENT.equals(comp_type)) {
+			bean = readerModule(id);
+			bean.setType(MODULE_TYPE.COMPONENT);
+		} else if (MODULE_TYPE.GROUP.equals(comp_type)) {
+			bean = readerGroup(id);
+			bean.setType(MODULE_TYPE.GROUP);
+		}
+		if (!Assert.isEmpty(bean)) {
+			bean.setId(id);
+			if (!Assert.isEmpty(alias)) {
+				bean.setAlias_name(alias);
+			}
+		}
+		return bean;
+	}
+
+	private ModuleBasicInfo paserStage(Element stage) {
+		ModuleBasicInfo bean = new ModuleInfo();
+		bean.setCn_name(stage.getAttribute("name"));
+		Element script = getSubElement(stage, "script", true);
+		String type = script.getAttribute("type");
+		String cmd = script.getTextContent();
+		bean.setCmds(getCmd(cmd));
+		bean.setImpl_type(judgeImplType(type));
+		bean.setType(MODULE_TYPE.PHASE);
+		return bean;
+	}
+
+	private ParamInfo[] getParamBeans(Element params) {
+		List<ParamInfo> params_list = new ArrayList<ParamInfo>();
+		if (params == null) {
+			return null;
+		}
+		NodeList sub_params = params.getElementsByTagName("param");
+		if (!Assert.isEmpty(sub_params)) {
+			for (int i = 0; i < sub_params.getLength(); i++) {
+				Element param_ele = (Element) sub_params.item(i);
+				String param_name = param_ele.getAttribute("name");
+				String param_cn_name = param_ele.getAttribute("cnname");
+				String group = param_ele.getAttribute("group");
+				String param_desc = param_ele.getAttribute("desc");
+				String default_value = param_ele.getAttribute("defult");
+				String modify_flag = param_ele.getAttribute("modify");
+				ParamInfo info = new ParamInfo();
+				String hand = param_ele.getAttribute("hand");
+				if (!Assert.isEmpty(hand)) {
+					info.setHand_param("true".equalsIgnoreCase(hand));
+				}
+				info.setParam_type(judgeParamType(param_ele.getAttribute("type")));
+				String phaseno = param_ele.getAttribute("phaseno");
+				if (!Assert.isEmpty(phaseno)) {
+					info.setPhase_no(stringToInt(phaseno));
+					info.setRef(param_ele.getAttribute("ref"));
+				}
+				info.setParam_group(group);
+				info.setParam_name(param_name);
+				info.setParam_cn_name(param_cn_name);
+				info.setParam_bk_desc(param_desc);
+				info.setParam_value(default_value);
+				info.setParam_modify_flag(getModifyFlag(modify_flag));
+				info.setGen_flag(YN_FLAG.YES);
+				params_list.add(info);
+			}
+		}
+		return params_list.toArray(new ParamInfo[params_list.size()]);
+	}
+
+	private List<ParamInfo> getRefParams(Element ref_params_ele) {
+		List<ParamInfo> ref_params = new ArrayList<ParamInfo>();
+		if (!Assert.isEmpty(ref_params_ele)) {
+			NodeList params = ref_params_ele.getElementsByTagName("param");
+			if (!Assert.isEmpty(params)) {
+				for (int i = 0; i < params.getLength(); i++) {
+					Element param_ele = (Element) params.item(i);
+					String param_name = param_ele.getAttribute("name");
+					String param_cn_name = param_ele.getAttribute("cnname");
+					String param_desc = param_ele.getAttribute("desc");
+					String phaseno = param_ele.getAttribute("phaseno");
+					ParamInfo info = new ParamInfo();
+					Integer phase_no = stringToInt(phaseno);
+					info.setPhase_no(phase_no);
+					info.setRef(param_ele.getAttribute("ref"));
+					info.setParam_name(param_name);
+					info.setParam_cn_name(param_cn_name);
+					info.setParam_bk_desc(param_desc);
+					info.setParam_type(judgeParamType(param_ele.getAttribute("type")));
+					ref_params.add(info);
+				}
+			}
+		}
+		return ref_params;
+	}
+
+	private List<PackageTypeInfo> getPkTypes(Element params) {
+		List<PackageTypeInfo> package_list = new ArrayList<PackageTypeInfo>();
+		if (params == null) {
+			return null;
+		}
+		NodeList sub_params = params.getElementsByTagName("package_type");
+		if (!Assert.isEmpty(sub_params)) {
+			for (int i = 0; i < sub_params.getLength(); i++) {
+				Element pk_ele = (Element) sub_params.item(i);
+				String name = pk_ele.getAttribute("type_name");
+				String cn_name = pk_ele.getAttribute("type_cn_name");
+				PackageTypeInfo info = new PackageTypeInfo(name, cn_name);
+				package_list.add(info);
+			}
+		}
+		return package_list;
+	}
+
+	private ModuleSourceInfo getSource(Element ele) {
+		String json = ele.getTextContent();
+		ModuleSourceInfo msi = ModuleSourceInfo.getInfoFromJson(json);
+		return msi;
+	}
+
+	private StageSourceBean[] getStageSource(Element ele) {
+		String jsones = ele.getTextContent();
+		String[] json = jsones.split("#@#");
+		StageSourceBean[] ssb = new StageSourceBean[json.length];
+		int index = 0;
+		for (String j : json) {
+			StageSourceBean bean = StageSourceBean.getInfoFromJson(j);
+			ssb[(index++)] = bean;
+		}
+		return ssb;
+	}
+
+	private NodeBean[] getConfigs(Element ele) {
+		String ips = ele.getTextContent();
+		String[] nodes = ips.split("#@#");
+		NodeBean[] node_beans = new NodeBean[nodes.length];
+		for (int i = 0; i < node_beans.length; i++) {
+			NodeBean node_baen = new NodeBean();
+			String[] node = nodes[i].split("\\|");
+			if ((!Assert.isEmpty(node)) && (node.length > 1)) {
+				node_baen.setIp(node[1]);
+			}
+			node_baen.setName(node[0]);
+
+			node_beans[i] = node_baen;
+		}
+		return node_beans;
+	}
+
+	private PARAM_TYPE judgeParamType(String type) {
+		if ("pjparam".equalsIgnoreCase(type))
+			return PARAM_TYPE.PJPARAM;
+		if ("pddparam".equalsIgnoreCase(type)) {
+			return PARAM_TYPE.PDDPARAM;
+		}
+		return null;
+	}
+
+	private Integer stringToInt(String order) {
+		if (StringUtils.isNumeric(order)) {
+			return Integer.valueOf(Integer.parseInt(order));
+		}
+		return Integer.valueOf(0);
+	}
+
+	private MODIFY_FLAG getModifyFlag(String str) {
+		if ("yes".equalsIgnoreCase(str))
+			return MODIFY_FLAG.YES;
+		if ("no".equalsIgnoreCase(str)) {
+			return MODIFY_FLAG.NO;
+		}
+		return null;
+	}
+
+	private XmlReader(String id, MODULE_TYPE comp_type, boolean flag) {
+		String file_path = "";
+		if (flag) {
+			file_path = XmlPathUtil.getPathByCompId(id, comp_type);
+		} else {
+			file_path = id;
+		}
+		DocumentBuilder db = getDocumentBuilder();
+		try {
+			judgeFileExist(file_path);
+			Document document1 = db.parse(file_path);
+			this.document = document1;
+		} catch (SAXException e) {
+			e.printStackTrace();
+			throw new GetFileDocumentException().addScene("PATH", file_path);
+		} catch (IOException e) {
+			e.printStackTrace();
+			throw new GetFileDocumentException().addScene("PATH", file_path);
+		}
+	}
+
+	private static XmlReader xmlReaderInstanceFactory(String id, MODULE_TYPE comp_type) {
+		logger.debug("根据ID[{}]获取[{}]的读取实例", id, comp_type.getCname());
+		XmlReader reader = new XmlReader(id, comp_type, true);
+		return reader;
+	}
+
+	private static XmlReader getInstanceByPath(String file_path, MODULE_TYPE comp_type) {
+		logger.debug("根据路径[{}]获取[{}]的读取实例", file_path, comp_type.getCname());
+		XmlReader reader = new XmlReader(file_path, comp_type, false);
+		return reader;
+	}
+
+	public static void main(String[] args) {
+		TemplateInfo info = readTemplate("COMP201710140027");
+		System.out.println(info.toString());
+	}
+}

@@ -1,0 +1,23 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootInputBean;
+
+public class DeleteModuleInputBean extends ActionRootInputBean {
+	
+	private static final long serialVersionUID = -5134527483756364361L;
+	
+	/**
+	 * 组件ID
+	 */
+	private String id;
+	
+	public static final String COMP_IDCN = "组件ID";
+
+	public String getId() {
+		return this.id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+}

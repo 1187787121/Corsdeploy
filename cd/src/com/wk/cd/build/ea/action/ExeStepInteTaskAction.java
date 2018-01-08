@@ -1,0 +1,156 @@
+/**
+ * Title: ExeStepInteTaskAction.java
+ * File Description: 单步执行集成任务
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: Xul
+ * @version: 1.0
+ * @date: 2016年11月19日
+ */
+package com.wk.cd.build.ea.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.build.ea.bean.ExeStepInteTaskInputBean;
+import com.wk.cd.build.ea.bean.ExeStepInteTaskOutputBean;
+import com.wk.cd.build.ea.dao.EnvTaskDaoService;
+import com.wk.cd.build.ea.dao.InstanceExeDaoService;
+import com.wk.cd.build.ea.service.EnvTaskPublicService;
+import com.wk.cd.build.ea.service.InteTaskInstanceService;
+import com.wk.cd.common.cm.dao.CmSeqDaoService;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.CMD_STATUS;
+import com.wk.cd.enu.EXE_METHOD;
+import com.wk.cd.enu.EXE_RESULT;
+import com.wk.cd.enu.EXE_STATUS;
+import com.wk.cd.enu.TASK_STATUS;
+import com.wk.cd.module1.Process;
+import com.wk.cd.module1.ProcessManager;
+import com.wk.cd.module1.Result;
+import com.wk.cd.module1.entity.Instance;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.JaDateTime;
+
+/**
+ * Class Description: 单步执行集成任务
+ * @author Xul
+ */
+public class ExeStepInteTaskAction extends ActionBasic<ExeStepInteTaskInputBean, ExeStepInteTaskOutputBean>{
+	@Inject private EnvTaskPublicService taskPubSrv;
+	@Inject private EnvTaskDaoService taskSrv;
+	@Inject private InstanceExeDaoService instanceExeDaoService;
+	@Inject private CmSeqDaoService cmsvc;
+	@Inject private InteTaskInstanceService inteTaskInstanceService;
+	@Inject private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+	
+	/** 
+	 * Description: 单步执行集成任务
+	 * @param input
+	 * @return 
+	 */
+	@Override
+	protected ExeStepInteTaskOutputBean doAction(ExeStepInteTaskInputBean input) {
+		logger.info("-----------------ExeStepInteTaskAction Begin------------------");
+		ExeStepInteTaskOutputBean output = new ExeStepInteTaskOutputBean();
+		
+		/**
+		 * -----------------------------执行前准备-----------------------------
+		 */
+		// 非空校验
+		String work_id = input.getWork_id();
+		int step_id = input.getStep_id();
+		boolean skip_flag = input.isSkip_flag();
+		Assert.assertNotEmpty(work_id, ExeStepInteTaskInputBean.WORK_IDCN);
+		Assert.assertNotEmpty(step_id == 0 ? null : step_id, ExeStepInteTaskInputBean.STEP_IDCN);
+		// 执行前校验
+		taskPubSrv.checkTaskBeforeExe(work_id);
+		// 插入执行动作
+		taskSrv.updateExeMethodById(EXE_METHOD.STEP, work_id);
+		
+		//读取实例并执行
+		Instance inst = inteTaskInstanceService.readInstanceByWorkId(work_id);
+		Process proc = ProcessManager.instance.buildProcess(inst);
+		
+		// 从XML读取实例
+//		InstanceInfo inst = inteTaskSrv.readInstanceByXml(work_id);
+//		Process proc = ProcessManager.instance.buildProcess(inst);
+		// 修改执行开始时间并修改执行状态为执行中
+		instanceExeDaoService.updateExecuteStartTime(JaDateTime.now(), inst.getInstance_id(), step_id);
+		instanceExeDaoService.updateExecuteStatus(EXE_STATUS.RUNNING, inst.getInstance_id(), step_id);
+		// 获取总步骤数
+		int all_steps = inst.getPhaseCount();
+		
+//		int all_steps = inst.getModuleCount();
+		// 添加任务执行日志
+//		inteTaskSrv.addExeLog(work_id, step_id, proc, all_steps);
+		inteTaskInstanceService.addExeLog(work_id, step_id, proc, all_steps);
+		// 将执行前的sql提交
+		cmsvc.getSession().commitAndResume();
+		
+		/**
+		 * -----------------------------执行主程序-----------------------------
+		 */
+		// 按步骤执行任务
+		Result result = inteTaskInstanceService.executeTaskByStep(work_id, step_id, proc, skip_flag);
+//		Result result = inteTaskSrv.executeTaskByStep(work_id, step_id, proc, skip_flag);
+		// 根据步骤类型保存必要的信息
+		String msg = result.getMsg();
+		taskPubSrv.saveInfoByType(work_id, step_id, msg, input, skip_flag);
+		// 若执行信息长度大于450，则截取多余部分
+		logger.debug("任务：[{}], 第[{}]步执行日志：[{}]", work_id, step_id, msg);
+		if(msg.length() >= 450){
+			msg = msg.substring(0, 450);
+		}
+		logger.info("执行结束后修改信息");
+		
+		// 修改执行状态为已执行（根据执行结果分别为成功，失败，跳过）
+		instanceExeDaoService.updateExecuteStatus(EXE_STATUS.EXECUTED, inst.getInstance_id(), step_id);
+		if(CMD_STATUS.SUCCEED.equals(result.getStatus())){
+			logger.debug("执行任务编号[{}], 第[{}]步成功", work_id, step_id);
+			instanceExeDaoService.updateExecuteEnd(msg, EXE_RESULT.SUCCESS, JaDateTime.now(), 0, inst.getInstance_id(), step_id);
+		}else if(CMD_STATUS.ERROR.equals(result.getStatus())){
+			logger.debug("执行任务编号[{}], 第[{}]步失败", work_id, step_id);
+			instanceExeDaoService.updateExecuteEnd(msg, EXE_RESULT.FAIL, JaDateTime.now(), 0, inst.getInstance_id(), step_id);
+		}else if(CMD_STATUS.SKIP.equals(result.getStatus())){
+			logger.debug("执行任务编号[{}], 第[{}]步跳过", work_id, step_id);
+			instanceExeDaoService.updateExecuteStatus(EXE_STATUS.SKIP, inst.getInstance_id(), step_id);
+			instanceExeDaoService.updateExecuteEnd(msg, null, JaDateTime.now(), 0, inst.getInstance_id(), step_id);
+		}
+		
+		//返回下一步骤号，并根据执行结果判断任务执行状态
+		if(CMD_STATUS.ERROR.equals(result.getStatus())){
+			taskSrv.updateTaskStatus(TASK_STATUS.EXECUTED, work_id);
+			taskSrv.updateExecuteEndTime(JaDateTime.now(), EXE_RESULT.FAIL, work_id);
+			output.setNext_step(-1);
+		}else if(all_steps == step_id ){
+			taskSrv.updateTaskStatus(TASK_STATUS.EXECUTED, work_id);
+			taskSrv.updateExecuteEndTime(JaDateTime.now(), EXE_RESULT.SUCCESS, work_id);
+			output.setNext_step(step_id);
+		}else{
+			output.setNext_step(step_id + 1);
+		}
+		
+		logger.info("-----------------ExeStepInteTaskAction End------------------");
+		return output;
+	}
+
+	/** 
+	 * Description: 单步执行集成任务
+	 * @param input
+	 * @return 
+	 */
+	@Override
+	protected String getLogTxt(ExeStepInteTaskInputBean input) {
+		List<String> lst_val = new ArrayList<String>();
+		lst_val.add("任务编号：" + input.getWork_id());
+		lst_val.add("步骤编号：" + input.getStep_id());
+		return lgsvc.getLogTxt("单步执行集成任务", lst_val);
+	}
+
+}

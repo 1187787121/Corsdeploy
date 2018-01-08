@@ -1,0 +1,71 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootInputBean;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.module.info.ParamInfo;
+import java.util.List;
+
+public class ModuleTestInputBean extends ActionRootInputBean {
+	
+	private static final long serialVersionUID = 2676623720352453901L;
+	
+	/**
+	 * 组件或组件组组ID
+	 */
+	private String id;
+	
+	public static final String IDCN = "组件或组件组组ID";
+	
+	/**
+	 * 组件类型
+	 */
+	private MODULE_TYPE type;
+	
+	public static final String TYPECN = "组件类型";
+	
+	/**
+	 * 参数列表
+	 */
+	private ParamInfo[] params;
+	
+	public static final String PARAM_LISTCN = "参数列表";
+	
+	/**
+	 * 据源名列表
+	 */
+	private List<PhaseTestBean> phase_list;
+	
+	public static final String PHASE_LISTCN = "据源名列表";
+
+	public String getId() {
+		return this.id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public ParamInfo[] getParams() {
+		return this.params;
+	}
+
+	public void setParams(ParamInfo[] params) {
+		this.params = params;
+	}
+
+	public List<PhaseTestBean> getPhase_list() {
+		return this.phase_list;
+	}
+
+	public void setPhase_list(List<PhaseTestBean> phase_list) {
+		this.phase_list = phase_list;
+	}
+
+	public MODULE_TYPE getType() {
+		return this.type;
+	}
+
+	public void setType(MODULE_TYPE type) {
+		this.type = type;
+	}
+}

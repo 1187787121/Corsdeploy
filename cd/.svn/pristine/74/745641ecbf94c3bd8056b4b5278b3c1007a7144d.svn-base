@@ -1,0 +1,378 @@
+/**
+ * Title: StringUtil.java
+ * File Description: 字符串工具类
+ * @copyright: 2014
+ * @company: CORSWORK
+ * @author: lixl
+ * @version: 1.0
+ * @date: 2014-11-14
+ */
+package com.wk.cd.common.util;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.text.DecimalFormat;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.wk.cd.exc.DataErrorException;
+import com.wk.cl.common.util.Assert;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.JaDate;
+import com.wk.util.JaDateTime;
+import com.wk.util.JaTime;
+
+/**
+ * Class Description: 字符串工具类
+ * @author lixl
+ */
+public class StringUtil {
+	private static final Log logger = LogFactory.getLog();
+
+	/**
+	 * Double类型格式化字符串
+	 * @param val
+	 * @return
+	 */
+	public static String double2String(Double val) {
+		Assert.assertNotEmpty(val, "val");
+		String v = "";
+
+		DecimalFormat f = new DecimalFormat("0.000000");
+		String t = f.format(val);
+		String[] ary = t.split("\\.");
+		String a2 = ary[1].replaceAll("(0)*$", "");
+		if (a2 == null || "".equals(a2))
+			v = ary[0];
+		else
+			v = ary[0] + "." + a2;
+		return v;
+	}
+
+	/**
+	 * 去除^M
+	 * @param s
+	 * @return String
+	 */
+	public static String ustr2wstr(String s) {
+		Assert.assertNotEmpty(s, "s");
+		return s.replaceAll("\\x0D", "");
+	}
+
+	/**
+	 * 去空格
+	 * @param s
+	 * @return String
+	 */
+	public static String rpSp(String s) {
+		Assert.assertNotEmpty(s, "s");
+		return s.replaceAll("\\x20", "");
+	}
+
+	/**
+	 * 格式化unix字符串
+	 * @param s
+	 * @return String
+	 */
+	public static String usFmWs(String s) {
+		Assert.assertNotEmpty(s, "s");
+		return rpH(ustr2wstr(s));
+	}
+
+	/**
+	 * 去除^H
+	 * @param s
+	 * @return String
+	 */
+	public static String rpH(String s) {
+		Assert.assertNotEmpty(s, "s");
+		return s.replaceAll("\\x08", "");
+	}
+
+	/**
+	 * 去除换行符
+	 * @param s
+	 * @return String
+	 */
+	public static String rpEnter(String s) {
+		Assert.assertNotEmpty(s, "s");
+		return s.replaceAll("\\x0A", "");
+	}
+
+	/**
+	 * 根据字符串和类型说明构建对象值
+	 * @author lixl (2014-11-18)
+	 * @param s
+	 * @param type
+	 * @return Object
+	 */
+	public static Object parseVal(String s, String type) {
+		Assert.assertNotEmpty(s, "s");
+		Assert.assertNotEmpty(type, "type");
+
+		String[] a = type.split("\\.");
+		String stype = a[a.length - 1];
+		Object obj;
+		if (stype.equalsIgnoreCase("Integer") || stype.equalsIgnoreCase("int")) {
+			obj = Integer.valueOf(s);
+		} else if (stype.equalsIgnoreCase("Double")) {
+			obj = Double.valueOf(s);
+		} else if (stype.equalsIgnoreCase("Short")) {
+			obj = Short.valueOf(s);
+		} else if (stype.equalsIgnoreCase("Long")) {
+			obj = Long.valueOf(s);
+		} else if (stype.equalsIgnoreCase("JaDate")) {
+			obj = JaDate.valueOf(s);
+		} else if (stype.equalsIgnoreCase("JaTime")) {
+			obj = JaTime.valueOf(s);
+		} else if (stype.equalsIgnoreCase("JaDateTime")) {
+			obj = JaDateTime.valueOf(s);
+		} else {
+			obj = s;
+		}
+		return obj;
+	}
+
+	/**
+	 * 将字符串数组转换成字符串，中间以 sep 分隔
+	 * @author lixl (2014-12-4)
+	 * @param a 字符串数组
+	 * @param sep 分隔符
+	 * @return String 字符串
+	 */
+	public static String ary2str(String[] a, String sep) {
+		StringBuffer br = new StringBuffer();
+		for (String s : a) {
+			br.append(s).append(sep);
+		}
+		return br.toString();
+	}
+	
+	/**
+	 * 将字符串数组转换成字符串，中间以 sep 分隔
+	 * @author lixl (2014-12-4)
+	 * @param a 字符串数组
+	 * @param sep 分隔符
+	 * @return String 字符串
+	 */
+	public static String[] str2ary(String str, String sep) {
+		return str.split(sep);
+	}
+
+	/**
+	 * 将int数组转换成字符串，中间以 sep 分隔
+	 * @param a int数组
+	 * @param sep 分隔符
+	 * @return String 字符串
+	 */
+	public static String ary2str(int[] a, String sep) {
+		StringBuffer br = new StringBuffer();
+		for (int s : a) {
+			br.append(s).append(sep);
+		}
+		return br.toString();
+	}
+
+	/**
+	 * Description: 将转换的String还原为int数组
+	 * @param str 字符串
+	 * @param sep 分隔符
+	 * @return
+	 */
+	public static int[] str2intary(String str, String sep) {
+		String[] strings = str.split(sep);
+		int[] ints = new int[strings.length];
+		for (int i = 0; i < strings.length; i++) {
+			ints[i] = Integer.parseInt(strings[i]);
+		}
+		return ints;
+	}
+
+	/**
+	 * 将int数组转换成字符串，中间以 "|" 分隔
+	 * @param a int数组
+	 * @param sep 分隔符
+	 * @return String 字符串
+	 */
+	public static String ary2str(int[] a) {
+		return ary2str(a, "|");
+	}
+
+	/**
+	 * Description: 将以 "|" 分隔转换的String还原为int数组
+	 * @param str 字符串
+	 * @param sep 分隔符
+	 * @return
+	 */
+	public static int[] str2intary(String str) {
+		return str2intary(str, "\\|");
+	}
+	
+	/**
+	 * Description: 将以 "|" 分隔转换的String还原为int数组
+	 * @param str 字符串
+	 * @return
+	 */
+	public static String[] str2strary(String str) {
+		return str2strary(str, "|");
+	}
+	
+	/**
+	 * 将字符串数组转换成字符串，中间以 sep 分隔
+	 * @author lixl (2014-12-4)
+	 * @param a 字符串数组
+	 * @param sep 分隔符
+	 * @return String 字符串
+	 */
+	public static String[] str2strary(String str, String sep) {
+		if (Assert.isEmpty(str)) {
+			return new String[0];
+		}
+		sep = Pattern.quote(sep);
+		return str.split(sep);
+	}
+
+	/**
+	 * 将String数组转换成字符串，中间以 "|" 分隔
+	 * @param a String数组
+	 * @return String 字符串
+	 */
+	public static String ary2str(String[] a) {
+		return ary2str(a, "|");
+	}
+	
+	/**
+	 * 将inputStream转换成字符串
+	 * @author lixl (2014-12-4)
+	 * @param in
+	 * @return String
+	 */
+	public static String stream2str(InputStream in) {
+		BufferedReader read = new BufferedReader(new InputStreamReader(in));
+		String line;
+		StringBuffer br = new StringBuffer();
+		// char[] buf = new char[1024];
+		try {
+			// int len = read.read(buf);
+			// System.out.println("len=" + len);
+			// logger.debug("len=" + len);
+			// if (len >= 0) {
+			// logger.debug(new String(buf, 0, len));
+			// br.append(buf, 0, len);
+			// }
+
+			while ((line = read.readLine()) != null) {
+				br.append(line).append("\n");
+			}
+		} catch (IOException e) {
+			logger.error(e.toString(), e);
+		}
+		return br.toString();
+	}
+
+	/**
+	 * 将byte数组转换为表示16进制值的字符串
+	 * @author lixl (2014-12-5)
+	 * @param aryB
+	 * @return String
+	 */
+	public static String byteArr2HexStr(byte[] arrB) {
+		int iLen = arrB.length;
+		// 每个byte用两个字符才能表示，所以字符串的长度是数组长度的两倍
+		StringBuffer sb = new StringBuffer(iLen * 2);
+		for (int i = 0; i < iLen; i++) {
+			int intTmp = arrB[i];
+			// 把负数转换为正数
+			while (intTmp < 0) {
+				intTmp = intTmp + 256;
+			}
+			// 小于0F的数需要在前面补0
+			if (intTmp < 16) {
+				sb.append("0");
+			}
+			sb.append(Integer.toString(intTmp, 16));
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * 将表示16进制值的字符串转换为byte数组，
+	 * @author lixl (2014-12-5)
+	 * @param strIn
+	 * @return byte[]
+	 */
+	public static byte[] hexStr2ByteArr(String strIn) {
+		Assert.assertNotEmpty(strIn, "strIn");
+		byte[] arrOut = null;
+
+		try {
+			byte[] arrB = strIn.getBytes("GBK");
+			int iLen = arrB.length;
+
+			// 两个字符表示一个字节，所以字节数组长度是字符串长度除以2
+			arrOut = new byte[iLen / 2];
+			for (int i = 0; i < iLen; i = i + 2) {
+				String strTmp = new String(arrB, i, 2);
+				arrOut[i / 2] = (byte) Integer.parseInt(strTmp, 16);
+			}
+		} catch (UnsupportedEncodingException e) {
+			logger.error(e.toString(), e);
+			throw new DataErrorException().addScene("input", "getBytes(GBK)");
+		}
+		return arrOut;
+	}
+
+	/**
+	 * 判断第一位是否为数字
+	 * @param s
+	 * @return
+	 */
+	public static boolean startDigit(String s) {
+		return s.matches("[0-9]{1,}");
+	}
+
+	/**
+	 * 判断是否全为数字
+	 * @param s
+	 * @return
+	 */
+	public static boolean isAllDigit(String s) {
+		Pattern pattern = Pattern.compile("[0-9]{1,}");
+		Matcher matcher = pattern.matcher((CharSequence) s);
+		return matcher.matches();
+	}
+
+	public static boolean endWith(String s, String sep) {
+		Assert.assertNotEmpty(s, "s");
+		Assert.assertNotEmpty(s, "sep");
+		return s.endsWith(sep);
+	}
+
+	/**
+	 * 将给定字符串转换为UTF-8字符串, 一般用于GBK->UTF-8
+	 * @param str 指定字符串(GBK)
+	 * @return String 转换后的UTF-8字符串
+	 */
+	public static String toU8(String str) {
+		try {
+			byte[] u8b = com.wk.util.StringUtil.toUTF8(str);// 确保输入字符扩展为UTF-8
+			return new String(u8b, "UTF-8");
+		} catch (UnsupportedEncodingException e) {
+			logger.error(e.toString(), e);
+			throw new DataErrorException().addScene("input", "getBytes(UTF-8)");
+		}
+	}
+
+	public static void main(String[] args) {
+		System.out.println(startDigit("9"));
+		System.out.println(isAllDigit("1111"));
+		System.out.println(isAllDigit("1w11"));
+		System.out.println(isAllDigit("tw11"));
+		System.out.println(endWith("D:/www/ww/", "/"));
+	}
+
+}

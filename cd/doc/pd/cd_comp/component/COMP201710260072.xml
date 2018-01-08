@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="ROLL_备份文件校验" id="COMP201710260072">
+<desc>校验备份文件是否存在，不存在则报错</desc>
+<script type="SHELL"><![CDATA[
+bakFile='./${backup_dir}/${tag}/${tag}.tar'
+if [ ! -f "$bakFile" ]; then echo "backup file not exist"; test -f "$bakFile"; fi
+]]></script>
+<params>
+<param cnname="备份路径" defult="backup" desc="备份路径" hand="false" name="backup_dir"/>
+<param cnname="区分标志" defult="${task_no}" desc="区分标志" hand="false" name="tag"/>
+</params>
+</component>

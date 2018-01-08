@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="PUBLISH_应用替换更新" id="COMP201710250058">
+<desc>解压应用包到服务器根目录,并根据版本包解压时生成的清单，检验文件的cksum是否一致。</desc>
+<script type="SHELL"><![CDATA[
+tar xf ${dir}/${relative_path}/*.tar -C ./${project_name}
+check(){ a=`cksum ${dir}/${relative_path}/$1 | awk '{print $1$2}'`; b=`cksum ./${project_name}/$1 |awk '{print $1$2}'`; if [ "$a" = "$b" ]; then echo "succeed [$1]"; else echo "fail:[$1]"; fi; }
+while read line; do if [ -f ./${project_name}/$line ]; then check $line >> ${dir}/${relative_path}/${tag}.check.log; fi; done < ${dir}/${relative_path}/${tag}.list
+failList=`grep "fail" ${dir}/${relative_path}/${tag}.check.log`;echo ''
+echo "$failList"; test -z "$failList";
+]]></script>
+<params>
+<param cnname="本地应用目录" defult="./upload/${task_no}" desc="本地应用目录" hand="false" name="dir"/>
+<param cnname="应用包目录相对路径" defult="" desc="应用包目录相对路径" hand="false" name="relative_path"/>
+<param cnname="项目名称" defult="" desc="项目名称" hand="false" name="project_name"/>
+<param cnname="区分标识" defult="${task_no}" desc="区分标识" hand="false" name="tag"/>
+</params>
+</component>

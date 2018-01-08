@@ -1,0 +1,99 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootOutputBean;
+import com.wk.cd.enu.CMD_STATUS;
+
+public class ViewMonitorModuleOutputBean extends ActionRootOutputBean {
+	
+	private static final long serialVersionUID = -5619705295282253636L;
+	
+	/**
+	 * 总步骤数
+	 */
+	private int total_step;
+	
+	public static final String TOTAL_STEPCN = "总步骤数";
+	
+	/**
+	 * 总阶段数
+	 */
+	private int total_phase;
+	
+	public static final String TOTOAL_PHASECN = "总阶段数";
+	
+	/**
+	 * 当前步骤号
+	 */
+	private int current_step;
+	
+	public static final String CURRENT_STEPCN = "当前步骤号";
+	
+	/**
+	 * 当前阶段号
+	 */
+	private int current_phase;
+	
+	public static final String CURRENT_PHASECN = "当前阶段号";
+	
+	/**
+	 * 当前执行命令
+	 */
+	private String current_cmd;
+	
+	public static final String CURRENT_CMDCN = "当前执行命令";
+	
+	/**
+	 * 当前命令状态
+	 */
+	private CMD_STATUS current_cmd_status;
+	
+	public static final String CURRENT_CMD_STATUSCN = "当前命令状态";
+
+	public int getTotal_step() {
+		return this.total_step;
+	}
+
+	public void setTotal_step(int total_step) {
+		this.total_step = total_step;
+	}
+
+	public int getTotal_phase() {
+		return this.total_phase;
+	}
+
+	public void setTotal_phase(int total_phase) {
+		this.total_phase = total_phase;
+	}
+
+	public int getCurrent_step() {
+		return this.current_step;
+	}
+
+	public void setCurrent_step(int current_step) {
+		this.current_step = current_step;
+	}
+
+	public int getCurrent_phase() {
+		return this.current_phase;
+	}
+
+	public void setCurrent_phase(int current_phase) {
+		this.current_phase = current_phase;
+	}
+
+	public String getCurrent_cmd() {
+		return this.current_cmd;
+	}
+
+	public void setCurrent_cmd(String current_cmd) {
+		this.current_cmd = current_cmd;
+	}
+
+	public CMD_STATUS getCurrent_cmd_status() {
+		return this.current_cmd_status;
+	}
+
+	public void setCurrent_cmd_status(CMD_STATUS current_cmd_status) {
+		this.current_cmd_status = current_cmd_status;
+	}
+}

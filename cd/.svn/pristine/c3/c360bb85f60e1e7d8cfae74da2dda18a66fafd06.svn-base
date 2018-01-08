@@ -1,0 +1,63 @@
+package com.wk.cd.module.info;
+
+import com.wk.cd.enu.YN_FLAG;
+import java.util.List;
+
+public class PackageTypeInfo {
+	
+	private String type_name;
+	
+	private String type_cn_name;
+	
+	private YN_FLAG gen_flag;
+	
+	private List<String> package_list;
+
+	public PackageTypeInfo() {
+		
+	}
+
+	public PackageTypeInfo(String type_name, String type_cn_name) {
+		this.type_name = type_name;
+		this.type_cn_name = type_cn_name;
+	}
+
+	public PackageTypeInfo(String type_name, String type_cn_name,
+			YN_FLAG gen_flag) {
+		this.type_name = type_name;
+		this.type_cn_name = type_cn_name;
+		this.gen_flag = gen_flag;
+	}
+
+	public String getType_name() {
+		return this.type_name;
+	}
+
+	public void setType_name(String type_name) {
+		this.type_name = type_name;
+	}
+
+	public String getType_cn_name() {
+		return this.type_cn_name;
+	}
+
+	public void setType_cn_name(String type_cn_name) {
+		this.type_cn_name = type_cn_name;
+	}
+
+	public YN_FLAG getGen_flag() {
+		return this.gen_flag;
+	}
+
+	public void setGen_flag(YN_FLAG gen_flag) {
+		this.gen_flag = gen_flag;
+	}
+
+	public List<String> getPackage_list() {
+		return this.package_list;
+	}
+
+	public void setPackage_list(List<String> package_list) {
+		this.package_list = package_list;
+	}
+}

@@ -1,0 +1,114 @@
+package com.wk.cd.module.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.bean.DppModuleTestInputBean;
+import com.wk.cd.module.bean.DppModuleTestOutputBean;
+import com.wk.cd.module.info.GroupModuleInfo;
+import com.wk.cd.module.info.InstanceInfo;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.info.ParamInfo;
+import com.wk.cd.module.info.TemplateInfo;
+import com.wk.cd.module.service.ModuleCommonService;
+import com.wk.cd.module.xml.XmlPathUtil;
+import com.wk.cd.module.xml.XmlReader;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.cd.module.service.ModuleInstanceGenerator;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class DppModuleTestAction extends
+		ActionBasic<DppModuleTestInputBean, DppModuleTestOutputBean> {
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+
+	@Inject
+	private ModuleInstanceGenerator moduleInstanceGenerator;
+
+	@Inject
+	private ModuleCommonService moduleCommonService;
+
+	protected DppModuleTestOutputBean doAction(DppModuleTestInputBean input) {
+		logger.debug("--------------ModuleTestAction Begin------------------");
+		checkNull(input);
+		DppModuleTestOutputBean output = new DppModuleTestOutputBean();
+		String id = input.getId();
+		logger.debug("----当前测试的组件则的ID为[{}]", id);
+		ParamInfo[] params = input.getParams();
+
+		logger.debug("传入的参数的长度[{}]", Integer.valueOf(params.length));
+		MODULE_TYPE type = input.getType();
+		TemplateInfo template_info = new TemplateInfo();
+		if (MODULE_TYPE.COMPONENT.equals(type)) {
+			ModuleInfo mi = XmlReader.readerModule(id);
+			template_info.addSub_moduleInfo(mi);
+			template_info.setAll_params(mi.getParams());
+			template_info.setParams(mi.getParams());
+		} else if (MODULE_TYPE.GROUP.equals(type)) {
+			template_info = GroupModuleInfo.getTemplateForInstance(id);
+		}
+
+		InstanceInfo inst_old = moduleInstanceGenerator.generateInstance(
+				getSysParam(), input.getPro_package(), template_info,
+				input.getPhase_list(), dealParam(input.getParams()), null);
+
+		InstanceInfo inst = moduleCommonService.generateInst(id, inst_old);
+
+		Result result = moduleCommonService.executeToEnd(inst);
+		if (!Assert.isEmpty(result)) {
+			output.setLast_status(result.getStatus());
+		}
+		output.setLog_file_path(XmlPathUtil.getTestRelativeDir() + id + ".txt");
+		logger.debug("--------------ModuleTestAction End------------------");
+		return output;
+	}
+
+	protected String getLogTxt(DppModuleTestInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+
+		log_lst.add(input.getId());
+		return this.lgsvc.getLogTxt("测试组件组", log_lst);
+	}
+
+	private void checkNull(DppModuleTestInputBean input) {
+		Assert.assertNotEmpty(input.getId(), "组件或组件组组ID");
+		Assert.assertNotEmpty(input.getType(), "组件类型");
+		Assert.assertNotEmpty(input.getPhase_list(), "阶段信息列表");
+	}
+
+	private List<ParamInfo> getSysParam() {
+		List<ParamInfo> system_param = new ArrayList<ParamInfo>();
+		ParamInfo pi = new ParamInfo();
+		pi.setParam_name("update_local_dir");
+		pi.setParam_value(XmlPathUtil.getTestPacakageDirectory());
+		system_param.add(pi);
+		return system_param;
+	}
+
+	private List<ParamInfo> dealParam(ParamInfo[] params) {
+		List<ParamInfo> list = new ArrayList<ParamInfo>();
+		if (!(Assert.isEmpty(params))) {
+			for (ParamInfo info : params) {
+				if ("update_local_dir".equals(info.getParam_name())) {
+					info.setParam_value(XmlPathUtil.getTestPacakageDirectory());
+				}
+
+				if (Assert.isEmpty(info.getParam_value())) {
+					continue;
+				}
+				list.add(info);
+			}
+
+		}
+
+		return list;
+	}
+}

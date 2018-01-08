@@ -1,0 +1,291 @@
+package com.wk.cd.module1;
+
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+import com.wk.Controller;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.DESUtil;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.enu.PROTOCOL_TYPE;
+import com.wk.cd.module1.entity.Instance;
+import com.wk.cd.module1.entity.InstancePhase;
+import com.wk.cd.module1.entity.PhaseParam;
+import com.wk.cd.module1.impl.DefaultProcess;
+import com.wk.cd.module1.impl.FTP;
+import com.wk.cd.module1.impl.FireFly;
+import com.wk.cd.module1.impl.Python;
+import com.wk.cd.module1.impl.SQL;
+import com.wk.cd.module1.impl.SVN;
+import com.wk.cd.module1.impl.Shell;
+import com.wk.cd.module1.impl.WAS;
+import com.wk.cd.module1.impl.WebLogic;
+import com.wk.cd.module1.info.ModuleSourceInfo;
+import com.wk.cd.module1.impl.Config;
+import com.wk.cd.system.dt.service.DtSocService;
+import com.wk.lang.Inject;
+import com.wk.lang.SystemException;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.sdo.ServiceData;
+
+/**
+ * 流程管理 包括：准备、构建过程 Created by 姜志刚 on 2016/11/3.
+ */
+public class ProcessManager {
+
+	public static final ProcessManager instance = new ProcessManager();
+
+	private static Log logger = LogFactory.getLog();
+
+	private final ConcurrentHashMap<String, InstanceItem> insts = new ConcurrentHashMap<String, InstanceItem>();
+
+	private final Map<String, SessItem> sesses = new HashMap<String, SessItem>();
+
+	@Inject
+	private DtSocService dtSocService;
+
+	private ProcessManager() {
+		Controller.getInstance().getInjector().inject(this);
+	}
+
+	public synchronized String createInstanceId() {
+		return UUID.randomUUID().toString();
+	}
+
+	/**
+	 * 根据实例构建流程对象
+	 * @param instance 实例配置信息
+	 * @return
+	 */
+	public Process buildProcess(Instance instance) {
+		checkProcessExpires();
+
+		final DefaultProcess process = new DefaultProcess(instance);
+
+		//替换实例中的密文参数
+		replaceInstanceParam(instance);
+		
+		for (Iterator<InstancePhase> it = instance.phaseIterator(); it.hasNext();) {
+			InstancePhase info = it.next();
+			process.addModule(createModule(info));
+		}
+		insts.put(instance.getInstance_id(), new InstanceItem(process));
+		logger.debug("{} add instance {}", this, instance.getInstance_id());
+		return process;
+	}
+
+	private class InstanceItem {
+		private final Process proc;
+		private final long create_time;
+
+		private InstanceItem(Process proc) {
+			this.proc = proc;
+			this.create_time = System.currentTimeMillis();
+		}
+
+		boolean isExpire() {// 超过7天，删除
+			long current = System.currentTimeMillis();
+			return current - create_time > 3600 * 1000 * 24 * 7;
+		}
+	}
+
+	private void checkProcessExpires() {
+		// long current = System.currentTimeMillis();
+		for (Iterator<Map.Entry<String, InstanceItem>> it = insts.entrySet().iterator(); it
+				.hasNext();) {
+			Map.Entry<String, InstanceItem> entry = it.next();
+			InstanceItem item = entry.getValue();
+			if (item.isExpire()) {
+				it.remove();
+				logger.info("{}'s instance {} expired",
+						item.proc.getCtx().getInstance_info().getInstance_id(), item.proc);
+			}
+		}
+	}
+
+	public Process getProcessInstance(String inst_id) {
+		logger.debug("{} get instance {}", this, inst_id);
+		logger.debug("current instance names: {}", insts.keySet());
+		InstanceItem item = insts.get(inst_id);
+		if (item == null) {
+			throw new SystemException("SYS_INSTANCE_NOT_FOUND").addScene("Instance", inst_id);
+		}
+		return item.proc;
+	}
+
+	public Process removeProcessInstance(String inst_id) {
+		if (insts.containsKey(inst_id)) {
+			return insts.remove(inst_id).proc;
+
+		}
+		return null;
+
+	}
+
+	/**
+	 * 创建模块
+	 * @param info 模块定义Info
+	 * @param env 运行环境配置
+	 * @return
+	 */
+	public Module createModule(InstancePhase info) {
+		logger.debug("current module protocol:"
+				+ info.getModule_source_info().getProtocol_type().getCname());
+		IMPL_TYPE impl_type = info.getImpl_type();
+		
+		if (IMPL_TYPE.SHELL == impl_type) {
+			ModuleSourceInfo dt_info = info.getModule_source_info();
+			if (PROTOCOL_TYPE.SSH == dt_info.getProtocol_type()
+					|| PROTOCOL_TYPE.TELNET == dt_info.getProtocol_type()
+					|| PROTOCOL_TYPE.AGENT == dt_info.getProtocol_type()) {
+				Shell module = new Shell(dt_info, info.getScript().getCmds());
+				module.setPhaseInfo(info);
+				return module;
+			}
+			throw new RuntimeException(
+					"PROTOCOL_TYPE[" + dt_info.getProtocol_type() + "] not supported!");
+		} else if (IMPL_TYPE.SVN == impl_type) {
+			ModuleSourceInfo dt_info = info.getModule_source_info();
+			ServiceData data = dt_info.getData();
+			Assert.assertNotEmpty(data, "svn connect param");
+			logger.debug("svn connect param [{}]", data);
+			SVN model = new SVN(dt_info, info.getScript().getCmds());
+			model.setPhaseInfo(info);
+			return model;
+		} else if (IMPL_TYPE.FTP == impl_type) {
+			ModuleSourceInfo dt_info = info.getModule_source_info();
+			FTP model = new FTP(dt_info, info.getScript().getCmds());
+			model.setPhaseInfo(info);
+			return model;
+		} else if (IMPL_TYPE.WAS == impl_type) {
+			ModuleSourceInfo dt_info = info.getModule_source_info();
+			ServiceData data = dt_info.getData();
+			Assert.assertNotEmpty(data, "was connect param");
+			logger.debug("was connect param [{}]", data);
+			WAS model = new WAS(dt_info, info.getScript().getCmds());
+			model.setPhaseInfo(info);
+			return model;
+		} else if (IMPL_TYPE.WEBLOGIC == impl_type) {
+			ModuleSourceInfo dt_info = info.getModule_source_info();
+			ServiceData data = dt_info.getData();
+			Assert.assertNotEmpty(data, "weblogic connect param");
+			logger.debug("weblogic connect param [{}]", data);
+			WebLogic model = new WebLogic(dt_info, info.getScript().getCmds());
+			model.setPhaseInfo(info);
+			return model;
+		} else if (IMPL_TYPE.SQL == impl_type) {
+			ModuleSourceInfo dt_info = info.getModule_source_info();
+//			ServiceData data = dt_info.getData();
+//			Assert.assertNotEmpty(data, "weblogic connect param");
+//			logger.debug("weblogic connect param [{}]", data);
+			SQL model = new SQL(dt_info, info.getScript().getCmds());
+			model.setPhaseInfo(info);
+			return model;
+		} else if (IMPL_TYPE.PYTHON2 == impl_type || IMPL_TYPE.PYTHON3 == impl_type) {
+			ModuleSourceInfo dt_info = info.getModule_source_info();
+			Python module = new Python(dt_info, info.getScript().getCmds(), impl_type);
+			module.setPhaseInfo(info);
+
+			return module;
+		} else if(IMPL_TYPE.CONFIG == impl_type){
+//			Config module = new Config(files, module_source_list);
+//			module.setPhaseInfo(info);
+			return null;
+		} else if(IMPL_TYPE.MANUAL == impl_type){
+			return null;
+		} else if(IMPL_TYPE.FIREFLY == impl_type) {
+			ModuleSourceInfo dt_info = info.getModule_source_info();
+			ServiceData data = dt_info.getData();
+			Assert.assertNotEmpty(data, "svn connect param");
+			logger.debug("firefly connect param [{}]", data);
+			FireFly model = new FireFly(dt_info, info.getScript().getCmds());
+			model.setPhaseInfo(info);
+			return model;
+		}
+		throw new RuntimeException("Impl_Type[" + impl_type.getCname() + "] not supported!");
+	}
+
+	public void registerModuleSession(ModuleSession sess) {
+		checkSessExpires();
+		sesses.put(sess.getKey(), new SessItem(sess));
+	}
+
+	public ModuleSession removeModuleSession(String id) {
+		SessItem item = sesses.remove(id);
+		return item != null ? item.sess : null;
+	}
+
+	public void closeSessByIds(Set<String> ids) {
+		for (String id : ids) {
+			SessItem item = sesses.get(id);
+			if (item != null && item.sess != null) {
+				realCloseSess(item.sess);
+			}
+		}
+	}
+
+	private void realCloseSess(ModuleSession sess) {
+		try {
+			sess.setRealDisconnect(true);
+			sess.disconnect();
+			logger.info("{}'s session {} closed", sess.getKey(), sess);
+		} catch (Throwable t) {
+			logger.error("{}'s session {} close error", sess.getKey(), sess, t);
+		}
+	}
+
+	private class SessItem {
+		final ModuleSession sess;
+		final long timestamp;
+
+		SessItem(ModuleSession sess) {
+			this.sess = sess;
+			this.timestamp = System.currentTimeMillis();
+		}
+
+		boolean isExpire() { // 超过1小时，自动清理
+			return System.currentTimeMillis() - 3600 * 1000 > timestamp;
+		}
+	}
+
+	private void checkSessExpires() {
+		for (Map.Entry<String, SessItem> entry : sesses.entrySet()) {
+			// String name = entry.getKey();
+			SessItem item = entry.getValue();
+			if (item != null && item.sess != null && item.isExpire()) {
+				realCloseSess(item.sess);
+			}
+		}
+	}
+	
+
+	private void replaceInstanceParam(Instance instance) {
+		//替换实例中加密的字段.完整的可执行实例
+		//根据参数列表去替换每个阶段实例中的加密参数
+		//多个参数值得情况下，命令密文替换明文
+		List<PhaseParam> param_list = instance.getParam_list();
+		if(!Assert.isEmpty(param_list)){
+			for(PhaseParam param : param_list){
+				if(param.getSensitive_flag() && !Assert.isEmpty(param.getParam_value())){
+					
+					String[] params_array = param.getParam_value().trim().split(PhaseParam.PARAM_SLIP);
+					for(String param_str : params_array){
+						List<InstancePhase> inst_phase_list = instance.getPhase();
+						for(InstancePhase info : inst_phase_list){
+							String[] cmds = info.getScript().getCmds();
+							for(int i = 0; i < cmds.length; i++){
+								cmds[i] = cmds[i].replace(DESUtil.encrypt(param_str).trim(), param_str);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

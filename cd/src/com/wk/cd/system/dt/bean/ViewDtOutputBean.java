@@ -1,0 +1,146 @@
+/**
+ * Title: AddSocOutputBean.java
+ * File Description: 添加数据源输出接口
+ * @copyright: 2014
+ * @company: CORSWORK
+ * @author: link
+ * @version: 1.0
+ * @date: 2014-12-8
+ */
+package com.wk.cd.system.dt.bean;
+
+import java.util.List;
+
+import com.wk.cd.bean.ActionRootOutputBean;
+import com.wk.cd.enu.YN_FLAG;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+
+/**
+ * Class Description:添加数据源输出接口
+ * @author link
+ */
+public class ViewDtOutputBean
+		extends ActionRootOutputBean {
+
+	/**
+	 * @Fields serialVersionUID : TODO
+	 */
+	private static final long serialVersionUID = -8520115819242189912L;
+
+	private List<String> lst_soc_name;
+
+	public static final String LST_SOC_NAMECN = "数据源名称列表";
+
+	private List<String> ip_list;
+
+	public static final String IP_LISTCN = "IP地址列表";
+
+	private List<DtSourceInfo> soc_list;
+
+	public static final String SOC_LISTCN = "数据源列表";
+
+	/**
+	 * 协议数据源列表
+	 */
+	private List<ProtocolSocBean> protocol_soc_list;
+	public static final String PROTOCOL_SOC_LISTCN = "协议数据源列表";
+	
+	/**
+	 * 是否存在Agent
+	 */
+	private YN_FLAG exist_agent_yn_falg;
+	
+	public static final String EXIST_AGENT_YN_FALGCN = "是否存在Agent";
+	
+	/**
+	 * 是否选中Agent校验数据源
+	 */
+	private YN_FLAG agent_config_yn_falg;
+
+	public static final String AGENT_CONFIG_YN_FALGCN = "是否选中Agent校验数据源";
+
+	/**
+	 * @param lst_soc_name 数据源名称列表
+	 */
+	public void setLst_soc_name(List<String> lst_soc_name) {
+		this.lst_soc_name = lst_soc_name;
+	}
+
+	/**
+	 * @return lst_soc_name 数据源名称列表
+	 */
+	public List<String> getLst_soc_name() {
+		return lst_soc_name;
+	}
+
+	/**
+	 * @return 协议数据源列表
+	 */
+	public List<ProtocolSocBean> getProtocol_soc_list() {
+		return protocol_soc_list;
+	}
+
+	/**
+	 * @param 协议数据源列表
+	 */
+	public void setProtocol_soc_list(List<ProtocolSocBean> protocol_soc_list) {
+		this.protocol_soc_list = protocol_soc_list;
+	}
+
+	/**
+	 * @return ip_list
+	 */
+	public List<String> getIp_list() {
+		return ip_list;
+	}
+
+	/**
+	 * @param ip_list
+	 */
+	public void setIp_list(List<String> ip_list) {
+		this.ip_list = ip_list;
+	}
+
+	/**
+	 * @return soc_list
+	 */
+	public List<DtSourceInfo> getSoc_list() {
+		return soc_list;
+	}
+
+	/**
+	 * @param soc_list
+	 */
+	public void setSoc_list(List<DtSourceInfo> soc_list) {
+		this.soc_list = soc_list;
+	}
+
+	/**
+	 * @return exist_agent_yn_falg
+	 */
+	public YN_FLAG getExist_agent_yn_falg() {
+		return exist_agent_yn_falg;
+	}
+
+	/**
+	 * @param exist_agent_yn_falg
+	 */
+	public void setExist_agent_yn_falg(YN_FLAG exist_agent_yn_falg) {
+		this.exist_agent_yn_falg = exist_agent_yn_falg;
+	}
+
+	/**
+	 * @return agent_config_yn_falg
+	 */
+	public YN_FLAG getAgent_config_yn_falg() {
+		return agent_config_yn_falg;
+	}
+
+	/**
+	 * @param agent_config_yn_falg
+	 */
+	public void setAgent_config_yn_falg(YN_FLAG agent_config_yn_falg) {
+		this.agent_config_yn_falg = agent_config_yn_falg;
+	}
+
+}

@@ -1,0 +1,101 @@
+package com.wk.cd.module;
+
+import com.wk.cd.module.info.InstanceInfo;
+import com.wk.cd.module.info.ModuleInfo;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * 运行上下文
+ *
+ * 包括：运行环境，运行中的执行结果，当前的运行状态
+ */
+public class ProcessContext {
+	private final List<Result> results = new ArrayList<Result>();
+
+	private static final Set<String> sess_ids = new HashSet<String>();
+
+	private volatile int currentStage = -1;
+
+	private volatile int currentStep = -1;
+
+	private volatile Result last_result = null;
+	private final InstanceInfo instance_info;
+
+	public ProcessContext(InstanceInfo instance_info) {
+		this.instance_info = instance_info;
+	}
+
+	public void bindSession(ModuleSession sess) {
+		sess.setRealDisconnect(false);
+		sess_ids.add(sess.getKey());
+		ProcessManager.instance.registerModuleSession(sess);
+	}
+
+	public void clean() {
+		ProcessManager.instance.closeSessByIds(sess_ids);
+		if (this.instance_info != null)
+			ProcessManager.instance.removeProcessInstance(this.instance_info
+					.getInstanceId());
+	}
+
+	public int getCurrentStage() {
+		return this.currentStage;
+	}
+
+	public void setCurrentStage(int currentStage) {
+		this.currentStage = currentStage;
+	}
+
+	public int getCurrentStep() {
+		return this.currentStep;
+	}
+
+	public void setCurrentStep(int currentStep) {
+		this.currentStep = currentStep;
+	}
+
+	public InstanceInfo getInstance_info() {
+		return this.instance_info;
+	}
+
+	public Result getLastResult() {
+		return this.last_result;
+	}
+
+	public List<Result> getResults() {
+		return this.results;
+	}
+
+	public ModuleInfo getCurrentModuleInfo() {
+		List<ModuleInfo> list = this.instance_info.getModuleInfos();
+		
+		if (this.currentStage > list.size() - 1) {
+			throw new ArrayIndexOutOfBoundsException("该项目已经执行到末尾，不能再继续执行");
+		}
+		ModuleInfo mi = list.get(this.currentStage);
+		return mi;
+	}
+
+	public String getCurrentCmd() {
+		ModuleInfo mi = getCurrentModuleInfo();
+		String[] cmds = mi.getCmds();
+		if (this.currentStep > cmds.length - 1) {
+			throw new ArrayIndexOutOfBoundsException("该阶段已经执行到末尾，不能再继续执行");
+		}
+		return cmds[this.currentStep];
+	}
+
+	public int getCurrentCmdCount() {
+		ModuleInfo mi = getCurrentModuleInfo();
+		String[] cmds = mi.getCmds();
+		return cmds.length;
+	}
+
+	public void addResult(Result result) {
+		this.results.add(result);
+		this.last_result = result;
+	}
+}

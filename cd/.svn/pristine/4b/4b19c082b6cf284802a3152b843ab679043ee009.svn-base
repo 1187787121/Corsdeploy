@@ -1,0 +1,458 @@
+package com.wk.cd.module.service;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.enu.YN_FLAG;
+import com.wk.cd.module.bean.DppBean;
+import com.wk.cd.module.bean.NodeBean;
+import com.wk.cd.module.bean.PhaseTestBean;
+import com.wk.cd.module.bean.StageSourceBean;
+import com.wk.cd.module.exc.ModuleParamValueIllegitimateException;
+import com.wk.cd.module.info.InstanceInfo;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.info.ModuleSourceInfo;
+import com.wk.cd.module.info.ParamInfo;
+import com.wk.cd.module.info.TemplateInfo;
+import com.wk.cd.module.xml.XmlSystemParamUtils;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.cd.system.dt.service.DtSocService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+/**
+ * Class Description:
+ * cl项目中实例的生成类，这里主要考虑每个阶段如果有配置文件参数（每个参数自带数据源），投产包参数（不同投产包带有不同参数） 里面所有的参数
+ * 包括阶段处理过程中 阶段号都是从“1”开始
+ * 
+ * @author zhangj
+ */
+public class ModuleInstanceGenerator {
+	private static final Log logger = LogFactory.getLog();
+
+	@Inject
+	DtSocService dtSocService;
+
+	public InstanceInfo generateInstance(List<PhaseTestBean> phase_list, List<ParamInfo> project_params, List<ParamInfo> system_params,
+			List<ParamInfo> config_params) {
+		project_params = XmlSystemParamUtils.replaceParamValue(project_params, system_params);
+		project_params = XmlSystemParamUtils.splitMultiParams(project_params);
+		Map<String, List<ParamInfo>> config_param_map = new HashMap<String, List<ParamInfo>>();
+		String node;
+		if (!(Assert.isEmpty(config_params))) {
+			for (ParamInfo param : config_params) {
+				node = param.getNode();
+				if (!(Assert.isEmpty(node))) {
+					if (config_param_map.containsKey(node)) {
+						config_param_map.get(node).add(param);
+					} else {
+						List<ParamInfo> ps = new ArrayList<ParamInfo>();
+						ps.add(param);
+						config_param_map.put(node, ps);
+					}
+				}
+			}
+		}
+		List<ModuleInfo> module_list = new ArrayList<ModuleInfo>();
+		for (PhaseTestBean phase : phase_list) {
+			if (YN_FLAG.NO.equals(phase.getGen_flag()))
+				continue;
+			String[] cmds;
+			List<String> cmd_list;
+			if (Assert.isEmpty(phase.getConfig_nodes())) {
+				StageSourceBean[] ssb = phase.getSrv_soc();
+				ModuleInfo module = new ModuleInfo();
+				module.setCn_name(phase.getCn_name());
+				module.setImpl_type(phase.getImpl_type());
+				cmds = phase.getCmds();
+				List<String> replace_cmd = new ArrayList<String>();
+				for (String cmd : cmds) {
+					cmd_list = replaceCmd(cmd, project_params);
+					replace_cmd.addAll(cmd_list);
+				}
+				module.setCmds(replace_cmd.toArray(new String[replace_cmd.size()]));
+				if (Assert.isEmpty(ssb))
+					module_list.add(module);
+				else
+					module_list.addAll(mergeModuleSource(module, ssb));
+			} else {
+				List<NodeBean> config_node_list = Arrays.asList(phase.getConfig_nodes());
+				for (NodeBean node1 : config_node_list) {
+					if (config_param_map.containsKey(node1.getName())) {
+						List<ParamInfo> phase_config_params = config_param_map.get(node1.getName());
+						List<ParamInfo> all_params = ParamInfo.copy(project_params);
+						all_params.addAll(phase_config_params);
+						ModuleSourceInfo msi = getModuleSource(phase.getImpl_type(), phase_config_params);
+						List<String> replace_cmd = new ArrayList<String>();
+						for (String cmd : phase.getCmds()) {
+							cmd_list = replaceCmd(cmd, all_params);
+							replace_cmd.addAll(cmd_list);
+						}
+						// String[] arrayOfString2;
+						// List localList1 = (arrayOfString2 =
+						// phase.getCmds()).length;
+						// for (cmd_list = 0; cmd_list < localList1; ++cmd_list)
+						// {
+						// String cmd = arrayOfString2[cmd_list];
+						// cmd_list = replaceCmd(cmd, all_params);
+						// replace_cmd.addAll(cmd_list);
+						// }
+						ModuleInfo mi = new ModuleInfo();
+						mi.setImpl_type(phase.getImpl_type());
+						mi.setSource_info(msi);
+						mi.setCmds(replace_cmd.toArray(new String[replace_cmd.size()]));
+						mi.setCn_name(phase.getCn_name() + "_" + node1.getIp());
+						module_list.add(mi);
+					}
+				}
+			}
+		}
+		InstanceInfo instance = new InstanceInfo(null, null, null);
+		instance.addModuleInfos(module_list);
+		return instance;
+	}
+
+	public InstanceInfo generateInstance(List<ParamInfo> system_params, List<DppBean> pro_package, TemplateInfo template, List<PhaseTestBean> phase,
+			List<ParamInfo> project_params, List<ParamInfo> config_params) {
+		List<ModuleInfo> module_list = new ArrayList<ModuleInfo>();
+		int index = 1;
+		for (PhaseTestBean bean : phase)
+			if (YN_FLAG.NO.equals(bean.getGen_flag())) {
+				++index;
+			} else {
+				if (Assert.isEmpty(bean.getConfig_nodes())) {
+					StageSourceBean[] ssb = bean.getSrv_soc();
+					String[] package_names = bean.getPackage_names();
+					logger.debug("current generate phase[{}] package_names[{}]", Integer.valueOf(index), Arrays.toString(package_names));
+					List<ParamInfo> group_params = new ArrayList<ParamInfo>();
+					if (!(Assert.isEmpty(package_names))) {
+						group_params = getDppParams(package_names, pro_package);
+					}
+
+					List<ParamInfo> current_params = getCurrentPhaseParam(index, project_params, group_params, template.getAll_params());
+					List<ParamInfo> params = XmlSystemParamUtils.replaceParamValue(current_params, system_params);
+					List<ModuleInfo> modules = generateModuleInstance(params, template, index, ssb);
+					module_list.addAll(modules);
+				}
+
+				++index;
+			}
+		InstanceInfo instance = new InstanceInfo(null, null, null);
+		instance.addModuleInfos(module_list);
+		return instance;
+	}
+
+	public List<ModuleInfo> generateModuleInstance(List<ParamInfo> current_params, TemplateInfo template, int index, StageSourceBean[] ssb) {
+		Map<Integer, ModuleInfo> map = mergeModule(template);
+		ModuleInfo module = map.get(Integer.valueOf(index));
+		module.setCn_name((Assert.isEmpty(module.getAlias_name())) ? module.getCn_name() : module.getAlias_name());
+		String[] cmds = module.getCmds();
+		List<String> replace_cmd = new ArrayList<String>();
+		for (String cmd : cmds) {
+			List<String> cmd_list = replaceCmd(cmd, current_params);
+			replace_cmd.addAll(cmd_list);
+		}
+		module.setCmds(replace_cmd.toArray(new String[replace_cmd.size()]));
+		if (Assert.isEmpty(ssb)) {
+			List<ModuleInfo> list = new ArrayList<ModuleInfo>();
+			list.add(module);
+			return list;
+		}
+		return mergeModuleSource(module, ssb);
+	}
+
+	public List<String> replaceCmd(String cmd, List<ParamInfo> current_params) {
+		logger.debug("替换命令[{}]中的参数", cmd);
+		List<String> result = new ArrayList<String>();
+		List<String> param_in_cmd = getParamInCmd(cmd);
+		logger.debug("当前命令中用到的参数名[{}]", param_in_cmd);
+
+		if (Assert.isEmpty(param_in_cmd)) {
+			result.add(cmd);
+			return result;
+		}
+
+		List<List<ParamInfo>> params_needs = UserfulParamTools.getUsefulParam(param_in_cmd, current_params, cmd);
+		for (List<ParamInfo> list : params_needs) {
+			logger.debug("@@@@@@@@@@@@@@@");
+			for (ParamInfo pp : list) {
+				logger.debug(pp.toString());
+			}
+		}
+
+		List<String> result_cmd = replaceParamInCmd(cmd, params_needs);
+
+		return result_cmd;
+	}
+
+	public List<ModuleInfo> mergeModuleSource(ModuleInfo module, StageSourceBean[] ssb) {
+		List<ModuleInfo> list = new ArrayList<ModuleInfo>();
+		for (StageSourceBean bean : ssb) {
+			ModuleInfo mi = ModuleInfo.copy(module);
+
+			String exe_soc_name = bean.getExe_soc_name();
+			String ver_soc_name = bean.getVer_soc_name();
+
+			DtSourceInfo dt_source_info = this.dtSocService.getInfoByKey(exe_soc_name);
+			if (Assert.isEmpty(ver_soc_name)) {
+				ModuleSourceInfo info = new ModuleSourceInfo(dt_source_info.getProtocol_type(), dt_source_info);
+				mi.setSource_info(info);
+			} else {
+				DtSourceInfo ver_source_info = this.dtSocService.getInfoByKey(ver_soc_name);
+				ModuleSourceInfo info = new ModuleSourceInfo(dt_source_info, ver_source_info);
+				mi.setSource_info(info);
+			}
+			mi.setCn_name(mi.getCn_name() + "_" + exe_soc_name);
+			list.add(mi);
+		}
+
+		return list;
+	}
+
+	private List<String> getParamInCmd(String cmd) {
+		List<String> param_list = new ArrayList<String>();
+
+		String match_group = "\\$\\{\\s*\\w+\\.\\w+\\s*\\}";
+		Pattern regex_group = Pattern.compile(match_group);
+		Matcher m_group = regex_group.matcher(cmd);
+
+		while (m_group.find()) {
+			String param_group = m_group.group().substring(2, m_group.group().length() - 1).trim();
+			if (!(param_list.contains(param_group)))
+				param_list.add(param_group);
+		}
+
+		String match_single = "\\$\\{\\s*\\w+\\s*\\}";
+		Pattern regex_single = Pattern.compile(match_single);
+		Matcher m_single = regex_single.matcher(cmd);
+
+		while (m_single.find()) {
+			String param_single = m_single.group().substring(2, m_single.group().length() - 1).trim();
+			if (!(param_list.contains(param_single)))
+				param_list.add(param_single);
+		}
+
+		return param_list;
+	}
+
+	private List<String> replaceParamInCmd(String cmd, List<List<ParamInfo>> params) {
+		List<String> result_cmd = new ArrayList<String>();
+		if (Assert.isEmpty(params)) {
+			result_cmd.add(cmd);
+			return result_cmd;
+		}
+		for (List<ParamInfo> list : params) {
+			String merged_cmd = replaceCmd1(list, cmd);
+			result_cmd.add(merged_cmd);
+		}
+
+		return result_cmd;
+	}
+
+	private String replaceCmd1(List<ParamInfo> list, String cmd) {
+		String cmd_temp = cmd;
+		for (ParamInfo info : list) {
+			String group_name = info.getParam_group();
+			String match = "";
+			if (Assert.isEmpty(group_name))
+				match = "\\$\\{\\s*" + info.getParam_name() + "\\s*\\}";
+			else {
+				match = "\\$\\{\\s*" + group_name + "." + info.getParam_name() + "\\s*\\}";
+			}
+			Pattern var_regex = Pattern.compile(match);
+			Matcher m = var_regex.matcher(cmd_temp);
+			if (!(m.find()))
+				continue;
+			try {
+				cmd_temp = m.replaceAll(info.getParam_value());
+			} catch (Exception e) {
+				throw new ModuleParamValueIllegitimateException().addScene("VALUE", info.getParam_value());
+			}
+		}
+
+		return cmd_temp;
+	}
+
+	private Map<String, ParamInfo> mergeParam(List<ParamInfo> project_params) {
+		Map<String, ParamInfo> map = new HashMap<String, ParamInfo>();
+		if (!(Assert.isEmpty(project_params))) {
+			for (ParamInfo info : project_params) {
+				if (!(Assert.isEmpty(info.getRef()))) {
+					continue;
+				}
+				map.put(info.getParam_name(), info);
+			}
+		}
+		return map;
+	}
+
+	private ModuleSourceInfo getModuleSource(IMPL_TYPE impl_type, List<ParamInfo> list) {
+		logger.debug("getModuleSource begin");
+		logger.debug("imple_type[{}]", impl_type.getCname());
+		DtSourceInfo dsi = null;
+		for (ParamInfo info : list) {
+			logger.debug("param_ftp_soc[{}],param_shell_soc[{}]param_name[{}]", info.getFtp_soc_name(), info.getShell_soc_name(), info.getParam_name());
+			if (IMPL_TYPE.FTP.equals(impl_type)) {
+				if (Assert.isEmpty(info.getFtp_soc_name())) {
+					continue;
+				}
+				dsi = this.dtSocService.getInfoByKey(info.getFtp_soc_name());
+			} else if (IMPL_TYPE.SHELL.equals(impl_type)) {
+				if (Assert.isEmpty(info.getShell_soc_name())) {
+					continue;
+				}
+				dsi = this.dtSocService.getInfoByKey(info.getShell_soc_name());
+			}
+		}
+		Assert.assertNotEmpty(dsi, "数据源");
+		ModuleSourceInfo info = new ModuleSourceInfo(dsi.getProtocol_type(), dsi);
+		logger.debug("getModuleSource end");
+		return info;
+	}
+
+	private Map<Integer, ModuleInfo> mergeModule(TemplateInfo template) {
+		Map<Integer, ModuleInfo> map = new HashMap<Integer, ModuleInfo>();
+		List<ModuleInfo> list = template.getSub_ModuleInfos();
+		Integer index = Integer.valueOf(1);
+		for (ModuleInfo info : list) {
+			Integer tmp45_43 = index;
+			index = Integer.valueOf(tmp45_43.intValue() + 1);
+			map.put(tmp45_43, info);
+		}
+		return map;
+	}
+
+	private List<ParamInfo> getDppParams(String[] package_names, List<DppBean> pro_package) {
+		logger.debug("current package_names [{}]", Arrays.asList(package_names));
+		List<ParamInfo> dpp_list = new ArrayList<ParamInfo>();
+		if ((!(Assert.isEmpty(package_names))) && (!(Assert.isEmpty(pro_package)))) {
+			Map<String, List<ParamInfo>> map = new HashMap<String, List<ParamInfo>>();
+			for (DppBean bean : pro_package) {
+				map.put(bean.getPackage_name(), bean.getDpp_params());
+			}
+			for (String propackage_name : package_names) {
+				logger.debug("匹配 投产包 包名为[{}]", propackage_name);
+				if (!(map.containsKey(propackage_name))) {
+					continue;
+				}
+				logger.debug("current package_name [{}]", propackage_name);
+				dpp_list.addAll(map.get(propackage_name));
+				logger.debug("this package suit param[{}]", map.get(propackage_name));
+			}
+		}
+
+		logger.debug("----------getDppParams end-----------");
+		return dpp_list;
+	}
+
+	private List<ParamInfo> getCurrentPhaseParam(int index, List<ParamInfo> project_param, List<ParamInfo> dpp_param, ParamInfo[] all_params) {
+		List<ParamInfo> list = new ArrayList<ParamInfo>();
+
+		if (!(Assert.isEmpty(dpp_param))) {
+			list.addAll(dpp_param);
+		}
+
+		List<ParamInfo> c_list = new ArrayList<ParamInfo>();
+		if (!(Assert.isEmpty(all_params))) {
+			for (ParamInfo info : all_params) {
+				if (info.getPhase_no() == null)
+					continue;
+				if (info.getPhase_no().intValue() + 1 == index) {
+					c_list.add(info);
+				}
+
+			}
+
+		}
+
+		if (!(Assert.isEmpty(c_list))) {
+			List<ParamInfo> all_param = new ArrayList<ParamInfo>();
+			if (!(Assert.isEmpty(dpp_param))) {
+				all_param.addAll(dpp_param);
+			}
+
+			all_param.addAll(project_param);
+			Map<String, ParamInfo> map = mergeParam(all_param);
+			for (ParamInfo param : map.values()) {
+
+				ParamInfo pi = ParamInfo.copy(param);
+				String ref = param.getRef();
+				if ((!(Assert.isEmpty(ref))) && (map.containsKey(ref))) {
+					ParamInfo reference_param = map.get(ref);
+					pi.setParam_value(reference_param.getParam_value());
+					list.add(pi);
+					map.remove(ref);
+				}
+				for (Map.Entry<String, ParamInfo> m : map.entrySet())
+					list.add(m.getValue());
+			}
+		} else {
+			list.addAll(project_param);
+		}
+		return reduceRepeate(list);
+	}
+
+	private List<ParamInfo> reduceRepeate(List<ParamInfo> list) {
+		List<ParamInfo> params = new ArrayList<ParamInfo>();
+		Map<String, ParamInfo> map = new HashMap<String, ParamInfo>();
+		for (ParamInfo info : list) {
+			map.put(info.getParam_name(), info);
+		}
+		for (Map.Entry<String, ParamInfo> m : map.entrySet()) {
+			params.add(m.getValue());
+		}
+		return params;
+	}
+
+	public List<ParamInfo> getConfigPhaseParam(int index, List<ParamInfo> project_params, ParamInfo[] all_params, List<ParamInfo> config_params,
+			List<String> config_ip) {
+		List<ParamInfo> list = new ArrayList<ParamInfo>();
+		String ip;
+		for (ParamInfo info : config_params) {
+			ip = info.getNode();
+			logger.debug("current config_param ip[{}]", ip);
+			if (config_ip.contains(ip)) {
+				list.add(info);
+			}
+		}
+
+		List<ParamInfo> c_list = new ArrayList<ParamInfo>();
+		if (!(Assert.isEmpty(all_params))) {
+			for (ParamInfo info : all_params) {
+				if (info.getPhase_no() == null)
+					continue;
+				if (info.getPhase_no().intValue() + 1 == index) {
+					c_list.add(info);
+				}
+			}
+		}
+		if (!(Assert.isEmpty(c_list))) {
+			List<ParamInfo> all_param = new ArrayList<ParamInfo>();
+			all_param.addAll(project_params);
+			Map<String, ParamInfo> map = mergeParam(all_param);
+			for (ParamInfo param : map.values()) {
+				ParamInfo pi = ParamInfo.copy(param);
+				String ref = param.getRef();
+				if ((!(Assert.isEmpty(ref))) && (map.containsKey(ref))) {
+					pi.setParam_value((map.get(ref)).getParam_value());
+					list.add(pi);
+					map.remove(ref);
+				}
+			}
+			for (String m : map.keySet()) {
+				list.add(map.get(m));
+			}
+		} else {
+			list.addAll(project_params);
+		}
+		return list;
+	}
+}

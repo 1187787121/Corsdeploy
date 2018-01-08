@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!--DOCTYPE service-config SYSTEM "service.dtd"-->
+
+<service-config>
+    <dynamic-load-service class="com.wk.cd.service.CmsDynamicLoadService" />
+</service-config>

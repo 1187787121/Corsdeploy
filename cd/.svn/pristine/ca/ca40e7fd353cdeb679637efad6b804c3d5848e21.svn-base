@@ -1,0 +1,248 @@
+/**
+ * Title: CeEnvironmentDaoService.java
+ * File Description: 环境表
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author AutoGen
+ * @version 1.0
+ * @date 2016-10-29
+ */
+package com.wk.cd.build.en.dao;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.build.en.info.CeEnvironmentInfo;
+import com.wk.cd.enu.DT_RANGE;
+import com.wk.cd.enu.ENV_TYPE;
+import com.wk.cd.system.ep.bean.EnvPrivBean;
+import com.wk.cd.enu.ORDER_TYPE;
+import com.wk.db.DBIterator;
+import com.wk.lang.Inject;
+import com.wk.util.JaDate;
+import com.wk.util.JaTime;
+import com.wk.util.StringUtil;
+
+/**
+ * Class description:环境表
+ * @author AutoGen
+ */
+public class CeEnvironmentDaoService {
+	@Inject
+	private CeEnvironmentDao dao;
+
+	/**
+	 * 根据主键查询一条记录
+	 * @param CeEnvironmentInfo info
+	 * @return CeEnvironmentInfo
+	 */
+	public CeEnvironmentInfo getInfoByKey(String env_name) {
+		return dao.get(env_name);
+	}
+
+	/**
+	 * 根据主键查询一条记录并对记录加锁
+	 * @param CeEnvironmentInfo info
+	 * @return CeEnvironmentInfo
+	 */
+	public CeEnvironmentInfo getInfoByKeyForUpdate(CeEnvironmentInfo info) {
+		return dao.getForUpdate(info);
+	}
+
+	/**
+	 * 插入一条记录
+	 * @param CeEnvironmentInfo info
+	 * @return int
+	 */
+	public int insertInfo(CeEnvironmentInfo info) {
+		return dao.insert(info);
+	}
+
+	/**
+	 * 插入多条记录
+	 * @param List<CeEnvironmentInfo>
+	 * @return int
+	 */
+	public int insertListInfo(List<CeEnvironmentInfo> infos) {
+		return dao.insert(infos);
+	}
+
+	/**
+	 * Description: 得到应用环境的个数
+	 * @param env_name
+	 * @return
+	 */
+	public int countEnvNameNum(String env_name) {
+		return dao.countEnvNameNum(env_name);
+	}
+
+	/**
+	 * Description: 分页查询应用环境信息
+	 * @param sys_name
+	 * @return
+	 */
+	public List<CeEnvironmentInfo> pageEnvironmentBySysName(String sys_name, String sys_cn_name, String order_col_name, ORDER_TYPE order_type, int start_recd, int limit_recd) {
+		if ("default".equals(order_col_name) || StringUtil.isEmpty(order_col_name)) {
+			return dao.pageEnvironmentDefault(sys_name, sys_cn_name, start_recd, limit_recd);
+		}
+		if ("create_bk_date".equals(order_col_name)) {
+			return dao.pageEnvironmentBySysName(sys_name, sys_cn_name, order_col_name + " " + order_type.getName() + ",create_bk_time", order_type.getName(), start_recd, limit_recd);
+		}
+		return dao.pageEnvironmentBySysName(sys_name, sys_cn_name, order_col_name, order_type.getName(), start_recd, limit_recd);
+	}
+
+	/**
+	 * Description: 查询应用环境个数
+	 * @param sys_name
+	 * @return
+	 */
+	public int countEnvironmentBySysCnName(String sys_name, String sys_cn_name) {
+		return dao.countEnvironmentBySysCnName(sys_name, sys_cn_name);
+	}
+
+	/**
+	 * Description: 查询应用环境个数
+	 * @param sys_name
+	 * @return
+	 */
+	public int countEnvironmentBySysName(String sys_name) {
+		return dao.countEnvironmentBySysName(sys_name);
+	}
+
+	/**
+	 * Description: 删除应用环境
+	 * @param env_name
+	 */
+	public int deleteEnvirByEnvName(String env_name) {
+		CeEnvironmentInfo bean = new CeEnvironmentInfo();
+		bean.setEnv_name(env_name);
+		return dao.delete(bean);
+
+	}
+
+	/**
+	 * Description: 根据环境名得到环境信息
+	 * @param env_name
+	 * @return
+	 */
+	public CeEnvironmentInfo getInfoByEnvName(String env_name) {
+		CeEnvironmentInfo envir_info = new CeEnvironmentInfo();
+		envir_info.setEnv_name(env_name);
+		return dao.get(envir_info);
+	}
+
+	/**
+	 * Description: 更新环境信息
+	 * @param envir_update
+	 */
+	public int updateEnvirInfo(CeEnvironmentInfo envir_update) {
+		return dao.update(envir_update);
+	}
+
+	/**
+	 * Description:
+	 * @param sys_name
+	 * @return
+	 */
+	public CeEnvironmentInfo getEnvirNameBySysName(String sys_name) {
+		return dao.getEnviNameBySysName(sys_name);
+	}
+
+	/**
+	 * Description: 获得系统环境关联
+	 * @param sys_name
+	 * @return
+	 */
+	public List<CeEnvironmentInfo> getEnvirListBySysName(String sys_name) {
+		return dao.getEnvirListBySysName(sys_name);
+	}
+
+	/**
+	 * Description: 获得系统环境关联
+	 * @param sys_name
+	 * @return
+	 */
+	public List<CeEnvironmentInfo> getEnvirList(String sys_name) {
+		return dao.getEnvirList(sys_name);
+	}
+
+	/**
+	 * Description: 根据应用系统名查询环境列表
+	 * @param sys_name
+	 * @return
+	 */
+	public List<CeEnvironmentInfo> queryEnvInfosBySys(String sys_name) {
+		return dao.queryEnvInfosBySys(sys_name);
+	}
+
+	/**
+	 * Description: 得到环境中文名
+	 * @param env_name
+	 * @return
+	 */
+	public String getInfoByEnvCnName(String env_name) {
+		return dao.getInfoByEnvCnName(env_name);
+	}
+
+	/**
+	 * Description: 修改应用环境信息
+	 * @param env_cn_name
+	 * @param env_bk_desc
+	 * @param ele_type
+	 * @param dt_range
+	 * @param env_type
+	 * @param sys_name
+	 * @param dtbs_bk_date
+	 * @param dtbs_bk_time
+	 * @param org_user_id
+	 * @param env_name
+	 */
+	public int updateEnvirMsgByKey(String env_cn_name, String env_bk_desc, String ele_type, DT_RANGE dt_range, ENV_TYPE env_type, String sys_name, JaDate dtbs_bk_date, JaTime dtbs_bk_time,
+			String org_user_id, String env_name) {
+		return dao.updateEnvirMsgByKey(env_cn_name, env_bk_desc, ele_type, dt_range, env_type, sys_name, dtbs_bk_date, dtbs_bk_time, org_user_id, env_name);
+
+	}
+
+	/**
+	 * Description: 查询所有应用环境权限
+	 * @return
+	 */
+	public List<EnvPrivBean> queryAllEnvPriv() {
+		List<EnvPrivBean> env_list = new ArrayList<EnvPrivBean>();
+		DBIterator<EnvPrivBean> env_iterator = dao.queryAllEnvPriv();
+		try {
+			while (env_iterator.hasNext()) {
+				env_list.add(env_iterator.next());
+			}
+		} finally {
+			env_iterator.close();
+		}
+		return env_list;
+	}
+	
+	/**
+	 * Description: 获取环境的所有配置文件
+	 * @param env_name
+	 * @return
+	 */
+	public List<String> queryAllConfigFile(String env_name) {
+		return dao.queryAllConfigFile(env_name);
+	}
+	
+	/**
+	 * Description: 获得所有环境信息
+	 * @return
+	 */
+	public List<CeEnvironmentInfo> queryAllEnvMsg(){
+		List<CeEnvironmentInfo> env_list = new ArrayList<CeEnvironmentInfo>();
+		DBIterator<CeEnvironmentInfo> env_iteror = dao.queryAllEnvMsg();
+		try {
+			while(env_iteror.hasNext()){
+				env_list.add(env_iteror.next());
+			}
+		} finally{
+			env_iteror.close();
+		}
+		return env_list;
+	}
+}

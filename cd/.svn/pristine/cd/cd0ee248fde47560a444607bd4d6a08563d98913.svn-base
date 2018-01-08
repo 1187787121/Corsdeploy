@@ -1,0 +1,250 @@
+package com.wk.cd.module.info;
+
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.PUBLISH_STATE;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.module.MODULE_PURPOSE;
+import com.wk.cd.module.SCRIPT_SOURCE;
+import com.wk.db.PrimaryKey;
+import com.wk.db.Table;
+import com.wk.util.JaDate;
+import com.wk.util.JaTime;
+
+import java.io.Serializable;
+
+@Table("MO_MODULE")
+@PrimaryKey({ "module_id" })
+public class MoModuleInfo implements Serializable {
+	
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * 表名称
+	 */
+	public static final String TABLECN = "组件信息表";
+
+	/**
+	 * 组件ID
+	 */
+	private String module_id;
+
+	public static final String MODULE_IDCN = "组件ID";
+
+	/**
+	 * 组件中文名
+	 */
+	private String module_cn_name;
+
+	public static final String MODULE_CN_NAMECN = "组件中文名";
+
+	/**
+	 * 组件描述
+	 */
+	private String module_bk_desc;
+
+	public static final String MODULE_BK_DESCCN = "组件描述";
+
+	/**
+	 * 组件类型
+	 */
+	private MODULE_TYPE module_type;
+
+	public static final String MODULE_TYPECN = "组件类型";
+
+	/**
+	 * 组件用途
+	 */
+	private MODULE_PURPOSE module_purpose;
+
+	public static final String MODULE_PURPOSESCN = "组件用途";
+
+	/**
+	 * 脚本来源
+	 */
+	private SCRIPT_SOURCE script_source;
+
+	public static final String SCRIPT_SOURCECN = "脚本来源";
+
+	/**
+	 * 组件实现类型
+	 */
+	private IMPL_TYPE impl_type;
+
+	public static final String IMPL_TYPECN = "组件实现类型";
+
+	/**
+	 * 发布状态
+	 */
+	private PUBLISH_STATE publish_state;
+
+	public static final String PUBLISH_STATECN = "发布状态";
+
+	/**
+	 * 创建人
+	 */
+	private String crt_user_id;
+
+	public static final String CRT_USER_IDCN = "创建人";
+
+	/**
+	 * 创建日期
+	 */
+	private JaDate crt_bk_date;
+
+	public static final String CRT_BK_DATECN = "创建日期";
+
+	/**
+	 * 创建时间
+	 */
+	private JaTime crt_bk_time;
+
+	public static final String CRT_BK_TIMECN = "创建时间";
+
+	/**
+	 * 修改人
+	 */
+	private String modify_user_id;
+
+	public static final String MODIFY_USER_IDCN = "修改人";
+
+	/**
+	 * 修改日期
+	 */
+	private JaDate modify_bk_date;
+
+	public static final String MODIFY_BK_DATECN = "修改日期";
+
+	/**
+	 * 修改时间
+	 */
+	private JaTime modify_bk_time;
+
+	public static final String MODIFY_BK_TIMECN = "修改时间";
+
+	/**
+	 * 备用字段
+	 */
+	private String backup_fld;
+
+	public static final String BACKUP_FLDCN = "备用字段";
+
+	public String getModule_id() {
+		return this.module_id;
+	}
+
+	public void setModule_id(String module_id) {
+		this.module_id = module_id;
+	}
+
+	public String getModule_cn_name() {
+		return this.module_cn_name;
+	}
+
+	public void setModule_cn_name(String module_cn_name) {
+		this.module_cn_name = module_cn_name;
+	}
+
+	public String getModule_bk_desc() {
+		return this.module_bk_desc;
+	}
+
+	public void setModule_bk_desc(String module_bk_desc) {
+		this.module_bk_desc = module_bk_desc;
+	}
+
+	public MODULE_TYPE getModule_type() {
+		return this.module_type;
+	}
+
+	public void setModule_type(MODULE_TYPE module_type) {
+		this.module_type = module_type;
+	}
+
+	public MODULE_PURPOSE getModule_purpose() {
+		return this.module_purpose;
+	}
+
+	public void setModule_purpose(MODULE_PURPOSE module_purpose) {
+		this.module_purpose = module_purpose;
+	}
+
+	public SCRIPT_SOURCE getScript_source() {
+		return this.script_source;
+	}
+
+	public void setScript_source(SCRIPT_SOURCE script_source) {
+		this.script_source = script_source;
+	}
+
+	public IMPL_TYPE getImpl_type() {
+		return this.impl_type;
+	}
+
+	public void setImpl_type(IMPL_TYPE impl_type) {
+		this.impl_type = impl_type;
+	}
+
+	public PUBLISH_STATE getPublish_state() {
+		return this.publish_state;
+	}
+
+	public void setPublish_state(PUBLISH_STATE publish_state) {
+		this.publish_state = publish_state;
+	}
+
+	public String getCrt_user_id() {
+		return this.crt_user_id;
+	}
+
+	public void setCrt_user_id(String crt_user_id) {
+		this.crt_user_id = crt_user_id;
+	}
+
+	public JaDate getCrt_bk_date() {
+		return this.crt_bk_date;
+	}
+
+	public void setCrt_bk_date(JaDate crt_bk_date) {
+		this.crt_bk_date = crt_bk_date;
+	}
+
+	public JaTime getCrt_bk_time() {
+		return this.crt_bk_time;
+	}
+
+	public void setCrt_bk_time(JaTime crt_bk_time) {
+		this.crt_bk_time = crt_bk_time;
+	}
+
+	public String getModify_user_id() {
+		return this.modify_user_id;
+	}
+
+	public void setModify_user_id(String modify_user_id) {
+		this.modify_user_id = modify_user_id;
+	}
+
+	public JaDate getModify_bk_date() {
+		return this.modify_bk_date;
+	}
+
+	public void setModify_bk_date(JaDate modify_bk_date) {
+		this.modify_bk_date = modify_bk_date;
+	}
+
+	public JaTime getModify_bk_time() {
+		return this.modify_bk_time;
+	}
+
+	public void setModify_bk_time(JaTime modify_bk_time) {
+		this.modify_bk_time = modify_bk_time;
+	}
+
+	public String getBackup_fld() {
+		return this.backup_fld;
+	}
+
+	public void setBackup_fld(String backup_fld) {
+		this.backup_fld = backup_fld;
+	}
+}

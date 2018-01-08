@@ -1,0 +1,99 @@
+/*** Eclipse Class Decompiler plugin, copyright (c) 2016 Chen Chao (cnfree2000@hotmail.com) ***/
+package com.wk.cd.module;
+
+import java.util.Map;
+
+import com.wk.cd.enu.CMD_STATUS;
+
+public class Result {
+	protected CMD_STATUS status;
+	protected String msg;
+	protected long start_time;
+	protected long end_time;
+	protected int time_used;
+	private int phase_no;
+	private int step_no;
+	protected Throwable t;
+
+	public Result() {
+	}
+
+	public Result(Throwable t, long start_time) {
+		setThrowable(t);
+		long end_time1 = System.currentTimeMillis();
+		this.end_time = end_time1;
+		this.start_time = start_time;
+		this.time_used = (int) (end_time1 - start_time);
+	}
+
+	public Result(CMD_STATUS status, String msg, long start_time) {
+		this.status = status;
+		this.msg = msg;
+		long end_time1 = System.currentTimeMillis();
+		this.end_time = end_time1;
+		this.start_time = start_time;
+		this.time_used = (int) (end_time1 - start_time);
+	}
+
+	public Map<String, String> getOutput() {
+		return null;
+	}
+
+	public CMD_STATUS getStatus() {
+		return this.status;
+	}
+
+	public String getMsg() {
+		return this.msg;
+	}
+
+	public long getStart_time() {
+		return this.start_time;
+	}
+
+	public long getEnd_time() {
+		return this.end_time;
+	}
+
+	public int getTime_used() {
+		return this.time_used;
+	}
+
+	public int getPhase_no() {
+		return this.phase_no;
+	}
+
+	public void setPhase_no(int phase_no) {
+		this.phase_no = phase_no;
+	}
+
+	public int getStep_no() {
+		return this.step_no;
+	}
+
+	public void setStep_no(int step_no) {
+		this.step_no = step_no;
+	}
+
+	public void setThrowable(Throwable t) {
+		this.status = CMD_STATUS.ERROR;
+		this.t = t;
+		this.msg = t.getMessage();
+	}
+
+	public Throwable getThrowable() {
+		return this.t;
+	}
+
+	public String toString() {
+		StringBuffer sb = new StringBuffer();
+		if (this.status == CMD_STATUS.ERROR)
+			sb.append("Result: {status: ").append(this.status)
+					.append(", ex: \"").append(this.t).append("\"}");
+		else {
+			sb.append("Result: {status: ").append(this.status)
+					.append(", msg: \"").append(this.msg).append("\"}");
+		}
+		return sb.toString();
+	}
+}

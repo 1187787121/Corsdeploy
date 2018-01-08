@@ -1,0 +1,86 @@
+package com.wk.cd.module.info;
+
+import com.wk.cd.module.Env;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+
+/**
+ * Class Description: ÊµÀý
+ * @author "Zhangj"
+ */
+public class InstanceInfo {
+	
+	protected final String instanceId;
+	
+	protected final TemplateInfo template;
+	
+	protected final Env env;
+	
+	private ParamInfo[] params;
+	
+	protected final List<ModuleInfo> modules = new ArrayList<ModuleInfo>();
+
+	public InstanceInfo(String instanceId, TemplateInfo template, Env env) {
+		this.instanceId = instanceId;
+		this.env = env;
+		this.template = template;
+	}
+
+	public String getInstanceId() {
+		return this.instanceId;
+	}
+
+	public Env getEnv() {
+		return this.env;
+	}
+
+	public int getModuleCount() {
+		return this.modules.size();
+	}
+
+	public void addModuleInfo(ModuleInfo info) {
+		this.modules.add(info);
+	}
+
+	public void addModuleInfos(List<ModuleInfo> infos) {
+		this.modules.addAll(infos);
+	}
+
+	public Iterator<ModuleInfo> moduleIterator() {
+		return this.modules.iterator();
+	}
+
+	public List<ModuleInfo> getModuleInfos() {
+		return this.modules;
+	}
+
+	public ParamInfo[] getParams() {
+		return this.params;
+	}
+
+	public void setParams(ParamInfo[] params) {
+		this.params = params;
+	}
+
+	public TemplateInfo getTemplate() {
+		return this.template;
+	}
+
+	public List<ModuleInfo> getModules() {
+		return this.modules;
+	}
+
+	/** 
+	 * Description: 
+	 * @return 
+	 */
+	@Override
+	public String toString() {
+		return "InstanceInfo [instanceId=" + instanceId + ", template=" + template + ", env=" + env + ", params=" + Arrays.toString(params) + ", modules=" + modules + "]";
+	}
+	
+	
+}

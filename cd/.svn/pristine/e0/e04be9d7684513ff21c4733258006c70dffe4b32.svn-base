@@ -1,0 +1,351 @@
+package com.wk.cd.module.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.ORDER_TYPE;
+import com.wk.cd.enu.PROTOCOL_TYPE;
+import com.wk.cd.module.MODULE_PURPOSE;
+import com.wk.cd.module.bean.ModuleBeanForList;
+import com.wk.cd.module.bean.ReferenceBean;
+import com.wk.cd.module.bean.ViewModuleInputBean;
+import com.wk.cd.module.bean.ViewModuleOutputBean;
+import com.wk.cd.module.dao.MoModuleDaoService;
+import com.wk.cd.module.dao.MoModuleQuoteDaoService;
+import com.wk.cd.module.dao.MoTemplateDaoService;
+import com.wk.cd.module.info.GroupModuleInfo;
+import com.wk.cd.module.info.MoModuleInfo;
+import com.wk.cd.module.info.MoModuleQuoteInfo;
+import com.wk.cd.module.info.MoTemplateInfo;
+import com.wk.cd.module.info.ModuleBasicInfo;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.info.ParamInfo;
+import com.wk.cd.module.info.TemplateInfo;
+import com.wk.cd.module.service.ModuleCommonService;
+import com.wk.cd.module.service.TemplateService;
+import com.wk.cd.module.xml.XmlPathUtil;
+import com.wk.cd.module.xml.XmlReader;
+import com.wk.cd.module.xml.XmlUtils;
+import com.wk.cd.service.IViewActionBasic;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.cd.system.dt.service.DtSocService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class ViewModuleAction extends IViewActionBasic<ViewModuleInputBean, ViewModuleOutputBean> {
+
+	@Inject
+	private ModuleCommonService moduleCommonService;
+
+	@Inject
+	private MoModuleDaoService moModuleDaoService;
+
+	@Inject
+	private MoTemplateDaoService moTemplateDaoService;
+
+	@Inject
+	private TemplateService templateService;
+
+	@Inject
+	private MoModuleQuoteDaoService moCompQuoteDaoService;
+
+	@Inject
+	private DtSocService dtSocService;
+	private static final Log logger = LogFactory.getLog();
+
+	public ViewModuleOutputBean getModuleDetail(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String id = input.getId();
+
+		Assert.assertNotEmpty(id, "ID");
+
+		this.moduleCommonService.checkCompIdIsExist(id, MODULE_TYPE.COMPONENT);
+		MoModuleInfo info = this.moModuleDaoService.getModuleInfoById(id);
+		MODULE_PURPOSE purpose = info.getModule_purpose();
+		if (purpose == MODULE_PURPOSE.PROD) {
+			ModuleInfo module = XmlReader.readerModule(id);
+			module.setModule_purpose(MODULE_PURPOSE.PROD);
+			output.setModule(module);
+			output.setFile_path(XmlPathUtil.getRelativePathByCompId(id,
+					MODULE_TYPE.COMPONENT));
+			output.setRef_flag(this.moduleCommonService.checkCompBeQuote(id));
+		}
+//		if (purpose == MODULE_PURPOSE.COLLECT) {
+//			CoProgramModuleBean pbean = CoProgramModuleBean.readFromXML(id);
+//			ModuleInfo module = new ModuleInfo();
+//			logger.debug("采集组件ID:[{}]", pbean.getModule_id());
+//			module.setId(pbean.getModule_id());
+//			module.setCmd_param(pbean.getScript_file_param());
+//			module.setCn_name(pbean.getModule_cn_name());
+//			module.setBk_desc(pbean.getModule_bk_desc());
+//			module.setCmds(pbean.getScript());
+//			module.setModule_purpose((MODULE_PURPOSE) MODULE_PURPOSE.valueOf(
+//					MODULE_PURPOSE.class, pbean.getModule_purpose()));
+//			module.setScript_file_path(pbean.getScript_file());
+//			module.setScript_source((SCRIPT_SOURCE) SCRIPT_SOURCE.valueOf(
+//					SCRIPT_SOURCE.class, pbean.getScript_source()));
+//			module.setImpl_type((IMPL_TYPE) IMPL_TYPE.valueOf(IMPL_TYPE.class,
+//					pbean.getImpl_type()));
+//			output.setModule(module);
+//		}
+		String script_file_path = XmlPathUtil
+				.getRelativeDirByCompType(MODULE_TYPE.COMPONENT) + "/collect/";
+		output.setScript_path(script_file_path);
+		output.setPublish_state(info.getPublish_state());
+		return output;
+	}
+
+	public ViewModuleOutputBean getGroupDetail(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String id = input.getId();
+
+		Assert.assertNotEmpty(id, "ID");
+
+		this.moduleCommonService.checkCompIdIsExist(id, MODULE_TYPE.GROUP);
+		output.setModule_group(XmlReader.readerGroup(id));
+		MoModuleInfo info = this.moModuleDaoService.getModuleInfoById(id);
+		output.setFile_path(XmlPathUtil.getRelativePathByCompId(id,
+				MODULE_TYPE.GROUP));
+		output.setPublish_state(info.getPublish_state());
+		output.setRef_flag(this.moduleCommonService.checkCompBeQuote(id));
+		return output;
+	}
+
+	public ViewModuleOutputBean getTemplateDetail(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String template_name = input.getCn_name();
+		Assert.assertNotEmpty(template_name, "模板名称");
+
+		this.templateService.checkTemplateNameIsExist(template_name);
+		MoTemplateInfo info = this.moTemplateDaoService
+				.getInfoByKey(template_name);
+		String id = info.getRef_module_id();
+		TemplateInfo template = XmlReader.readTemplate(id);
+		template.setOperating_system(this.moduleCommonService
+				.generateIntArray(info.getOperating_system().trim()));
+		template.setTemplate_type(info.getTemplate_type());
+		output.setTemplate(template);
+		output.setFile_path(XmlPathUtil.getRelativePathByCompId(id,
+				MODULE_TYPE.TEMPLATE));
+		return output;
+	}
+
+	public ViewModuleOutputBean getModuleListDetail(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+
+		String[] id_list = input.getId_list();
+		Assert.assertNotEmpty(id_list, "ID列表");
+		List<ModuleInfo> modules = new ArrayList<ModuleInfo>();
+		for (String id : id_list) {
+			this.moduleCommonService.checkCompIdIsExist(id,
+					MODULE_TYPE.COMPONENT);
+			ModuleInfo info = XmlReader.readerModule(id);
+			modules.add(info);
+		}
+		output.setModules(modules);
+		return output;
+	}
+
+	public ViewModuleOutputBean getGroupListDetail(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+
+		String[] id_list = input.getId_list();
+		Assert.assertNotEmpty(id_list, "ID列表");
+		List<GroupModuleInfo> groups = new ArrayList<GroupModuleInfo>();
+		for (String id : id_list) {
+			this.moduleCommonService.checkCompIdIsExist(id, MODULE_TYPE.GROUP);
+			GroupModuleInfo group = XmlReader.readerGroup(id);
+			groups.add(group);
+		}
+		output.setGroups(groups);
+		return output;
+	}
+
+	public ViewModuleOutputBean getModuleFileDirectory(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		MODULE_TYPE module_type = input.getType();
+		Assert.assertNotEmpty(module_type, "组件类型");
+		String file_path = XmlPathUtil.getRelativeDirByCompType(module_type)
+				+ "/temp/";
+		String script_file_path = XmlPathUtil
+				.getCtRelativeDirByType(module_type) + "/collect/";
+		output.setFile_path(file_path);
+		output.setScript_path(script_file_path);
+		return output;
+	}
+
+	public ViewModuleOutputBean getTestPacakageDirectory(
+			ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String file_dir = XmlPathUtil.getTestRelativeDir();
+		output.setTest_package_dir(file_dir);
+		return output;
+	}
+
+	public ViewModuleOutputBean querySoc(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String execute_type = input.getImpl_type().getName();
+		String node_ip = input.getServer_ip();
+		List<String> soc_list = new ArrayList<String>();
+		if ("ftp".equalsIgnoreCase(execute_type)) {
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip,
+					PROTOCOL_TYPE.SFTP));
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip,
+					PROTOCOL_TYPE.PLT_FTP));
+		} else if ("shell".equalsIgnoreCase(execute_type)) {
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip,
+					PROTOCOL_TYPE.SSH));
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip,
+					PROTOCOL_TYPE.TELNET));
+		} else if ("was".equalsIgnoreCase(execute_type)) {
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip,
+					PROTOCOL_TYPE.WAS));
+		} else if ("svn".equalsIgnoreCase(execute_type)) {
+			soc_list.addAll(dtSocService.getSocNameByProtypeAndIp(node_ip,
+					PROTOCOL_TYPE.SVN));
+		}
+		output.setSoc_list(soc_list.toArray(new String[soc_list.size()]));
+		return output;
+	}
+
+	public ViewModuleOutputBean querySocByType(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		IMPL_TYPE type = input.getImpl_type();
+		String node_ip = input.getServer_ip();
+		Assert.assertNotEmpty(type, "执行类别");
+		Assert.assertNotEmpty(node_ip, "节点IP");
+		logger.debug("查看当前的数据源名IP[{}],类型[{}]", node_ip, type);
+		List<DtSourceInfo> soc_infos = dtSocService.getSocNameByIp(node_ip);
+		List<String> soc_list = moduleCommonService.getSocNameListByType(soc_infos, type);
+		output.setSoc_list(soc_list.toArray(new String[soc_list.size()]));
+		return output;
+	}
+
+	public ViewModuleOutputBean checkModuleReference(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String id = input.getId();
+		MODULE_TYPE module_type = input.getType();
+		Assert.assertNotEmpty(id, "ID");
+		Assert.assertNotEmpty(module_type, "组件类型");
+
+		this.moduleCommonService.checkCompIdIsExist(id, module_type);
+		boolean ref_flag = this.moduleCommonService.checkCompBeQuote(id);
+		output.setRef_flag(ref_flag);
+		List<MoModuleQuoteInfo> quote_list = new ArrayList<MoModuleQuoteInfo>();
+		List<ReferenceBean> ref_list = new ArrayList<ReferenceBean>();
+		quote_list = this.moCompQuoteDaoService.getModuleQuoteByModuleId(id);
+		if (!(Assert.isEmpty(quote_list))) {
+			for (MoModuleQuoteInfo quotes : quote_list) {
+				MoModuleInfo comp = this.moModuleDaoService
+						.getModuleInfoById(quotes.getModule_id());
+				if (!(Assert.isEmpty(comp))) {
+					ReferenceBean refbean = new ReferenceBean();
+					refbean.setRef_id(comp.getModule_id());
+					refbean.setRef_name(comp.getModule_cn_name());
+					refbean.setRef_type(comp.getModule_type());
+					ref_list.add(refbean);
+				}
+			}
+			output.setRef_list(ref_list);
+		}
+		return output;
+	}
+
+	public ViewModuleOutputBean queryGeneralParamById(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String id = input.getId();
+		MODULE_TYPE module_type = input.getType();
+		Assert.assertNotEmpty(id, "ID");
+		Assert.assertNotEmpty(module_type, "组件类型");
+		this.moduleCommonService.checkCompIdIsExist(id, module_type);
+		List<ParamInfo> template_param = XmlUtils.getParamById(id, module_type);
+
+		List<ParamInfo> params = new ArrayList<ParamInfo>();
+		if (!(Assert.isEmpty(template_param))) {
+			for (ParamInfo info : template_param) {
+				if ((info.getPhase_no() != null)
+						&& (info.getPhase_no().intValue() != 0)) {
+					continue;
+				}
+				params.add(info);
+			}
+		}
+		output.setParams(params);
+		return output;
+	}
+
+	public ViewModuleOutputBean getCombineParam(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		List<ModuleBasicInfo> groups = input.getGroups();
+		ParamInfo[] params = input.getParams();
+		Assert.assertNotEmpty(groups, "组件组信息列表");
+		output.setParams(XmlUtils.combineParams(groups, params));
+		return output;
+	}
+
+	public ViewModuleOutputBean getModuleParam(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+
+		String comp_id = input.getId();
+
+		Assert.assertNotEmpty(comp_id, "ID");
+
+		this.moduleCommonService.checkCompIdIsExist(comp_id,
+				MODULE_TYPE.COMPONENT);
+
+		List<ParamInfo> param_list = XmlUtils.getParamById(comp_id, MODULE_TYPE.COMPONENT);
+
+		output.setParams(param_list);
+		return output;
+	}
+
+	public ViewModuleOutputBean queryPublishedModuleByType(
+			ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+
+		MODULE_TYPE module_type = input.getType();
+
+		MODULE_PURPOSE module_purpose = input.getModule_purpose();
+
+		Assert.assertNotEmpty(module_type, "组件类型");
+		Assert.assertNotEmpty(module_purpose, "组件用途");
+
+		List<MoModuleInfo> info_list = moModuleDaoService.queryPublishedCotModuleByType(
+				module_type, module_purpose);
+		List<ModuleBeanForList> bean_list = ModuleBeanForList.parseModuleList(info_list);
+		output.setModule_list(bean_list);
+		return output;
+	}
+
+	public ViewModuleOutputBean queryModuleList(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String key_word = input.getKey_word();
+		String order_col_name = input.getOrder_col_name();
+		ORDER_TYPE order_type = input.getOrder_type();
+		Assert.assertNotEmpty(order_type, "排序类型");
+		List<MoModuleInfo> info_list = moModuleDaoService.queryAllModuleInfos(key_word,
+				order_col_name, order_type);
+		List<ModuleBeanForList> bean_list = ModuleBeanForList.parseModuleList(info_list);
+
+		output.setModule_list(bean_list);
+		return output;
+	}
+
+	public ViewModuleOutputBean queryGroupList(ViewModuleInputBean input) {
+		ViewModuleOutputBean output = new ViewModuleOutputBean();
+		String key_word = input.getKey_word();
+		String order_col_name = input.getOrder_col_name();
+		ORDER_TYPE order_type = input.getOrder_type();
+		Assert.assertNotEmpty(order_type, "排序类型");
+		List<MoModuleInfo> info_list = moModuleDaoService.queryAllGroupInfos(key_word,
+				order_col_name, order_type);
+		List<ModuleBeanForList> bean_list = ModuleBeanForList.parseModuleList(info_list);
+
+		output.setModule_list(bean_list);
+		return output;
+	}
+}

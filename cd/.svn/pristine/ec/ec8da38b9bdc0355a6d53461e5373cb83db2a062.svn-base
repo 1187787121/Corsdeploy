@@ -1,0 +1,23 @@
+package com.wk.cd.module.dao;
+
+import com.wk.cd.module.info.MoModuleQuoteInfo;
+import com.wk.db.EntityDao;
+import com.wk.db.SqlParam;
+
+import java.util.List;
+
+abstract class MoModuleQuoteDao extends EntityDao<MoModuleQuoteInfo> {
+	
+	@SqlParam(condition = "QUOTE_MODULE_ID =:quote_module_id")
+	abstract int countModuleByQuoteId(String paramString);
+
+	@SqlParam(condition = "MODULE_ID =:module_id")
+	abstract int deleteModuleQuoteById(String paramString);
+
+	@SqlParam(condition = "MODULE_ID =:module_id AND QUOTE_MODULE_ID =:quote_module_id")
+	abstract int deleteByModuleAndQuoteId(String paramString1,
+			String paramString2);
+
+	@SqlParam(condition = "QUOTE_MODULE_ID =:module_id")
+	abstract List<MoModuleQuoteInfo> getModuleQuoteByModuleId(String paramString);
+}

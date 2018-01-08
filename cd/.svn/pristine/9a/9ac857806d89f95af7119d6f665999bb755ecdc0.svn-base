@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="ROLL_文件还原" id="COMP201710260073">
+<desc>将最初的备份文件解压至用户根路径</desc>
+<script type="SHELL"><![CDATA[
+tar xvf ./${backup_dir}/${tag}/${tag}.tar
+]]></script>
+<params>
+<param cnname="备份路径" defult="backup" desc="备份路径" hand="false" name="backup_dir"/>
+<param cnname="区分标识" defult="${task_no}" desc="区分标识" hand="false" name="tag"/>
+</params>
+</component>

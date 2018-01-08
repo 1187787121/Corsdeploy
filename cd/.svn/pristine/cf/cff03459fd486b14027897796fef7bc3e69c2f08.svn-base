@@ -1,0 +1,8 @@
+SYS_SVC_EXEC_EXCEPT = 服务[{ServiceName}]执行异常[{Exception}]
+SYS_BEAN_CLASS_NOT_FOUND = 类[{BeanClassName}]无法找到
+SYS_DAO_CLASS_NOT_FOUND = 类[{DaoClassName}]无法找到
+SYS_SVC_CONFIG_NOT_EXIST = 服务配置文件[{Config}]无法找到
+SYS_SVC_CONFIG_NOT_VALID = 服务配置文件[{Config}]格式不正确
+SYS_BEAN_NOT_EXIST = Bean[{Name}]不存在
+SYS_BEAN_INIT_FAILED = Bean[{Name}]初始化失败
+

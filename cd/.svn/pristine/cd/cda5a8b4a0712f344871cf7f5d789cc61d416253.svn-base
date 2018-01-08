@@ -1,0 +1,23 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootInputBean;
+
+public class ViewMonitorModuleInputBean extends ActionRootInputBean {
+	
+	private static final long serialVersionUID = 3212863135208064452L;
+	
+	/**
+	 * 监控的组件或组件组的id
+	 */
+	private String id;
+	
+	public static final String IDCN = "监控的组件或组件组的id";
+
+	public String getId() {
+		return this.id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+}

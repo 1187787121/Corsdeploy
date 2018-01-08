@@ -1,0 +1,386 @@
+package com.wk.cd.remote.agent.service;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.net.SocketException;
+
+import org.apache.commons.net.ftp.FTPClient;
+import org.apache.commons.net.ftp.FTPReply;
+import org.apache.commons.net.telnet.TelnetClient;
+
+import com.wk.cd.remote.agent.bean.DeployAgentBean;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.DESUtil;
+import com.wk.cd.module1.Result;
+import com.wk.cd.module1.impl.DefaultProcess;
+import com.wk.cd.module1.impl.Shell;
+import com.wk.cd.module1.info.ModuleSourceInfo;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class TelnetDeployAgentService {
+
+	private TelnetClient telnet = new TelnetClient("cvtelnet");
+	
+	private static final Log logger = LogFactory.getLog();
+	
+	private char prompt = '$'; // 终止符号
+	
+	private InputStream is;
+	private PrintStream out;
+	
+	private String ip;
+	private int port;
+	private String user;
+	private String password;
+	
+	private String unpack_tar_cmd;           // 解压agent.tar包命令
+	private String startup_agent_cmd;        // 启动Agent的命令
+
+	private boolean success;
+	private String rs;
+	
+	public DeployAgentBean deployAgent(DtSourceInfo dtSourceInfo, String local_file, String remote_path, String remote_file_name) {
+
+
+		unpack_tar_cmd = "cd " + remote_path + ";mkdir Agent;cp "+remote_file_name+" Agent;cd Agent;tar -xvf "
+					+ remote_file_name + ";rm -r "+ remote_file_name+"\n";
+		startup_agent_cmd = "cd Agent/bin;chmod +x startup.sh agent.sh lcp;./startup.sh\n";
+	
+		ip = dtSourceInfo.getSoc_ip();
+		port = dtSourceInfo.getSoc_port();
+		user = dtSourceInfo.getRemote_uname();
+
+		String key;
+		if (Assert.isEmpty(dtSourceInfo.getKey_remote_passwd())) {
+			key = DESUtil.getDef16Key();
+		} else {
+			key = dtSourceInfo.getKey_remote_passwd();
+		}
+		String en_key = DESUtil.docryptAllowReverse(false, null, key);
+
+		// 对输入密码、密钥进行加密
+		password = DESUtil.docryptAllowReverse(false, en_key,
+				dtSourceInfo.getRemote_passwd());
+		success = uploadFile(local_file, remote_path, remote_file_name);
+		
+		if(success){
+			logger.info("Agent.tar 文件上传成功");
+			success = connect();
+			if(success){
+				execDeployShell(dtSourceInfo, remote_path);
+			}else{
+				rs = ip + "服务器连接失败";
+			}
+		}else{
+			rs = "文件上传失败";
+		}
+		
+		DeployAgentBean bean = new DeployAgentBean();
+		if(success){
+			bean.setSuccess(success);
+		}else{
+			bean.setSuccess(success);
+			bean.setResult(rs);
+		}
+		
+		logger.debug("deploy agent end rs = {}", bean.getResult());
+		return bean;
+	}
+	
+	/**
+	 * 执行部署命令
+	 * Description: 
+	 * @param info
+	 * @param remote_path
+	 */
+	private void execDeployShell(DtSourceInfo info, String remote_path) {
+		logger.info("begin execute deploy agent cmd");
+		DefaultProcess process = new DefaultProcess(null);
+	    ModuleSourceInfo msi = new ModuleSourceInfo(info.getProtocol_type(),info);
+
+	    String cmd = remote_path.endsWith("/") ? "cd "+ remote_path +"Agent/bin;./agent.sh\n" : "cd "+ remote_path +"/Agent/bin;./agent.sh\n";
+        process.addModule(new Shell(msi, unpack_tar_cmd));
+	    process.addModule(new Shell(msi, startup_agent_cmd));
+	    process.addModule(new Shell(msi, cmd));
+	    process.run(0);
+	    process.run(1);
+	    Result result = process.run(2);
+	    String msg = result.getMsg();
+	    
+	    boolean flag = CheckAgentExistService.checkAgentExist(ip, port);
+	    
+	    if(flag){
+	    	success = true;
+	    }else{
+	    	 success = false;
+		     rs = msg;
+	    }
+	}
+
+	/**
+	 * 连接成功返回true，否则返回false Description:
+	 */
+	private boolean connect() {
+		boolean isConnect = true;
+		try {
+			telnet.connect(ip, port);
+			is = telnet.getInputStream();
+			out = new PrintStream(telnet.getOutputStream());  
+			login();
+			new StreamReader(is).start();
+		} catch (Exception e) {
+			isConnect = false;
+			e.printStackTrace();
+			return isConnect;
+		}
+		return isConnect;
+	}
+	
+	public void login() {
+//		System.out.println(readUtil("login:"));
+		readUtil("login:");
+		sendCommand(user);
+		readUtil("Password:");
+//		System.out.println(readUtil("Password:"));
+		sendCommand(password);
+//		System.out.println(readUtil(prompt + ""));
+		readUtil(prompt + "");
+	}
+	
+	
+	private String readUtil(String pattern) {
+		try {
+			char lastChar = pattern.charAt(pattern.length() - 1);
+			StringBuffer sb = new StringBuffer();
+			char ch = (char) is.read();
+			while (ch != -1) {
+				sb.append(ch);
+				if (ch == lastChar) {
+					if (sb.toString().endsWith(pattern)) {
+						byte[] temp = sb.toString().getBytes();
+						return new String(temp);
+					}
+				}
+				ch = (char) is.read();
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+ 
+	public void sendCommand(String cmd) {
+		try {
+			out.println(cmd);
+			out.flush();
+			success = true;
+		} catch (Exception e) {
+			success = false;
+			rs = e.getMessage();
+			e.printStackTrace();
+			logger.error(e.getMessage(), e);
+		}
+	}
+	
+	private void disconnect() {
+		try {
+			telnet.disconnect();
+		} catch (IOException e) {
+			e.printStackTrace();
+			logger.error(e.getMessage(), e);
+		}
+	}
+
+	class StreamReader extends Thread {
+		InputStream is;
+		InputStreamReader isr;
+		BufferedReader br;
+
+		public StreamReader(InputStream is) {
+			this.is = is;
+		}
+
+		@Override
+		public void run() {
+			try {
+				isr = new InputStreamReader(is);
+				br = new BufferedReader(isr);
+				char ch = (char) br.read();
+				while (ch != -1) {
+					ch = (char) br.read();
+				}
+			} catch (IOException ioe) {
+				success = false;
+				rs = ioe.getMessage();
+				ioe.printStackTrace();
+				logger.error(ioe.getMessage(), ioe);
+			}
+		}
+	}
+	
+	/**
+	 * 
+	 * Description:
+	 * 
+	 * @param local_file
+	 *            本地全路径
+	 * @param remote_path
+	 *            远端目标路径
+	 * @param remote_file_name
+	 *            远端目标文件名
+	 */
+	public boolean uploadFile(String local_file, String remote_path,
+			String remote_file_name) {
+		logger.info("begin upload agent.tar");
+		boolean success = false;
+		FileInputStream input = null;
+		FTPClient ftpClient = null;
+		try {
+			ftpClient = getFTPClient();
+			int reply = ftpClient.getReplyCode();
+			if (!FTPReply.isPositiveCompletion(reply)) {
+				ftpClient.disconnect();
+				return success;
+			}
+			ftpClient.setControlEncoding("UTF-8");
+			ftpClient.setFileType(FTPClient.BINARY_FILE_TYPE);
+			ftpClient.enterLocalPassiveMode();
+			if(!createDir(remote_path, ftpClient)){
+				logger.info("切换目录失败");
+				return success;
+			}
+
+			input = new FileInputStream(new File(local_file));
+			logger.info("文件上传中...");
+			  //上传文件  
+            if (!ftpClient.storeFile(remote_file_name,  new BufferedInputStream(input))) {  
+                return success;  
+            }  
+			input.close();
+			ftpClient.logout();
+			success = true;
+		} catch (IOException e) {
+			success = false;
+			rs = e.getMessage();
+			e.printStackTrace();
+			logger.error(e.getMessage(), e);
+		} finally {
+
+			if (ftpClient.isConnected()) {
+				try {
+					ftpClient.disconnect();
+				} catch (IOException e) {
+					e.printStackTrace();
+					logger.error(e.getMessage(), e);
+				}
+			}
+		}
+
+		return success;
+	}
+	
+	  /** 
+     * 创建目录(有则切换目录，没有则创建目录) 
+     * @param dir 
+     * @return 
+     */  
+    public boolean createDir(String dir, FTPClient ftpClient){  
+       
+        String d;  
+        try {  
+            //目录编码，解决中文路径问题  
+            d = new String(dir.toString().getBytes("GBK"),"iso-8859-1");  
+            //尝试切入目录  
+            if(ftpClient.changeWorkingDirectory(d))  
+                return true;  
+            
+            if(dir.startsWith("/") || dir.startsWith("./")){
+            	dir = dir.substring(dir.indexOf("/") + 1);
+//            	System.out.println("去除头部的dir = " + dir);
+            }
+            
+            if(dir.endsWith("/")){
+            	dir = dir.substring(0, dir.length() - 1);  
+//            	System.out.println("去除尾部的dir = " + dir);
+            }
+            
+            String[] arr =  dir.split("/");  
+            StringBuffer sbfDir=new StringBuffer();  
+            //循环生成子目录  
+            for(String s : arr){  
+                sbfDir.append(s);  
+                sbfDir.append("/");  
+                //目录编码，解决中文路径问题  
+                d = new String(sbfDir.toString().getBytes("GBK"),"iso-8859-1");  
+                //尝试切入目录  
+                if(ftpClient.changeWorkingDirectory(d))  
+                    continue;  
+//                System.out.println("d = " + d);
+                if(!ftpClient.makeDirectory(d)){  
+                    System.out.println("[失败]ftp创建目录："+sbfDir.toString());  
+                    rs = "[失败]ftp创建目录："+sbfDir.toString();
+                    return false;  
+                }  
+//                System.out.println("[成功]创建ftp目录："+sbfDir.toString());  
+            }  
+            //将目录切换至指定路径  
+            return ftpClient.changeWorkingDirectory(d);  
+        } catch (Exception e) {  
+        	rs = e.getMessage();
+            e.printStackTrace();  
+            return false;  
+        }  
+    }  
+    
+	/**
+	 * 获取FTPClient对象
+	 *
+	 * @param ftp_ip
+	 *            FTP主机服务器
+	 * @param ftp_password
+	 *            FTP 登录密码
+	 * @param ftp_user
+	 *            FTP登录用户名
+	 * @param ftp_port
+	 *            FTP端口 默认为21
+	 * @return
+	 */
+	public FTPClient getFTPClient() {
+		FTPClient ftpClient = null;
+		try {
+			ftpClient = new FTPClient();
+			ftpClient.connect(ip, 21);
+			ftpClient.login(user.trim(), password.trim());
+			if (!FTPReply.isPositiveCompletion(ftpClient.getReplyCode())) {
+//				System.out.println("未连接到FTP, 用户名或密码错误");
+				logger.info("未连接到FTP, 用户名或密码错");
+				rs = "未连接到FTP, 用户名或密码错误";
+				ftpClient.disconnect();
+			} else {
+//				System.out.println("FTP连接成功");
+			}
+		} catch (SocketException e) {
+			success = false;
+			rs = "FTP的IP地址可能错误，请正确配置";
+			e.printStackTrace();
+			logger.error(e.getMessage(), e);
+//			System.out.println("FTP的IP地址可能错误，请正确配置。");
+		} catch (IOException e) {
+			success = false;
+			rs = "FTP的端口错误,请正确配置";
+			e.printStackTrace();
+			logger.error(e.getMessage(), e);
+//			System.out.println("FTP的端口错误,请正确配置。");
+		}
+
+		return ftpClient;
+	}
+}

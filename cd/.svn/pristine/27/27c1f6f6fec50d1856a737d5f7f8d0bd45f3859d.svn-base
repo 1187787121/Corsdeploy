@@ -1,0 +1,24 @@
+package com.wk.cd.module.bean;
+
+public class NodeBean {
+	
+	private String name;
+	
+	private String ip;
+
+	public String getName() {
+		return this.name;
+	}
+
+	public void setName(String node_name) {
+		this.name = node_name;
+	}
+
+	public String getIp() {
+		return this.ip;
+	}
+
+	public void setIp(String node_ip) {
+		this.ip = node_ip;
+	}
+}

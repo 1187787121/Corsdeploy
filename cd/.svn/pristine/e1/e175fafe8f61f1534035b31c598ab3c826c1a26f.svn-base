@@ -1,0 +1,169 @@
+/**
+ * Title: SrvSocBean.java
+ * File Description: 
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: zhangj
+ * @version: 1.0
+ * @date: 2016年11月17日
+ */
+package com.wk.cd.build.ea.bean;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.module.bean.StageSourceBean;
+
+/**
+ * Class Description: 
+ * @author Zhangj
+ */
+public class SrvSocBean extends StageSourceBean{
+	
+	/**
+	 * 版本服务器
+	 */
+	private String exe_server_name;
+	
+	public static final String SERVER_NAMECN="版本服务器";
+	
+	/**
+	 * 版本服务器
+	 */
+	private String ver_server_name;
+	
+	public static final String VER_SERVER_NAMECN = "版本服务器";
+	
+	/**
+	 * 数据源列表
+	 */
+	private String[] exe_soc_list;
+	
+	public static final String EXE_SOC_LISTCN = "数据源列表";
+	
+	/**
+	 * SHELL数据源列表（用于查看修改的时候的备选项）
+	 */
+	private String [] ver_soc_list;
+	
+	public static final String VER_SOC_LISTCN = "SHELL数据源列表";
+	
+	/**
+	 * 执行服务器中文名
+	 */
+	private String exe_cn_name;
+
+	public static final String SERVER_CN_NAMECN = "执行服务器中文名";
+	
+	/**
+	 * 版本服务器中文名
+	 */
+	private String ver_cn_name;
+	
+	public static final String VER_CN_NAMECN = "版本服务器中文名";
+	
+	/**
+	 * 构造函数
+	 */
+	public SrvSocBean() {
+		super();
+	}
+	/**
+	 * @return
+	 */
+	public String getExe_server_name() {
+		return this.exe_server_name;
+	}
+
+	/** 
+	 * @param exe_server_name
+	 */
+	public void setExe_server_name(String exe_server_name) {
+		this.exe_server_name = exe_server_name;
+	}
+
+
+
+	/**
+	 * @return
+	 */
+	public String getVer_server_name() {
+		return ver_server_name;
+	}
+
+	/**
+	 * @param ver_server_name
+	 */
+	public void setVer_server_name(String ver_server_name) {
+		this.ver_server_name = ver_server_name;
+	}
+
+	
+
+	public String[] getExe_soc_list() {
+		return exe_soc_list;
+	}
+
+	public void setExe_soc_list(String[] exe_soc_list) {
+		this.exe_soc_list = exe_soc_list;
+	}
+
+	public String[] getVer_soc_list() {
+		return ver_soc_list;
+	}
+
+	public void setVer_soc_list(String[] ver_soc_list) {
+		this.ver_soc_list = ver_soc_list;
+	}
+
+	public String getExe_cn_name() {
+		return exe_cn_name;
+	}
+
+	public void setExe_cn_name(String exe_cn_name) {
+		this.exe_cn_name = exe_cn_name;
+	}
+
+	public String getVer_cn_name() {
+		return ver_cn_name;
+	}
+
+	public void setVer_cn_name(String ver_cn_name) {
+		this.ver_cn_name = ver_cn_name;
+	}
+
+	public static SrvSocBean[] getArray(String exe_soc, String ver_soc) {
+		String[] es = null;
+		if (exe_soc.contains(",")) {
+			es = exe_soc.split(",");
+		} else {
+			es = new String[] { exe_soc };
+		}
+
+		String[] vs = null;
+		if (!Assert.isEmpty(ver_soc)) {
+			if (ver_soc.contains(",")) {
+				vs = ver_soc.split(",");
+			} else {
+				vs = new String[] { ver_soc };
+			}
+		}
+
+		List<SrvSocBean> list = new ArrayList<SrvSocBean>();
+
+		for (int i = 0; i < es.length; ++i) {
+			SrvSocBean bean = new SrvSocBean();
+			bean.setExe_soc_name(es[i]);
+			if (vs != null && vs.length == es.length) {
+				bean.setVer_soc_name(vs[i]);
+			}
+
+			list.add(bean);
+		}
+
+		return list.toArray(new SrvSocBean[list.size()]);
+	}
+	
+
+}

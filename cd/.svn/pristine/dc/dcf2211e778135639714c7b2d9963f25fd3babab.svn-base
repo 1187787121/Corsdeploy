@@ -1,0 +1,61 @@
+package com.wk.cd.module.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.cm.service.GenNoService;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.PUBLISH_STATE;
+import com.wk.cd.module.bean.PublishModuleInputBean;
+import com.wk.cd.module.bean.PublishModuleOutputBean;
+import com.wk.cd.module.dao.MoModuleDaoService;
+import com.wk.cd.module.info.MoModuleInfo;
+import com.wk.cd.module.service.ModuleCommonService;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class PublishModuleAction extends
+		ActionBasic<PublishModuleInputBean, PublishModuleOutputBean> {
+
+	@Inject
+	private GenNoService genNoSrv;
+
+	@Inject
+	private MoModuleDaoService tpComponentDaoService;
+
+	@Inject
+	private ModuleCommonService componentPublicService;
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+
+	protected PublishModuleOutputBean doAction(PublishModuleInputBean input) {
+		logger.info("----------------- PublishCompAction Begin ---------------");
+		PublishModuleOutputBean output = new PublishModuleOutputBean();
+		String comp_id = input.getId();
+		MODULE_TYPE comp_type = input.getType();
+
+		Assert.assertNotEmpty(comp_id, "组件或组件组ID");
+		Assert.assertNotEmpty(comp_type, "组件类型");
+
+		componentPublicService.checkCompIdIsExist(comp_id, comp_type);
+		MoModuleInfo cp_info = new MoModuleInfo();
+		cp_info.setModule_id(comp_id);
+
+		tpComponentDaoService.updateModulePubStateById(comp_id,
+				PUBLISH_STATE.YES);
+		logger.info("----------------- PublishCompAction End -----------------");
+		return output;
+	}
+
+	protected String getLogTxt(PublishModuleInputBean input) {
+		List<String> publish_list = new ArrayList<String>();
+		publish_list.add(input.getId());
+		return this.lgsvc.getLogTxt("发布组件/组件组", publish_list);
+	}
+}

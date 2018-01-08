@@ -1,0 +1,49 @@
+package com.wk.cd.module.action;
+
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.module.ProcessContext;
+import com.wk.cd.module.ProcessManager;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.bean.ViewMonitorModuleInputBean;
+import com.wk.cd.module.bean.ViewMonitorModuleOutputBean;
+import com.wk.cd.service.IViewActionBasic;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class ViewMonitorModuleAction extends IViewActionBasic<ViewMonitorModuleInputBean, ViewMonitorModuleOutputBean> {
+	private static final Log logger = LogFactory.getLog();
+
+	public ViewMonitorModuleOutputBean moitorModuleTestMsg(
+			ViewMonitorModuleInputBean input) {
+		logger.debug("----------ViewMonitorCompAction_getCompTestMsg Begin-----------");
+		Assert.assertNotEmpty(input.getId(), "监控的组件或组件组的id");
+		ViewMonitorModuleOutputBean output = new ViewMonitorModuleOutputBean();
+		com.wk.cd.module.Process process = null;
+		String id = input.getId();
+		try {
+			process = ProcessManager.instance.getProcessInstance(id);
+			ProcessContext pc = process.getCtx();
+
+			output.setTotal_phase(pc.getInstance_info().getModuleCount());
+
+			output.setCurrent_phase(pc.getCurrentStage() + 1);
+
+			output.setCurrent_step(pc.getCurrentStep() + 1);
+
+			output.setTotal_step(pc.getCurrentCmdCount());
+			output.setCurrent_cmd(pc.getCurrentCmd());
+			List<Result> results = pc.getResults();
+			if (!(Assert.isEmpty(results))) {
+				Result result = results.get(results.size() - 1);
+				output.setCurrent_cmd_status(result.getStatus());
+			}
+		} catch (Exception e) {
+			return null;
+		}
+
+		logger.debug("----------ViewMonitorCompAction_getCompTestMsg End-----------");
+		return output;
+	}
+}

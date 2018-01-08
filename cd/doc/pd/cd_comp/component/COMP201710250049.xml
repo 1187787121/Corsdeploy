@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="PUBLISH_SVN检出文件" id="COMP201710250049">
+<desc>使用SVN协议将远端文件检出至目标机器。</desc>
+<script type="SVN"><![CDATA[
+co ${svn_relative_path} ${local_path}/${relative_path}
+]]></script>
+<params>
+<param cnname="SVN目录" defult="/CorsManager/" desc="SVN相对目录" hand="false" name="svn_relative_path"/>
+<param cnname="本地路径" defult="./upload/${task_no}/" desc="本地检出路径" hand="false" name="local_path"/>
+<param cnname="文件相对路径" defult="" desc="文件相对路径" hand="false" name="relative_path"/>
+</params>
+</component>

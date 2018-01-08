@@ -1,0 +1,137 @@
+package com.wk.cd.remote.agent.bean;
+/**
+ * Class Description: 
+ * @author Xuph
+ */
+public class SysCmdLibrary {
+	/**
+	 * 系统主机名
+	 */
+	public static final String HOST_NAME = "hostname";
+	/**
+	 * 操作系统信息
+	 */
+	public static final String OPERATE_NAME = "uname -a";
+	/**
+	 * 获得操作系统名称
+	 */
+	public static final String OPT_NAME = "uname -a | cut -f1 -d' '";
+	/**
+	 * 系统JRE信息
+	 */
+	public static final String JRE_VERSION = "java -version";
+
+	
+	/*-----------------------------LINUX系统信息-------------------------------------*/
+	/**
+	 * Linux系统版本详细信息
+	 */
+	public static final String LINUX_VERSION = "cat /proc/version";
+	/**
+	 * Linux系统版本简单信息
+	 */
+	public static final String LINUX_SAMPLE_VERSION = "cat /proc/version | grep version | cut -f1-3 -d' '";
+	/**
+	 * Linux系统逻辑CPU信息
+	 */
+	public static final String LINUX_LOGIC_CPU = "cat /proc/cpuinfo | grep --color=never name;lscpu|grep --color=never core";
+	/**
+	 * Linux系统物理CPU信息
+	 */
+	public static final String LINUX_PHY_CPU = "cat /proc/cpuinfo | grep name | cut -f2 -d: | uniq -c";
+	/**
+	 * Linux系统硬盘Disk信息
+	 */
+	public static final String LINUX_DISK = "df -m|grep ^/dev |awk '{total+=$2;} END {print expr total /1024 \"G\"}'";
+	/**
+	 * Linux系统配置Machine_config信息
+	 */
+	public static final String LINUX_MACHINE_CFG = "if [ -f /etc/system-release ];then cat /etc/system-release;else if [ -f /etc/issue ];then cat /etc/issue;fi;fi;";
+	/**
+	 * Linux系统物理内存MEM
+	 */
+	public static final String LINUX_MEM = "cat /proc/meminfo|grep --color=never -i memtotal|cut -f2 -d:";
+	/**
+	 * Linux系统网络Net信息
+	 */
+	public static final String LINUX_NET = "ifconfig -a |cut -d' ' -f1 |grep -v ^$|grep -v lo|awk -F ':' '{system(\"ethtool \"$1\" >.temp 2>/dev/null;echo \"$1\"`cat .temp|grep -i speed`\")}'|tr \"\n\" \",\"|awk '{sub(/.$/,\"\")}1'";
+
+	/*------------------------------------AIX或OTHER系统信息-----------------------------------*/
+	/**
+	 * AIX/OTHER系统版本
+	 */
+	public static final String AIX_OTHER_VERSION = "oslevel";//oslevel -s 
+	/**
+	 * AIX/OTHER系统CPU信息
+	 */
+	public static final String AIX_OTHER_CPU = "prtconf|grep -i processor|head -3";
+	/**
+	 * AIX/OTHER系统硬盘DISK信息
+	 */
+	public static final String AIX_OTHER_DISK = "df -m|grep ^/dev |awk '{total+=$2;} END {print expr total /1024 \"G\"}'";
+	/**
+	 * AIX/OTHER系统Net网络信息
+	 */
+	public static final String AIX_OTHER_NET = "ifconfig -a|cut -d ' ' -f1|grep :|awk -F ':' '{system(\"echo \"$1\"\\\"\\t\\\"`netstat -v \"$1\" |grep -i \\\"speed running\\\"`\")}'|grep -v lo|tr \"\n\" \",\"|awk '{sub(/.$/,\"\")}1'";
+	/**
+	 * AIX/OTHER系统物理内存MEM
+	 */
+	public static final String AIX_OTHER_MEM = "prtconf|grep -i memory|head -1|cut -f2 -d:";
+	/**
+	 * AIX系统配置信息
+	 */
+	public static final String AIX_MACHINE_CFG = "prtconf|grep -i \"system model\"";
+
+	//------------------------------Windows 系统信息-----------------------------------------------
+	/**
+	 * Window 信息
+	 */
+	public static final String WIN_MSG = "systeminfo";
+	/**
+	 * 查看cpu
+	 */
+	public static final String WIN_CPU_ZH = "处理器:";
+	public static final String WIN_CPU_EN = "Processor:";
+	/**
+	 * 硬盘
+	 */
+	public static final String WIN_DISK = "wmic DISKDRIVE get size";
+	/**
+	 * 网络
+	 */
+	public static final String WIN_NET = "wmic nic list brief";
+	/**
+	 * 内存
+	 */
+	public static final String WIN_DISK_ZH = "物理内存总量:";
+	public static final String WIN_DISK_EN = "TotalPhysicalMemory:";
+	
+	public static final String WIN_DISK_FREE_ZH = "可用的物理内存:";
+	public static final String WIN_DISK_FREE_EN = "FreePhysicalMemory:";
+	
+	/**
+	 * 配置
+	 */
+	public static final String WIN_CONFIG_ZH = "系统制造商:";
+	public static final String WIN_CONFIG_ZH2 = "系统型号:";
+	public static final String WIN_CONFIG_EN = "SystemManufacturer:";
+	public static final String WIN_CONFIG_EN2 = "SystemModel:";
+	
+	/**
+	 * 服务器名
+	 */
+	public static final String WIN_SERVER_ZH = "主机名:";
+	public static final String WIN_SERVER_EN = "HostName:";
+
+	
+	/**
+	 * 操作系统
+	 */
+	public static final String WIN_OS_ZH = "OS名称:";
+	public static final String WIN_OS_EN = "OSName:";
+	public static final String WIN_VERSION_ZH = "OS版本:";
+	public static final String WIN_VERSION_EN = "OSVersion:";
+	
+	public static final String WIN_JRE = "java -version";
+	
+}

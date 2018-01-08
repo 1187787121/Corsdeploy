@@ -1,0 +1,475 @@
+/**
+ * @copyright 2014
+ * @company CORSWORK
+ * @version 1.0
+ */
+
+package com.wk.cd.remote.agent.service;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.CfgTool;
+import com.wk.cd.common.util.DESUtil;
+import com.wk.cd.common.util.FileTool;
+import com.wk.cd.common.util.Md5Util;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.remote.agent.bean.EnvDirInfo;
+import com.wk.cd.remote.agent.bean.ShellBean;
+import com.wk.cd.remote.agent.util.AgentCMDUtil;
+import com.wk.cd.remote.exc.FileNotExistException;
+import com.wk.cd.remote.sh.bean.ShExecRsBean;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.cl.remote.tcp.bean.TcpInputBean;
+import com.wk.cl.remote.tcp.service.TcpCallRemoteService;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.Base64;
+
+/**
+ * Class Description: Created by lixl on 16-8-11.
+ */
+public class AgentClient {
+
+	private static final Log logger = LogFactory.getLog();
+
+	private static final String LONG_TIMEOUT = "180000";
+	private static final long OFFSIZE = 500 * 1024;                                                   //ftp传输分包大小
+	private static final String CONNECTOR = "&";                                      
+	
+	private final String id;
+	private final String ip;
+	private final int port;
+	private boolean isStepSupport;                                //是否支持脚本执行   true:支持
+	private Map<String, EnvDirInfo> dirMap;                       //ftp传输时，存储本地路径和远程路径
+	private IMPL_TYPE impl_type;                                  //实现类型：shell/ftp/jdbc/python
+	private int stepCount;                                        //session中总的命令数
+	private int type;                                             //1.正常的命令  2.交互式
+	private String remote_temp_path;                              //目标机器临时文件目录
+	
+	//JDBC相关参数
+	private DtSourceInfo dt_source_info;
+	private int start_num;
+	private int offset;
+
+	public AgentClient(String id, String ip, int port, boolean isStepSupport, IMPL_TYPE impl_type, int stepCount, int type, String remote_temp_path, DtSourceInfo dt_source_info, int start_num, int offset) {
+		this.id = id;
+		this.ip = ip;
+		this.port = port;
+		this.type = type;
+		this.impl_type = impl_type;
+		this.stepCount = stepCount;
+		this.isStepSupport = isStepSupport;
+		
+		this.dt_source_info = dt_source_info;
+		this.start_num = start_num;
+		this.offset = offset;
+		
+		//远程目标机器临时文件全路径
+		String remote_path = CfgTool.getProjectPropterty("remote.upload.path");
+		if(!Assert.isEmpty(remote_path)){
+			remote_path = remote_path.endsWith("/") ? remote_path : remote_path + "/";
+		}
+				
+		if(remote_temp_path != null){
+			this.remote_temp_path =  remote_path + remote_temp_path;
+		}else{
+			this.remote_temp_path = remote_path;
+		}
+				
+		dirMap = new HashMap<String, EnvDirInfo>();
+	}
+	
+	//remote_temp_path远程目标机器临时文件存放路径（整合工作空间）
+	public ShExecRsBean exeShell(String cmd, String timeout) {
+		/**
+		 * 设置基础属性值
+		 */
+		ShellBean s = new ShellBean();
+		s.setId(id);
+		s.setShell(DESUtil.encrypt(cmd));              // 对shell命令进行DES加密
+		s.setDigest(Md5Util.GetMD5Code(cmd));          //密钥，用于验证 
+		s.setImpl_type(impl_type);
+		s.setStepSupport(isStepSupport);  
+		s.setType(type);
+		s.setStepCount(stepCount);
+		
+		s.setRemote_temp_path(remote_temp_path);
+		/**
+		 * 判断是否是ftp传输还是shell命令行
+		 */
+		if (impl_type == IMPL_TYPE.FTP) {
+			s = ftpTask(cmd, s);
+		}else if(impl_type == IMPL_TYPE.SQL){
+			s.setDt_source_info(dt_source_info);
+			s.setStart_num(start_num);
+			s.setOffset(offset);
+			s = exeRmtShell(s, s, timeout);
+		}else{
+			s = exeRmtShell(s, s, timeout);
+		}
+		return toShExecRsBean(s);
+	}
+	
+	/**
+	 * 调用TcpCallRemoteService，执行shell命令
+	 */
+	private ShellBean exeRmtShell(ShellBean input, ShellBean result, String timeout) {
+		Assert.assertNotEmpty(input, "shell");
+		TcpInputBean tbean = new TcpInputBean();
+		tbean.setRemote_address(ip + ":" + port);
+		tbean.setRemote_name(ip);
+		tbean.setTimeout(timeout);
+		
+		TcpCallRemoteService svc = new TcpCallRemoteService(tbean);
+
+		ShellBean output = svc.callService(input, result);
+
+		logger.debug("client[{}] inputShell:[{}], outputResult:[{}]", id, DESUtil.decrypt(input.getShell()), output);
+		return output;
+	}
+	/**	
+	 * Description: ftp的执行操作在此方法中
+	 * 					1.保存本地路径和远程路径
+	 * 					2.上传与下载
+	 * @param cmd
+	 * @param s
+	 */
+	private ShellBean ftpTask(String cmd_text, ShellBean s){
+		if(cmd_text.equals("cd")){
+			return s;
+		}
+		ShellBean shellBean = new ShellBean();
+		String[] cmd_args = cmd_text.split(" ");
+		String cmd = cmd_args[0];
+        logger.info("call sftp cmd =[{}]", cmd_text);
+        if(cmd.equalsIgnoreCase("cd")){
+        	savePath(cmd_args[0], cmd_args[1]);
+        }else if(cmd.equalsIgnoreCase("lcd")){
+        	savePath(cmd_args[0], cmd_args[1]);
+        }else if(cmd.equalsIgnoreCase("get")){
+        	try {
+				if(cmd_args.length > 2){
+					String local__path = FileTool.filePathCvt(cmd_args[1]);
+					String remote_path = FileTool.filePathCvt(cmd_args[2]);
+					s.setLocal_dir(FileTool.getFilePath(local__path));
+					s.setRemote_dir(FileTool.getFilePath(remote_path));
+					String remote_file_name = FileTool.getFileName(remote_path);
+					String local_file_name = FileTool.getFileName(local__path);
+					if(Assert.isEmpty(local_file_name)){
+						s.setLocal_file_name(remote_file_name);
+					}else{
+						s.setLocal_file_name(local_file_name);
+					}
+					s.setRemote_file_name(remote_file_name);
+					shellBean = downloadFile(s, false);
+				}else{
+					s.setRemote_file_name(cmd_args[1]);
+					s.setLocal_file_name(cmd_args[1]);
+					shellBean = downloadFile(s, true);
+				}
+			} catch (IOException e) {
+				shellBean.setResult(e.getMessage());
+				logger.error("client download file error", e);
+			}
+        }else if(cmd.equalsIgnoreCase("put")){
+        	try {
+				if(cmd_args.length > 2){
+					String local_path = FileTool.filePathCvt(cmd_args[1]);
+					String remote_path = FileTool.filePathCvt(cmd_args[2]);
+					s.setLocal_dir(FileTool.getFilePath(local_path));
+					s.setRemote_dir(FileTool.getFilePath(remote_path));
+					String remote_file_name = FileTool.getFileName(remote_path);
+					String local_file_name = FileTool.getFileName(local_path);
+					if(Assert.isEmpty(remote_file_name)){
+						s.setRemote_file_name(local_file_name);
+					}else{
+						s.setRemote_file_name(remote_file_name);
+					}
+					s.setLocal_file_name(local_file_name);
+					shellBean = uploadFile(s, false);
+				}else{
+					s.setRemote_file_name(cmd_args[1]);
+					s.setLocal_file_name(cmd_args[1]);
+					shellBean = uploadFile(s, true);
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+				shellBean.setResult(e.getMessage());
+				logger.error("client upload file error", e);
+			}
+        }else if(cmd.equalsIgnoreCase("get_file_list")){
+        	s.setRemote_dir(cmd_args[1]);
+        	shellBean = exeRmtShell(s, s, LONG_TIMEOUT);
+        }
+		return shellBean;
+	}
+	
+	/**
+	 * Description: ftp 文件上传
+	 * @param fileName   文件名
+	 * @param s
+	 * @throws IOException 
+	 */
+	private ShellBean uploadFile(ShellBean s, boolean flag) throws IOException{
+		logger.debug("client[{}] begin upload file[{}]", id, s.getLocal_file_name());
+		ShellBean bean = null;
+		if(flag)
+			s = getLocalAndRemoteDir(s);                                   //将本地路径和远程路径保存到ShellBean中
+    	
+		File file = new File(s.getLocal_dir() + s.getLocal_file_name()); 
+		if (!file.exists()) {
+            throw new FileNotExistException().addScene("FILE", file);
+        }
+		
+		long file_total_size = file.length();                          //文件总大小
+		int exe_num = (int)(file_total_size / OFFSIZE);                //执行次数
+		long remain_pac_size = file_total_size % OFFSIZE;              //剩余分包大小
+		long slice_size = 0;                                           //分包大小  
+		int total_num = remain_pac_size > 0 ? exe_num + 1 : exe_num;   //传输总执行次数
+		for(int cur_num = 1; cur_num <= total_num; cur_num++){
+				file_total_size = file.length();                       //重新获取文件的大小，以防文件在上传时被添加包
+				exe_num = (int)(file_total_size / OFFSIZE);            //执行次数
+				remain_pac_size = file_total_size % OFFSIZE;           //剩余分包大小
+				
+				if(remain_pac_size > 0){
+					total_num = exe_num + 1; 
+					if(cur_num < total_num){
+						slice_size = OFFSIZE;
+					}else{
+						slice_size = remain_pac_size;
+					}
+				}else if(remain_pac_size == 0){
+					total_num = exe_num;
+					slice_size = OFFSIZE;
+				}
+				
+				byte[] file_content = FileTool.getFileToByte(file, OFFSIZE * (cur_num - 1), (int)slice_size);     //获取文件内容byte数组
+				s.setSlice_size(slice_size);   //分包大小
+				s.setFile_content(new String(Base64.encode(file_content)));
+				s.setFile_total_size(file_total_size);
+				s.setTotal_num(total_num);
+				s.setCur_num(cur_num);
+				
+				bean = exeRmtShell(s, s, LONG_TIMEOUT);
+				s.setRemote_dir(bean.getRemote_dir());         //远程路径，如果是以"./"开头的，只要处理一次就行，无需每次都要处理，所要要把处理的路径在两端来回传送
+		}
+		logger.debug("client[{}] end upload file[{}]", id, s.getLocal_file_name());
+		return bean;
+	}
+	
+	/**
+	 * Description: ftp 文件下载
+	 * @param fileName  文件名
+	 * @param s
+	 * @throws IOException 
+	 */
+	private ShellBean downloadFile(ShellBean s, boolean flag) throws IOException{
+		logger.debug("client[{}] begin download file[{}]", id, s.getRemote_file_name());
+		ShellBean bean = null;
+		if(flag)
+			s = getLocalAndRemoteDir(s);
+		/**
+		 * 第一次请求下载，并不清楚文件的大小,假设总的请求次数为1
+		 */
+		int total_num = 1;
+		for(int download_cur_num = 1; download_cur_num <= total_num; download_cur_num++){
+			s.setCur_num(download_cur_num);
+			bean = exeRmtShell(s, s, LONG_TIMEOUT);
+			s.setRemote_dir(bean.getRemote_dir());
+			
+			total_num = bean.getTotal_num();     //每次请求之后都要重新获取执行的总次数
+			int cur_num = bean.getCur_num();
+			byte[] content_bytes = Base64.decode(bean.getFile_content());
+			FileTool.writeFileFromBytes(content_bytes, OFFSIZE * (cur_num - 1), bean.getLocal_dir() , bean.getLocal_file_name());
+		}
+		logger.debug("client[{}] end download file[{}]", id, s.getRemote_file_name());
+		return bean;
+	}
+	/**
+	 * Description: 保存本地路径和远程路径到map中,判断是否以“/”结尾
+	 * @param cmd
+	 */
+	private void savePath(String cmd, String path){
+		path = FileTool.filePathCvt(path);
+		boolean isStartCd = cmd.equalsIgnoreCase("cd");
+		boolean isStartLcd = cmd.equalsIgnoreCase("lcd");
+		if(isStartCd || isStartLcd){
+			path = path.endsWith("/") ? path : path + "/";
+			if(!Assert.isEmpty(dirMap)){
+				for (Map.Entry<String, EnvDirInfo> entry : dirMap.entrySet()) {
+
+					if(entry.getKey().equals(id)){
+						EnvDirInfo info = entry.getValue();
+						if(isStartCd){
+							info.setRemote_dir(path);
+						}else if(isStartLcd){
+							info.setLocal_dir(path);
+						}
+					}else{
+						EnvDirInfo info = new EnvDirInfo();
+						if(isStartCd){
+							info.setRemote_dir(path);
+						}else if(isStartLcd){
+							info.setLocal_dir(path);
+						}
+						dirMap.put(id, info);
+					}
+				}
+			} else {
+				EnvDirInfo info = new EnvDirInfo();
+				if(isStartCd){
+					info.setRemote_dir(path);
+				}else if(isStartLcd){
+					info.setLocal_dir(path);
+				}
+				dirMap.put(id, info);
+			}
+		}
+	}
+	
+	/**
+	 * Description: 对返回结果进行校验和转换
+	 * @param shellBean
+	 * @return
+	 */
+	private ShExecRsBean toShExecRsBean(ShellBean shellBean){
+		ShExecRsBean bean = new ShExecRsBean();
+		if(!Assert.isEmpty(shellBean)){
+			bean.setIs_succ(shellBean.getExitStatus() == 0);
+			/**
+			 * 判断密钥是否一致,不一致直接return shell&rs_flag&result组成密钥
+			 */
+			String id = shellBean.getId();
+			String shell = shellBean.getShell();
+			String rs_flag = shellBean.getRs_flag();
+			String result = shellBean.getResult();
+			String digest = shellBean.getDigest();
+			String pid = String.valueOf(shellBean.getPid());
+			
+			String md5Str = connectStr(shell, rs_flag, result);
+			/**
+			 * 返回结果不为空并且校验通过
+			 */
+			if (!Assert.isEmpty(md5Str) && Md5Util.GetMD5Code(md5Str.substring(0, md5Str.length() - 1)).equals(digest)) {
+				if(shellBean.getImpl_type() == IMPL_TYPE.SQL){
+					if (!Assert.isEmpty(rs_flag) && rs_flag.equals("fail")) {
+						bean.setErr_msg(Assert.isEmpty(result) ? result : result.trim());
+					}
+					bean.setRs_msg(Assert.isEmpty(result) ? result : result.trim());
+					bean.setPid(pid);
+					bean.setSessionId(id);
+					bean.setExitStatus(shellBean.getExitStatus());
+				}else{
+					
+					if(!Assert.isEmpty(shell)){
+						String cmd = DESUtil.decrypt(shell);
+						if(cmd.equals(AgentCMDUtil.AGENT_MONITOR_CMD) || cmd.equals(AgentCMDUtil.AGENT_GET_SYS_BASIC_INFO_CMD) || cmd.equals(AgentCMDUtil.AGENT_MANAGER_CMD)){
+							if(!Assert.isEmpty(shellBean.getNodeMsgBean())){
+								bean.setNodeMsgBean(shellBean.getNodeMsgBean());
+							}
+						}
+					}else{
+					
+						if (!Assert.isEmpty(rs_flag) && rs_flag.equals("fail")) {
+							bean.setErr_msg(Assert.isEmpty(result) ? result : result.trim());
+						}
+						
+						bean.setRs_msg(Assert.isEmpty(result) ? result : result.trim());
+						bean.setPid(pid);
+						bean.setSessionId(id);
+						bean.setExitStatus(shellBean.getExitStatus());
+					}
+				}
+			} 
+		}
+		return bean;
+	}
+
+	/**
+	 * Description: 连接shell,rs_flag,result
+	 * @return md5Str
+	 */
+	private String connectStr(String shell, String rs_flag, String result){
+		String md5Str = null;
+		if (!Assert.isEmpty(shell)) {
+			md5Str += shell + CONNECTOR;
+		}
+
+		if (!Assert.isEmpty(rs_flag)) {
+			md5Str += rs_flag + CONNECTOR;
+		}
+
+		if (!Assert.isEmpty(result)) {
+			md5Str += result + CONNECTOR;
+		}
+		
+		return md5Str;
+	}
+	
+	/**
+	 * 读取保存在map中的本地路径和远程路径
+	 * Description: 
+	 * @param s
+	 * @return
+	 */
+	private ShellBean getLocalAndRemoteDir(ShellBean s){
+		for (Map.Entry<String, EnvDirInfo> entry : dirMap.entrySet()) {
+			if(entry.getKey().equals(id)){
+				EnvDirInfo info = entry.getValue();
+				s.setLocal_dir(info.getLocal_dir());
+				s.setRemote_dir(info.getRemote_dir());
+			}
+		}
+		return s;
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public boolean isStepSupport() {
+		return isStepSupport;
+	}
+
+	public void setStepSupport(boolean isStepSupport) {
+		this.isStepSupport = isStepSupport;
+	}
+
+	public IMPL_TYPE getImpl_type() {
+		return impl_type;
+	}
+
+	public void setImpl_type(IMPL_TYPE impl_type) {
+		this.impl_type = impl_type;
+	}
+
+	public int getType() {
+		return type;
+	}
+
+	public void setType(int type) {
+		this.type = type;
+	}
+
+	public String getRemote_temp_path() {
+		return remote_temp_path;
+	}
+
+	public void setRemote_temp_path(String remote_temp_path) {
+		this.remote_temp_path = remote_temp_path;
+	}
+
+	public String getIp() {
+		return ip;
+	}
+
+	public int getPort() {
+		return port;
+	}
+	
+	
+}

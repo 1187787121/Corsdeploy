@@ -1,0 +1,162 @@
+/**
+ * Title: ExeBuildDeployAction.java
+ * File Description: 一键执行构建应用部署
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: Xul
+ * @version: 1.0
+ * @date: 2016年12月12日
+ */
+package com.wk.cd.build.ea.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.build.ea.bean.ExeBuildDeployInputBean;
+import com.wk.cd.build.ea.bean.ExeBuildDeployOutputBean;
+import com.wk.cd.build.ea.dao.EnvBuildTaskDaoService;
+import com.wk.cd.build.ea.dao.EnvTaskDaoService;
+import com.wk.cd.build.ea.dao.InstanceExeDaoService;
+import com.wk.cd.build.ea.service.EnvTaskPublicService;
+import com.wk.cd.build.ea.service.InteTaskInstanceService;
+import com.wk.cd.common.cm.dao.CmSeqDaoService;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.CMD_STATUS;
+import com.wk.cd.enu.EXE_METHOD;
+import com.wk.cd.enu.EXE_RESULT;
+import com.wk.cd.enu.EXE_STATUS;
+import com.wk.cd.enu.TASK_STATUS;
+import com.wk.cd.module1.Process;
+import com.wk.cd.module1.ProcessManager;
+import com.wk.cd.module1.Result;
+import com.wk.cd.module1.entity.Instance;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.JaDateTime;
+
+/**
+ * Class Description: 一键执行构建应用部署
+ * @author Xul
+ */
+public class ExeBuildDeployAction extends ActionBasic<ExeBuildDeployInputBean, ExeBuildDeployOutputBean>{
+	
+	@Inject private EnvTaskPublicService taskPubSrv;
+	@Inject private EnvTaskDaoService taskSrv;
+	@Inject private EnvBuildTaskDaoService envBuildSrv;
+	@Inject private InstanceExeDaoService instanceExeDaoService;
+	@Inject private CmSeqDaoService cmsvc;
+	@Inject private InteTaskInstanceService inteTaskInstanceService;
+	@Inject private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+	
+	/** 
+	 * Description: 一键执行构建应用部署
+	 * @param input
+	 * @return 
+	 */
+	@Override
+	protected ExeBuildDeployOutputBean doAction(ExeBuildDeployInputBean input) {
+		logger.debug("-----------ExeBuildDeployAction Begin------------");
+		ExeBuildDeployOutputBean ouptut = new ExeBuildDeployOutputBean();
+		
+		/**
+		 * -----------------------------执行前准备-----------------------------
+		 */
+		// 非空校验
+		String work_id = input.getWork_id();
+		int tpl_phase_id = input.getPhase_id();
+		Assert.assertNotEmpty(work_id, ExeBuildDeployInputBean.WORK_IDCN);
+		Assert.assertNotEmpty(tpl_phase_id == 0 ? null : tpl_phase_id, ExeBuildDeployInputBean.PHASE_IDCN);
+		
+		// 执行前校验
+		logger.debug("执行前校验, 任务ID:[{}]", work_id);
+		taskPubSrv.checkTaskBeforeExe(work_id);
+		// 插入执行动作
+		taskSrv.updateExeMethodById(EXE_METHOD.TOEND, work_id);
+		// 从XML读取实例
+		Instance inst = inteTaskInstanceService.readInstanceByWorkId(work_id);
+		Process proc = ProcessManager.instance.buildProcess(inst);
+		// 获取总阶段数
+		int all_phases = inst.getPhaseCount();
+		//添加任务执行日志
+		inteTaskInstanceService.addBuildExeLog(work_id, tpl_phase_id, proc, all_phases, inst.getInstance_id());
+		
+		// 根据模板阶段号查询实例阶段号列表
+		List<Integer> phase_list = instanceExeDaoService.queryInstPhaseByTplPhase(inst.getInstance_id(), tpl_phase_id);
+		// 初始化执行结果标志
+		boolean exe_flag = true;
+		if(!Assert.isEmpty(phase_list)){
+			//获取当前实例阶段号
+			int phase_id = phase_list.get(0);
+			
+			/**
+			 * -----------------------------执行主程序-----------------------------
+			 */
+			// 遍历执行所有阶段
+			for(; phase_id <= all_phases ; phase_id++){
+				logger.debug("一键执行构建应用部署--现在执行的是任务:[{}], 第[{}]阶段", inst.getInstance_id(), phase_id);
+				// 修改执行开始时间
+				instanceExeDaoService.updateExecuteStartTime(JaDateTime.now(), inst.getInstance_id(), phase_id);
+				// 修改执行状态为执行中
+				instanceExeDaoService.updateExecuteStatus(EXE_STATUS.RUNNING, inst.getInstance_id(), phase_id);
+				
+				// 将执行前的sql提交
+				cmsvc.getSession().commitAndResume();
+				
+				// 按阶段执行任务
+				Result result = inteTaskInstanceService.executeTaskByStep(work_id, phase_id, proc, false);
+//				Result result = inteTaskSrv.executeTaskByStep(work_id, phase_id, proc, false);
+				String msg = result.getMsg();
+				// 若执行信息长度大于450，则截取多余部分
+				logger.debug("任务：[{}], 第[{}]阶段执行日志：[{}]", work_id, phase_id, msg);
+				if(msg.length() >= 450){
+					msg = msg.substring(0, 450);
+				}
+				
+				// 修改执行状态为已执行（根据执行结果分别为成功，失败）
+				instanceExeDaoService.updateExecuteStatus(EXE_STATUS.EXECUTED, inst.getInstance_id(), phase_id);
+				if(CMD_STATUS.SUCCEED.equals(result.getStatus())){
+					logger.debug("执行任务编号[{}], 第[{}]阶段成功", work_id, phase_id);
+					instanceExeDaoService.updateExecuteEnd(msg, EXE_RESULT.SUCCESS, JaDateTime.now(), 0, inst.getInstance_id(), phase_id);
+					cmsvc.getSession().commitAndResume();
+				}else if(CMD_STATUS.ERROR.equals(result.getStatus())){
+					logger.debug("执行任务编号[{}], 第[{}]阶段失败", work_id, phase_id);
+					instanceExeDaoService.updateExecuteEnd(msg, EXE_RESULT.FAIL, JaDateTime.now(), 0, inst.getInstance_id(), phase_id);
+					// 若执行结果为失败，则终止执行
+					exe_flag = false;
+					break;
+				}
+				// 将执行结果提交
+				cmsvc.getSession().commitAndResume();
+			}
+		}
+		
+		// 根据执行状态更新任务明细
+		envBuildSrv.updateTaskStatus(TASK_STATUS.EXECUTED, work_id);
+		if(exe_flag){
+			envBuildSrv.updateExecuteEndTime(JaDateTime.now(), EXE_RESULT.SUCCESS, work_id);
+		}else{
+			envBuildSrv.updateExecuteEndTime(JaDateTime.now(), EXE_RESULT.FAIL, work_id);
+		}
+		cmsvc.getSession().commitAndResume();
+		
+		logger.debug("-----------ExeBuildDeployAction End------------");
+		return ouptut;
+	}
+
+	/** 
+	 * Description: 一键执行构建应用部署
+	 * @param input
+	 * @return 
+	 */
+	@Override
+	protected String getLogTxt(ExeBuildDeployInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+		log_lst.add("任务编号: " + input.getWork_id());
+		return lgsvc.getLogTxt("一键执行构建应用部署", log_lst);
+	}
+
+}

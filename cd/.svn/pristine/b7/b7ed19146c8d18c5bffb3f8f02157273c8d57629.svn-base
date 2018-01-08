@@ -1,0 +1,150 @@
+/**
+ * Title: InstanceExeDao.java
+ * File Description: 实例执行信息表
+ * @copyright: 2017
+ * @company: CORSWORK
+ * @author AutoGen
+ * @version 1.0
+ * @date 2017-1-3
+ */
+package com.wk.cd.build.ea.dao;
+
+import java.util.List;
+
+import com.wk.db.*;
+import com.wk.util.JaDateTime;
+import com.wk.cd.build.ea.info.*;
+import com.wk.cd.enu.EXE_RESULT;
+import com.wk.cd.enu.EXE_STATUS;
+
+/**
+ * Class description:实例执行信息表
+ * @author AutoGen
+ */
+abstract class InstanceExeDao extends EntityDao<InstanceExeInfo> {
+
+	/**
+	 * Description:修改执行开始时间和执行状态
+	 * @param start_bk_tm
+	 * @param exe_status
+	 * @param instance_id
+	 * @param exe_bk_no
+	 * @return
+	 */
+	@SqlParam(updateSet = { "START_BK_TM", "EXE_STATUS" }, condition = "PK")
+	abstract int updateExeStarBkTmByKey(JaDateTime start_bk_tm,
+			EXE_STATUS exe_status, String instance_id, int inst_bk_no);
+	
+	/**
+	 * Description:修改执行结束时间和状态
+	 * @param end_bk_tm
+	 * @param exe_status
+	 * @param exe_result
+	 * @param instance_id
+	 * @param exe_bk_no
+	 * @return
+	 */
+	@SqlParam(updateSet = { "END_BK_TM", "EXE_STATUS", "EXE_RESULT" }, condition = "PK")
+	abstract int updateExeEndBkTmByKey(JaDateTime end_bk_tm,
+			EXE_STATUS exe_status, EXE_RESULT exe_result, String instance_id,
+			int inst_bk_no);
+	
+	/**
+	 * Description: 更新执行信息
+	 * @param exec_text
+	 * @param instance_id
+	 * @param exe_bk_no
+	 * @return
+	 */
+	@SqlParam(updateSet = { "EXEC_TEXT" }, condition = "PK")
+	abstract int updateExeMsgByKey(String exec_text, String instance_id,
+			int inst_bk_no);
+
+	/**
+	 * Description: 通过Key获得一条记录
+	 * @param instance_id
+	 * @param exe_bk_no
+	 * @return
+	 */
+	@SqlParam(condition = "PK")
+	abstract InstanceExeInfo getExeInstByKey(String instance_id,
+			int inst_bk_no);
+
+	/** 
+	 * Description: 获得构建执行信息
+	 * @param inst_id
+	 * @return 
+	 */
+	@SqlParam(condition = "INSTANCE_ID =:instance_id")
+	abstract List<InstanceExeInfo> getExeInstMsgByInstId(String instance_id);
+
+	/** 
+	 * Description: 插入执行开始时间
+	 * @param start_bk_tm
+	 * @param instance_id
+	 * @param inst_bk_no
+	 * @return 
+	 */
+	@SqlParam(updateSet = {"START_BK_TM"}, condition = "PK")
+	abstract int updateExecuteStartTime(JaDateTime start_bk_tm, String instance_id, int inst_bk_no);
+
+	/** 
+	 * Description: 插入执行状态
+	 * @param exe_status
+	 * @param instance_id
+	 * @param inst_bk_no
+	 * @return 
+	 */
+	@SqlParam(updateSet = {"EXE_STATUS"}, condition = "PK")
+	abstract int updateExecuteStatus(EXE_STATUS exe_status, String instance_id, int inst_bk_no);
+
+	/** 
+	 * Description: 插入执行结束时间
+	 * @param exec_text
+	 * @param exe_result
+	 * @param end_bk_tm
+	 * @param time_used
+	 * @param instance_id
+	 * @param inst_bk_no
+	 * @return 
+	 */
+	@SqlParam(updateSet = {"EXEC_TEXT", "EXE_RESULT", "END_BK_TM", "TIME_USED"}, condition = "PK")
+	abstract int updateExecuteEnd(String exec_text, EXE_RESULT exe_result, JaDateTime end_bk_tm, int time_used, String instance_id, int inst_bk_no);
+ 
+	/**
+	 * Description:更新耗时
+	 * @param time_used
+	 * @param instance_id
+	 * @param exe_bk_no
+	 * @return
+	 */
+	@SqlParam(updateSet = { "TIME_USED" }, condition = "PK")
+	abstract int updateCostTmBykey(int time_used, String instance_id,int inst_bk_no);
+
+	/** 
+	 * Description: 获取模板最大阶段号
+	 * @param instance_id
+	 * @return 
+	 */
+	@SqlParam(sql = "select MAX(TPL_BK_NO) from INSTANCE_EXE where instance_id =:instance_id")
+	abstract int getMaxTplPhase(String instance_id);
+
+	/** 
+	 * Description: 根据模板阶段号查询实例阶段号列表
+	 * @param tpl_bk_no 
+	 */
+	@SqlParam(querySet = {"inst_bk_no"}, condition = "INSTANCE_ID =:INSTANCE_ID and tpl_bk_no =:tpl_bk_no", orderBy = "inst_bk_no asc")
+	abstract List<Integer> queryInstPhaseByTplPhase(String instance_id, int tpl_bk_no);
+	
+	@SqlParam(condition="INSTANCE_ID =:instance_id")
+	abstract int deleteByInstanceId(String instance_id);
+
+	/** 
+	 * Description: 根据实例ID删除集成任务执行表
+	 * @param instance_id
+	 * @return 
+	 */
+	@SqlParam(condition = "INSTANCE_ID =:instance_id")
+	abstract int deleteInfoByInst(String instance_id);
+
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="PUBLISH_服务停止校检" id="COMP201710250059">
+<desc>通过进程的关键字来判断服务是否停止</desc>
+<script type="SHELL"><![CDATA[
+pid=`ps -ef|grep '${process_keyword}' | grep -v "grep" | awk '{print $2}'`
+if [ -z "$pid" ]; then echo "stop success!"; else echo "stop error! Pid:[$id]"; echo `ps -ef | grep '${process_keyword}' | grep -v "grep"`; fi
+]]></script>
+<params>
+<param cnname="进程关键字" defult="java" desc="能够唯一检索到服务进程的关键字" hand="false" name="process_keyword"/>
+</params>
+</component>

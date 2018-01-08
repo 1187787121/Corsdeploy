@@ -1,0 +1,44 @@
+package com.wk.cd.module.dao;
+
+import com.wk.cd.module.info.MoModuleQuoteInfo;
+import com.wk.lang.Inject;
+
+import java.util.List;
+
+public class MoModuleQuoteDaoService {
+
+	@Inject
+	private MoModuleQuoteDao dao;
+
+	public MoModuleQuoteInfo getInfoByKey(MoModuleQuoteInfo info) {
+		return dao.get(info);
+	}
+
+	public MoModuleQuoteInfo getInfoByKeyForUpdate(MoModuleQuoteInfo info) {
+		return dao.getForUpdate(info);
+	}
+
+	public int insertInfo(MoModuleQuoteInfo info) {
+		return dao.insert(info);
+	}
+
+	public int insertListInfo(List<MoModuleQuoteInfo> infos) {
+		return dao.insert(infos);
+	}
+
+	public int countModuleByQuoteId(String id) {
+		return dao.countModuleByQuoteId(id);
+	}
+
+	public int deleteModuleQuoteById(String id) {
+		return dao.deleteModuleQuoteById(id);
+	}
+
+	public int deleteByModuleAndQuoteId(String id, String quote_id) {
+		return dao.deleteByModuleAndQuoteId(id, quote_id);
+	}
+
+	public List<MoModuleQuoteInfo> getModuleQuoteByModuleId(String id) {
+		return dao.getModuleQuoteByModuleId(id);
+	}
+}

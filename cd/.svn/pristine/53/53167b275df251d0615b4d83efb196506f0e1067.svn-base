@@ -1,0 +1,85 @@
+package com.wk.cd.module.impl;
+
+import com.wk.cd.common.util.StringUtil;
+import com.wk.cd.enu.CMD_STATUS;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.info.ModuleSourceInfo;
+import com.wk.cd.remote.sh.bean.ShExecRsBean;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+/**
+ * 远程Shell Module实现
+ */
+public class Shell extends MultiStepModule {
+	
+	protected static final Log logger = LogFactory.getLog();
+	
+	private final ModuleSourceInfo dt_info;
+	
+	protected final String source;
+	
+	protected ShellSession sess;
+	
+	protected boolean connected;
+
+	public Shell(ModuleSourceInfo dt_info, String source) {
+		this(dt_info, source.replaceAll("\r", "").split("\n"));
+	}
+
+	public Shell(ModuleSourceInfo dt_info, String[] cmds) {
+		super(cmds);
+		this.dt_info = dt_info;
+		this.source = StringUtil.ary2str(cmds, "\n");
+	}
+
+	public boolean isConnected() {
+		return this.connected;
+	}
+	
+	@Override
+	public Result stepinto(int step) {
+		long start_time = System.currentTimeMillis();
+		DtSourceInfo dsi = dt_info.getDt_source_info();
+		if (sess == null) {
+			try {
+				sess = new ShellSession(this.dt_info);
+				sess.connect();
+			} catch (Throwable t) {
+				logger.error("连接数据源[{}]异常", dsi.getSoc_name(), t);
+				return new Result(t, start_time);
+			}
+
+			if (ctx != null) {
+				ctx.bindSession(this.sess);
+			}
+			connected = true;
+		}
+		try {
+			String cmd = this.cmds[step];
+			ShExecRsBean reply = this.sess.sendCmd(cmd);
+			CMD_STATUS status = (reply.getIs_succ()) ? CMD_STATUS.SUCCEED
+					: CMD_STATUS.ERROR;
+			String msg = (reply.getIs_succ()) ? reply.getRs_msg() : reply
+					.getErr_msg();
+			logger.debug("命令执行结果信息：{}", msg);
+			logger.debug("命令输出：{}\n{}", Boolean.valueOf(reply.getIs_succ()),
+					msg);
+
+			if (step >= this.cmds.length - 1) {
+				this.sess.disconnect();
+				connected = false;
+				this.sess = null;
+			}
+			return new Result(status, msg, start_time);
+		} catch (Throwable t) {
+			logger.error("执行[{}]异常", t);
+			if (this.sess != null) {
+				this.sess.disconnect();
+				connected = false;
+			}
+			return new Result(t, start_time);
+		}
+	}
+}

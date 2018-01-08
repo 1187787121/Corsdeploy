@@ -1,0 +1,44 @@
+package com.wk.cd.enu;
+
+import com.wk.db.EnumValue;
+
+public class PROTOCOL_TYPE extends EnumValue<PROTOCOL_TYPE> {
+	private static final long serialVersionUID = -4661009790880439693L;
+	public static final PROTOCOL_TYPE JDBC = new PROTOCOL_TYPE(1, "JDBC");
+
+	public static final PROTOCOL_TYPE PLT_FTP = new PROTOCOL_TYPE(2, "PLT_FTP");
+
+	public static final PROTOCOL_TYPE AS400_FTP = new PROTOCOL_TYPE(3,
+			"AS400_FTP");
+
+	public static final PROTOCOL_TYPE SCP_FTP = new PROTOCOL_TYPE(4, "SCP_FTP");
+
+	public static final PROTOCOL_TYPE SSH = new PROTOCOL_TYPE(5, "SSH");
+
+	public static final PROTOCOL_TYPE AS400_PGM = new PROTOCOL_TYPE(6,
+			"AS400_PGM");
+
+	public static final PROTOCOL_TYPE AS400_CL = new PROTOCOL_TYPE(7,
+			"AS400_CL");
+
+	public static final PROTOCOL_TYPE ESB = new PROTOCOL_TYPE(8, "ESB");
+
+	public static final PROTOCOL_TYPE SFTP = new PROTOCOL_TYPE(9, "SFTP");
+
+	public static final PROTOCOL_TYPE TELNET = new PROTOCOL_TYPE(10, "TELNET");
+
+	public static final PROTOCOL_TYPE WAS = new PROTOCOL_TYPE(11, "WAS");
+
+	public static final PROTOCOL_TYPE WEBLOGIC = new PROTOCOL_TYPE(12,
+			"WEBLOGIC");
+
+	public static final PROTOCOL_TYPE SVN = new PROTOCOL_TYPE(13, "SVN");
+
+	public static final PROTOCOL_TYPE HTTP = new PROTOCOL_TYPE(14, "HTTP");
+	
+	public static final PROTOCOL_TYPE AGENT = new PROTOCOL_TYPE(15, "AGENT");
+
+	private PROTOCOL_TYPE(int value, String name) {
+		super(value, name);
+	}
+}

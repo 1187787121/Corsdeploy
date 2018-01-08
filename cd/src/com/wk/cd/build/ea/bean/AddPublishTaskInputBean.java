@@ -1,0 +1,153 @@
+/**
+ * Title: AddPublishTaskInputBean.java
+ * File Description: 
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: zhangj
+ * @version: 1.0
+ * @date: 2016年11月19日
+ */
+package com.wk.cd.build.ea.bean;
+
+import com.wk.cd.bean.ActionRootInputBean;
+
+/**
+ * Class Description: 
+ * @author "Zhangj"
+ */
+public class AddPublishTaskInputBean extends ActionRootInputBean{
+
+	/** 
+	 * @Fields serialVersionUID : -1517775975369341451L
+	 */ 
+	private static final long serialVersionUID = -1517775975369341451L;
+	
+	/**
+	 * 环境名称
+	 */
+	private String env_name;
+	
+	public static final String ENV_NAMECN = "环境名称";
+	
+	/**
+	 * 任务描述
+	 */
+	private String task_bk_desc ;
+	
+	public static final String TASK_BK_DESCCN = "任务描述";
+	
+	/**
+	 * 项目编号
+	 */
+	private String project_name;
+	
+	public static final String PROJECT_NAMECN = "项目编号";
+	/**
+	 * 方案编号
+	 */
+	private String prog_id;
+	
+	public static final String PROG_ID = "方案编号";
+	/**
+	 * (发布)目标版本号
+	 */
+	private String target_ver_num;
+	
+	public static final String TARGET_VER_NUMCN = "(发布)目标版本号";
+
+	/**
+	 * 任务编号
+	 */
+	private String work_id;
+	
+	public static final String WORK_IDCN = "任务编号";
+
+	/**
+	 * @return env_name 环境名称
+	 */
+	public String getEnv_name() {
+		return this.env_name;
+	}
+
+	/**
+	 * @param env_name 环境名称
+	 */
+	public void setEnv_name(String env_name) {
+		this.env_name = env_name;
+	}
+
+	/**
+	 * @return task_bk_desc 任务描述
+	 */
+	public String getTask_bk_desc() {
+		return this.task_bk_desc;
+	}
+
+	/**
+	 * @param task_bk_desc 任务描述
+	 */
+	public void setTask_bk_desc(String task_bk_desc) {
+		this.task_bk_desc = task_bk_desc;
+	}
+
+	/**
+	 * @return project_name  项目编号
+	 */
+	public String getProject_name() {
+		return this.project_name;
+	}
+
+	/**
+	 * @param project_name  项目编号
+	 */
+	public void setProject_name(String project_name) {
+		this.project_name = project_name;
+	}
+
+	/**
+	 * @return prog_id (发布)目标版本号
+	 */
+	public String getProg_id() {
+		return this.prog_id;
+	}
+
+	/**
+	 * @param prog_id (发布)目标版本号
+	 */
+	public void setProg_id(String prog_id) {
+		this.prog_id = prog_id;
+	}
+
+	/**
+	 * @return target_ver_num (发布)目标版本号
+	 */
+	public String getTarget_ver_num() {
+		return this.target_ver_num;
+	}
+
+	/**
+	 * @param target_ver_num (发布)目标版本号
+	 */
+	public void setTarget_ver_num(String target_ver_num) {
+		this.target_ver_num = target_ver_num;
+	}
+
+	/**
+	 * @return work_id 任务编号
+	 */
+	public String getWork_id() {
+		return this.work_id;
+	}
+
+	/** 
+	 * @param work_id 任务编号
+	 */
+	public void setWork_id(String work_id) {
+		this.work_id = work_id;
+	}
+	
+	
+	
+	
+
+}

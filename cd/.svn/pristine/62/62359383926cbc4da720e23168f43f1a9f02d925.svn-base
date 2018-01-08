@@ -1,0 +1,92 @@
+/**
+ * @copyright 2014
+ * @company CORSWORK
+ * @version 1.0
+ */
+
+package com.wk.cd.remote.agent.service;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.wk.cd.remote.agent.bean.EnvDirInfo;
+import com.wk.cd.remote.agent.bean.ShellBean;
+import com.wk.cd.common.util.DESUtil;
+import com.wk.cd.common.util.Md5Util;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.remote.agent.service.ShellAgent;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+/**
+ * Class Description: Created by lixl on 16-8-9.
+ */
+public class AgentServer extends AgentBaseActor {
+	
+	private static final Log logger = LogFactory.getLog();
+	
+	@Inject ShellAgent shellAgent;
+	@Inject PythonAgent pythonAgent;
+	@Inject FtpAgent ftpAgent;
+	@Inject SqlAgent sqlAgent;
+	
+	private final Map<String, EnvDirInfo> envDirMap = new HashMap<String, EnvDirInfo>();             //存储环境变量
+	private final Map<String, String> filePathMap = new HashMap<String, String>();                   //保存脚本文件路径
+	private final Map<String, Process> procMap = new HashMap<String, Process>();                     //保存执行进程
+	
+	
+	/**
+	 * Description: 每执行一次命令都会执行该方法
+	 * @param input
+	 *            ShellBean
+	 * @param output
+	 *            ShellBean
+	 * @return
+	 */
+	@Override
+	protected Object runService(Object input, Object output) {
+		ShellBean isbean = (ShellBean) input;
+		ShellBean osbean = (ShellBean) output;
+		String cmd_str = DESUtil.decrypt(isbean.getShell());
+		String id = isbean.getId();
+		String md5_str = isbean.getDigest();
+		IMPL_TYPE imType = isbean.getImpl_type();
+
+		logger.info("agent[{}] execute cmd:[{}]", id, cmd_str);
+		
+		/**
+		 * 判断密钥是否一致,不一致直接return. shell & rs_flag & result组成密钥
+		 */
+		if (!Md5Util.GetMD5Code(cmd_str).equals(md5_str)) {
+			logger.debug("not through the key check.");
+			return osbean;
+		}
+		
+		if(imType == IMPL_TYPE.FTP){
+			
+			return ftpAgent.execFTPCmd(isbean, osbean);
+
+		}else if(imType == IMPL_TYPE.SQL){
+			
+			return sqlAgent.execSQLCmd(isbean, osbean);
+			
+		}else if(imType == IMPL_TYPE.PYTHON2 || imType == IMPL_TYPE.PYTHON3){
+			
+			return pythonAgent.execPythonCmd(isbean, osbean, envDirMap, filePathMap, procMap);
+			
+		}else{
+			return shellAgent.execShellCmd(isbean, osbean, envDirMap, filePathMap, procMap);
+			
+		}
+	}
+	
+	@Override
+	protected ShellBean newInput() {
+		return new ShellBean();
+	}
+
+	@Override
+	protected ShellBean newOutput() {
+		return new ShellBean();
+	}
+}

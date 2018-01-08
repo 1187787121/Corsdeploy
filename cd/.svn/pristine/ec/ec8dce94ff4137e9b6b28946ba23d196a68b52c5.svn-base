@@ -1,0 +1,580 @@
+package com.wk.cd.remote.agent.service;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.StringUtil;
+import com.wk.cd.remote.agent.bean.AgentMachineSysInfo;
+import com.wk.cd.remote.agent.bean.AgentMonitorBasicInfo;
+import com.wk.cd.remote.agent.bean.ProcessResourceInfo;
+import com.wk.cd.remote.agent.bean.SysCmdLibrary;
+import com.wk.cd.remote.agent.util.AgentHelperUtil;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class AIXResource {
+
+	private static final Log log = LogFactory.getLog();
+	
+	// 节点硬盘的消耗
+	private static final String NODE_DISK_CMD = "df -g | grep /home|awk '{print $4}'";
+	// 节点cpu空闲的百分比，结果为小于100的整数
+	private static final String NODE_CPU_CMD = "vmstat |tail -1|awk '{print $16}'";
+	// 节点空闲内存的消耗，结果以4k为单位
+	private static final String NODE_MEM_CMD = "vmstat 1 1 | tail -1 |awk '{print $4}'";
+
+	/**
+	 * 获取系统基本信息
+	 */
+	public static AgentMonitorBasicInfo getBasicware() throws IOException, InterruptedException {
+		// 系统硬件信息
+		AgentMonitorBasicInfo basicware = new AgentMonitorBasicInfo();
+		basicware.setIp(AgentHelperUtil.getServerIP());
+		
+		basicware.setCpu(execShell(SysCmdLibrary.AIX_OTHER_CPU).replace("\n", " "));
+		basicware.setMem(getDealMem(execShell(SysCmdLibrary.AIX_OTHER_MEM)));
+		basicware.setDisk(getDealDisk(execShell(SysCmdLibrary.AIX_OTHER_DISK)));
+		basicware.setSystem(execShell(SysCmdLibrary.OPT_NAME));
+		basicware.setSystem_version(execShell(SysCmdLibrary.AIX_OTHER_VERSION));
+		log.debug("Basicware = [{}]", basicware);
+		return basicware;
+	}
+	
+	/**
+	 * 系统信息
+	 * @throws IOException 
+	 * @throws InterruptedException 
+	 */
+	public static AgentMachineSysInfo getSystemResource() throws IOException, InterruptedException{
+		AgentMachineSysInfo sys_info = new AgentMachineSysInfo();
+		
+		sys_info.setCpu_rate((int)AIXResource.getAgentCpuUsedRate());
+		sys_info.setDisk_rate(AIXResource.getAgentDiskCost());
+	
+		sys_info.setIo_rate(AIXResource.getAgentIORate());
+		/**
+		 * 网络上下行流量
+		 */
+		String[] network = LinuxResource.getAgentNetWork();
+		sys_info.setNetwork_down(network[1]);
+		sys_info.setNetwork_up(network[0]);
+		
+		// 网卡的大小，用于计算上行下行占用带宽的比例，在初始化的时候需要赋值
+		log.debug("begin exe AIX_OTHER_NET");
+		String nic_size = execShell(SysCmdLibrary.AIX_OTHER_NET).split(": ")[1].trim();
+		log.debug("end exe AIX_OTHER_NET");
+		int[] network_rate = getNetWorkCost(network, nic_size);
+		
+		if(!Assert.isEmpty(network_rate)){
+			sys_info.setNetwork_up_rate(network_rate[0]);
+			sys_info.setNetwork_down_rate(network_rate[1]);
+		}else{
+			log.debug("network_rate is null");
+		}
+		
+		return sys_info;
+	}
+	
+	
+	/**
+	 * 获取进程信息列表
+	 * @throws IOException 
+	 * @throws InterruptedException 
+	 */
+	public static List<ProcessResourceInfo> getAllProcResource() throws IOException, InterruptedException {
+		List<ProcessResourceInfo> process_list = new ArrayList<ProcessResourceInfo>();
+		String rs = execShell("ps -eflo ruser,pid,ppid,pcpu,started,time,st,args");
+		if(!Assert.isEmpty(rs)){
+			String[] proc_row_items = rs.split("\n");
+			
+			for(int i = 1; i < proc_row_items.length; i++){
+				String proc_row_item = proc_row_items[i];
+				String[] proc_col_items = proc_row_item.split(" ");
+				StringBuffer sb = new StringBuffer();
+				for(String str : proc_col_items){
+					if(!Assert.isEmpty(str)){
+						sb.append(str).append(" ");
+					}
+				}
+				proc_col_items = sb.toString().trim().split(" ", 9);
+				ProcessResourceInfo procRsInfo = new ProcessResourceInfo();
+				boolean isNeddConnectTime = false;   //启动时间是否需要连接(有两种类型的数据：00：00：00 和 Jun 11)
+				StringBuffer connSb = new StringBuffer();  //用于连接启动时间
+				for(int j = 0; j < proc_col_items.length; j++){
+					switch (j) {
+					case 0:
+						procRsInfo.setUser_id(proc_col_items[j]);
+						break;
+					case 1:
+						procRsInfo.setPid(proc_col_items[j]);
+						break;
+					case 2:
+						procRsInfo.setPpid(proc_col_items[j]);
+						break;
+					case 3:
+						procRsInfo.setCpu_rate(proc_col_items[j]);
+						break;
+					case 4:
+						if(proc_col_items[4].contains(":")){
+							procRsInfo.setStart_time(proc_col_items[j]);
+							isNeddConnectTime = false;
+						}else{
+							connSb.append(proc_col_items[j]).append(" ");
+							isNeddConnectTime = true;
+						}
+						break;
+					case 5:
+						
+						if(isNeddConnectTime){
+							connSb.append(proc_col_items[j]);
+							procRsInfo.setStart_time(connSb.toString());
+						}else{
+							procRsInfo.setTime_used(proc_col_items[j]);
+						}
+						break;
+					case 6:
+						if(isNeddConnectTime){
+							procRsInfo.setTime_used(proc_col_items[j]);
+						}else{
+							if(proc_col_items[j].contains("W")){
+								procRsInfo.setProgerss_status("不可中断");
+							}else if(proc_col_items[j].contains("A") || proc_col_items[6].contains("R")){
+								procRsInfo.setProgerss_status("运行");
+							}else if(proc_col_items[j].contains("S") || proc_col_items[6].contains("I")){
+								procRsInfo.setProgerss_status("中断");
+							}else if(proc_col_items[j].contains("T")){
+								procRsInfo.setProgerss_status("停止");
+							}else if(proc_col_items[j].contains("Z")){
+								procRsInfo.setProgerss_status("僵死");
+							}
+						}
+						
+						break;
+					case 7:
+						if(isNeddConnectTime){
+							if(proc_col_items[j].contains("W")){
+								procRsInfo.setProgerss_status("不可中断");
+							}else if(proc_col_items[j].contains("A") || proc_col_items[6].contains("R")){
+								procRsInfo.setProgerss_status("运行");
+							}else if(proc_col_items[j].contains("S") || proc_col_items[6].contains("I")){
+								procRsInfo.setProgerss_status("中断");
+							}else if(proc_col_items[j].contains("T")){
+								procRsInfo.setProgerss_status("停止");
+							}else if(proc_col_items[j].contains("Z")){
+								procRsInfo.setProgerss_status("僵死");
+							}
+						}else{
+							procRsInfo.setCmd(proc_col_items[j]);
+						}
+						
+						break;
+					case 8:
+						if(isNeddConnectTime){
+							procRsInfo.setCmd(proc_col_items[j]);
+						}
+						break;
+					}
+				}
+				process_list.add(procRsInfo);
+			}
+		}
+		
+		return process_list;
+	}
+	
+	private static int getAgentIORate() {
+		/**
+		 * 磁盘IO
+		 */
+		float io_rate = 0;
+		String rs = execShell("iostat");
+		if(!Assert.isEmpty(rs)){
+			String[] io_items = rs.split("\n\n");
+			String io_item = io_items[1].split("\n")[1];
+			String[] io_col_items = io_item.split(" ");
+			StringBuffer sb = new StringBuffer();
+			for(String str : io_col_items){
+				if(!Assert.isEmpty(str))
+					sb.append(str).append(" ");
+			}
+			io_rate = Float.parseFloat(sb.toString().split(" ")[5]);
+			log.debug("io_rate = " + io_rate);
+		}
+		return (int)io_rate;
+	}
+
+	private static int getAgentDiskCost() {
+		/**
+		 * 获取disk占用率
+		 */
+		String rs = execShell(NODE_DISK_CMD);
+		return (int)Double.parseDouble(!Assert.isEmpty(rs) ? rs.split("%")[0] : "0");
+	}
+
+	private static double getAgentCpuUsedRate() {
+		/**
+		 * 获取cpu占用率
+		 */
+		String rs = execShell(NODE_CPU_CMD);
+		
+		double used_rate = 100 - Double.parseDouble(rs);
+		
+		return used_rate;
+	}
+
+	/**
+	 * 获取机器内存消耗率
+	 */
+	private static double getAgentMemUsedRate(){
+		String used_mem = execShell(NODE_MEM_CMD);
+		String total_mem = execShell(SysCmdLibrary.AIX_OTHER_MEM);
+		double used_rate = 0;
+		if(!Assert.isEmpty(total_mem)){
+			total_mem = total_mem.replace("\n", "").replaceAll("\\s*", "");
+			if(total_mem.contains("MB")){
+				String mb_mem = total_mem.replaceAll("MB", "").trim();
+				double kb = Double.valueOf(mb_mem) * 1024;
+				used_rate = Double.parseDouble(used_mem) * 100 / kb;
+			}else if(total_mem.contains("GB")){
+				String gb_mem = total_mem.replaceAll("GB", "").trim();
+				double kb = Double.valueOf(gb_mem) * 1024 * 1024;
+				used_rate = Double.parseDouble(used_mem) * 100 / kb;
+			}else{
+				String gb_mem = total_mem.replaceAll("KB", "").trim();
+				double kb = Double.valueOf(gb_mem);
+				used_rate = Double.parseDouble(used_mem) * 100 / kb;
+			}
+		}
+		return used_rate;
+	}
+
+	/**
+	 * Description: 获取网络上下行占用比例，换算进制为1024。
+	 * @param net_work 0.56Kb/s 0.45Kb/s 第一个是上行，第二个下行，如果没有单位 默认为kb/s
+	 * @param nic_size 100MB
+	 * @return 返回数据为数组，第一个是上行的比例，第二个是下行的比例<=100
+	 */
+	public static int[] getNetWorkCost(String[] net_work, String nic_size) {
+		log.debug("------getNetWorkCost [{}]start------",
+				Arrays.toString(net_work));
+		char unitUp = 'k'; // 上行单位
+		char unitDown = 'k'; // 下行单位
+		char unitNic = 'm'; // 网卡大小
+		int indexUp = 0; // 字母位置
+		int indexDown = 0; // 字母位置
+		int indexNic = 0; // 字母位置
+		float speedUp = 0f;
+		float speedDown = 0f;
+		float nicSize = 100f;
+
+		String regEx = "^[0-9]\\d{1,10}[a-z]{1,2}/s";
+		// 编译正则表达式
+		Pattern pat = Pattern.compile(regEx, Pattern.CASE_INSENSITIVE);
+		Matcher matcher = pat.matcher(nic_size);
+		// 字符串是否与正则表达式相匹配
+		boolean rs = matcher.matches();
+		if (rs) {
+			if (!Assert.isEmpty(net_work)) {
+				for (int i = 0; i < net_work[0].length(); i++) {
+					unitUp = net_work[0].charAt(i);
+					if (((unitUp >= 'a' && unitUp <= 'z')
+							|| (unitUp >= 'A' && unitUp <= 'Z'))) {
+						indexUp = i;
+						break;
+					}
+				}
+				for (int i = 0; i < net_work[1].length(); i++) {
+					unitDown = net_work[1].charAt(i);
+					if (((unitDown >= 'a' && unitDown <= 'z')
+							|| (unitDown >= 'A' && unitDown <= 'Z'))) {
+						indexDown = i;
+						break;
+					}
+				}
+
+				// 上行速度
+				String tempUp = net_work[0].substring(0, indexUp);
+				speedUp = Float.parseFloat(tempUp);
+
+				// 下行速度
+				String tempDown = net_work[1].substring(0, indexDown);
+				speedDown = Float.parseFloat(tempDown);
+				if (unitUp == 'B' || unitUp == 'b') {
+					speedUp = speedUp / 1000;
+				}
+
+				if (unitDown == 'B' || unitDown == 'b') {
+					speedDown = speedDown / 1000;
+				}
+
+				if (unitUp == 'M' || unitUp == 'm') {
+					speedUp = speedUp * 1000;
+				}
+
+				if (unitDown == 'M' || unitDown == 'm') {
+					speedDown = speedDown * 1000;
+				}
+
+				if (unitUp == 'G' || unitUp == 'g') {
+					speedUp = speedUp * 1000 * 1000;
+				}
+
+				if (unitDown == 'G' || unitDown == 'g') {
+					speedDown = speedDown * 1000 * 1000;
+				}
+			}
+
+			for (int i = 0; i < nic_size.length(); i++) {
+				unitNic = nic_size.charAt(i);
+				if (((unitNic >= 'a' && unitNic <= 'z')
+						|| (unitNic >= 'A' && unitNic <= 'Z'))) {
+					indexNic = i;
+					break;
+				}
+			}
+
+			// 网卡大小
+			String tempNic = nic_size.substring(0, indexNic);
+			nicSize = Float.parseFloat(tempNic);
+			if (unitNic == 'B' || unitNic == 'b') {
+				nicSize = nicSize / 1000;
+			}
+
+			if (unitNic == 'M' || unitNic == 'm') {
+				nicSize = nicSize * 1000;
+			}
+
+			if (unitNic == 'G' || unitNic == 'g') {
+				nicSize = nicSize * 1000 * 1000;
+			}
+
+			int netUsed[] = new int[2];
+			int upUsed = (int) (speedUp / nicSize * 100);
+			int downUsed = (int) (speedDown / nicSize * 100);
+			if (upUsed < 1) {
+				upUsed = 0;
+			}
+			if (upUsed >= 100) {
+				upUsed = 100;
+			}
+
+			if (downUsed < 1) {
+				downUsed = 0;
+			}
+			if (downUsed > 100) {
+				downUsed = 100;
+			}
+			netUsed[0] = upUsed;
+			netUsed[1] = downUsed;
+			
+			log.debug("------getNetWorkCost end------"+ upUsed + "," + downUsed);
+			return netUsed;
+		} else {
+			log.debug(
+					"-------------getNetWorkCost方法传入的参数nic_size为空-------------------");
+			return null;
+		}
+	}
+	
+	/**
+	 * 内存单位换算
+	 * Description: 
+	 * @param mem
+	 * @return
+	 */
+	private static String getDealMem(String mem) {
+		String mem_str = "";
+		if (!Assert.isEmpty(mem)) {
+			mem = mem.replace("\n", "").replaceAll("\\s*", "");
+			try {
+				if (mem.contains("kB")) {
+					String kb_mem = mem.replaceAll("kB", "").trim();
+					double kb = Double.valueOf(kb_mem);
+					mem_str = Double.toString(Math.ceil(kb / 1024 / 1024)) + "G";
+				}
+				if (mem.contains("MB")) {
+					String mb_mem = mem.replaceAll(",", "").replaceAll("MB", "").trim();
+					double mb = Double.valueOf(mb_mem);
+					mem_str = Double.toString(Math.ceil(mb / 1024)) + "G";
+				}
+			} catch (NumberFormatException e) {
+				mem_str = mem;
+			}
+		}
+		return mem_str;
+	}
+	
+	/**
+	 * 硬盘单位换算
+	 * Description: 
+	 * @param disk
+	 * @return
+	 */
+	private static String getDealDisk(String disk) {
+		String disk_str = "";
+		if (!Assert.isEmpty(disk)) {
+			disk = disk.replace("\n", "").replaceAll("\\s*", "");
+			try {
+				if (disk.endsWith("G")) {
+					String num_str = disk.replaceAll("G", "").trim();
+					double num_disk = Double.valueOf(num_str);
+					if (num_disk > 1000) {
+						NumberFormat nf = new DecimalFormat("0.0");
+						disk_str = Double.toString(Double.parseDouble(nf.format(num_disk / 1024))) + "T";
+					} else {
+						disk_str = Double.toString(Math.ceil(num_disk)) + "G";
+					}
+				}
+				if (disk.endsWith("MB")) {
+					String num_win = disk.replaceAll(",", "").replaceAll("MB", "").trim();
+					double num_disk = Double.valueOf(num_win);
+					if (num_disk > 1000) {
+						NumberFormat nf = new DecimalFormat("0.0");
+						disk_str = Double.toString(Double.parseDouble(nf.format(num_disk / 1024))) + "G";
+					} else {
+						disk_str = Double.toString(Math.ceil(num_disk)) + "MB";
+					}
+				}
+			} catch (NumberFormatException e) {
+				disk_str = disk;
+			}
+		}
+		return disk_str;
+	}
+	
+	private static String execShell(String cmd){
+		String rs = null;
+		Process proc = null;
+		InputStream in = null;
+		try {
+			String[] cmds = {"sh", "-c", cmd};
+			proc = Runtime.getRuntime().exec(cmds);
+			in = proc.getInputStream();
+			rs = getRetureString(in);
+			proc.waitFor();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}finally{
+			if(in != null){
+				try {
+					in.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			if(!Assert.isEmpty(proc)){
+				proc.destroy();
+			}
+		}
+		return !Assert.isEmpty(rs) ? rs.trim() : rs;
+	}
+	
+	private static String getRetureString(InputStream in){
+		return StringUtil.stream2str(in);
+	}
+	
+	public static AgentMonitorBasicInfo getAIXSysConfg() throws SocketException, UnknownHostException {
+		AgentMonitorBasicInfo basicware = new AgentMonitorBasicInfo();
+		basicware.setIp(AgentHelperUtil.getServerIP());
+		log.debug("-----------获得AIX系统配置信息IP[{}]---------", AgentHelperUtil.getServerIP());
+		basicware.setCpu(execShell(SysCmdLibrary.AIX_OTHER_CPU));
+		basicware.setDisk(getDealDisk(execShell(SysCmdLibrary.AIX_OTHER_DISK)));
+		basicware.setMem(getDealMem(execShell(SysCmdLibrary.AIX_OTHER_MEM)));
+		String repString = execShell(SysCmdLibrary.AIX_OTHER_NET);
+		basicware.setNetwork(execShell(SysCmdLibrary.AIX_OTHER_NET));
+		String net_msg = repString.replaceAll("\\s*", "").replace("\n", "");
+		if (net_msg.contains("Nonetwork")) {
+			basicware.setNetwork("No network device driver");
+		}
+		String srv_name = execShell(SysCmdLibrary.HOST_NAME);
+		String operate_name = execShell(SysCmdLibrary.OPERATE_NAME);
+		basicware.setMachine_cfg(operate_name);
+		basicware.setSrv_name(srv_name);
+		// 系统版本号
+		String host_version = execShell(SysCmdLibrary.AIX_OTHER_VERSION);
+		basicware.setOp_system(operate_name.split(" ")[0] + " version " + host_version);
+		String version_msg = "";
+		try {
+			version_msg = execShell("java -version");
+			String ver_msg = version_msg.replaceAll("\\s*", "");
+			if (ver_msg.contains("notfound")) {
+				version_msg = "";
+			}
+		} catch (Exception e) {
+			log.debug(e.toString(), e);
+		}
+		if (version_msg == null || version_msg.indexOf("java version") < 0) {
+			version_msg = "";
+		}
+		log.info("----------------执行结束-----------------");
+		basicware.setJava_version(version_msg);
+		return basicware;
+	}
+
+	/**
+	 * Agent自身监控信息
+	 * Description: 
+	 * @return
+	 * @throws SocketException
+	 * @throws UnknownHostException
+	 */
+	public static AgentMonitorBasicInfo getAIXAgentSelfInfo() throws SocketException, UnknownHostException {
+		log.info("----------------------------开始执行-----------------------------");
+		AgentMonitorBasicInfo basicware = new AgentMonitorBasicInfo();
+		basicware.setIp(AgentHelperUtil.getServerIP());
+		basicware.setSystem(execShell(SysCmdLibrary.OPT_NAME));
+		basicware.setSystem_version(execShell(SysCmdLibrary.AIX_OTHER_VERSION));
+		basicware.setSrv_name(execShell(SysCmdLibrary.HOST_NAME));
+		// 系统版本号
+		String host_version = execShell(SysCmdLibrary.AIX_OTHER_VERSION);
+		String operate_name = execShell(SysCmdLibrary.OPERATE_NAME);
+		basicware.setOp_system(operate_name.split(" ")[0] + " version " + host_version);
+		basicware.setMachine_cpu((int)getAgentCpuUsedRate());
+		basicware.setMachine_mem((int)getAgentMemUsedRate());
+		
+		String rs = execShell("ps -eflo pcpu,pmem,args|grep service.Agent | grep -v grep | awk '{print $1 \" \" $2}'");
+		double cpu_rate = 0;
+		double mem_rate = 0;
+		if(!Assert.isEmpty(rs)){
+			String[] strs = rs.split("\n");
+			if(!Assert.isEmpty(strs)){
+				for(int i = 0; i < strs.length; i++){
+					String[] items = strs[i].split(" ");
+					cpu_rate += Double.parseDouble(items[0]);
+					mem_rate += Double.parseDouble(items[1]);
+				}
+			}
+		}
+		basicware.setAgent_cpu((int)cpu_rate);
+		basicware.setAgent_mem((int)mem_rate);
+		
+		rs = execShell("ps -eflo st,args | grep AgentServerStartup | grep -v grep | awk '{print $1}'");
+		int agent_operate_status = -1;
+		if(!Assert.isEmpty(rs)){
+			if(rs.trim().contains("A") || rs.trim().contains("R")){
+				agent_operate_status = 1;
+			}else if(rs.trim().equals("S") || rs.trim().equals("I")){
+				agent_operate_status = 2;
+			}else{
+				agent_operate_status = 0;
+			}
+		}
+		basicware.setAgent_operate_status(agent_operate_status);
+		
+		
+		log.info("----------------------------执行结束-----------------------------");
+		return basicware;
+	}
+}

@@ -1,0 +1,77 @@
+package com.wk.cd.module1.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.ORDER_TYPE;
+import com.wk.cd.module1.bean.PageTemplateListInputBean;
+import com.wk.cd.module1.bean.PageTemplateListOutputBean;
+import com.wk.cd.module1.dao.MoTemplateDaoService;
+import com.wk.cd.module1.info.MoTemplateInfo;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class PageTemplateListAction extends
+		ActionBasic<PageTemplateListInputBean, PageTemplateListOutputBean> {
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+
+	@Inject
+	private MoTemplateDaoService tpsrv;
+	private static final Log logger = LogFactory.getLog();
+
+	protected PageTemplateListOutputBean doAction(
+			PageTemplateListInputBean input) {
+		logger.info("*********************PageTemplateListAction Begin***********************");
+		PageTemplateListOutputBean output = new PageTemplateListOutputBean();
+		String order_col_name = input.getOrder_col_name();
+		ORDER_TYPE order_type = input.getOrder_type();
+
+		Assert.assertNotEmpty(order_col_name, "排序字段");
+		Assert.assertNotEmpty(order_type, "排序类型");
+		Assert.assertNotEmpty(Integer.valueOf(input.getStart_recd()), "起始记录数");
+		Assert.assertNotEmpty(Integer.valueOf(input.getLimit_recd()), "查询条数");
+		List<MoTemplateInfo> template_list = tpsrv.pageAllTemplate(order_col_name,
+				order_type, input.getStart_recd(), input.getLimit_recd());
+
+		List<MoTemplateInfo> result_list = new ArrayList<MoTemplateInfo>();
+		for (MoTemplateInfo info : template_list) {
+			MoTemplateInfo tempInfo = new MoTemplateInfo();
+			tempInfo.setTemplate_name(info.getTemplate_name());
+			tempInfo.setTemplate_formate(info.getTemplate_formate());
+			if (!(Assert.isEmpty(info.getTp_class_name()))) {
+				String[] class_name = info.getTp_class_name().split("\\.");
+				tempInfo.setTp_class_name(class_name[(class_name.length - 1)]);
+			}
+
+			if (!(Assert.isEmpty(info.getScript_file_path()))) {
+				String[] script_file_path = info.getScript_file_path().split(
+						"/");
+				tempInfo.setScript_file_path(script_file_path[(script_file_path.length - 1)]);
+			}
+			tempInfo.setCrt_bk_date(info.getCrt_bk_date());
+			tempInfo.setCrt_bk_time(info.getCrt_bk_time());
+			tempInfo.setTemplate_bk_desc(info.getTemplate_bk_desc());
+			tempInfo.setTemplate_type(info.getTemplate_type());
+			tempInfo.setOperating_system(info.getOperating_system());
+			result_list.add(tempInfo);
+		}
+
+		int all_recd = this.tpsrv.countAllTemplate();
+		output.setAll_recd(all_recd);
+		output.setTp_all_list(result_list);
+
+		logger.info("*********************PageTemplateListAction End***********************");
+		return output;
+	}
+
+	protected String getLogTxt(PageTemplateListInputBean input) {
+		List<String> PageTemplateList_val = new ArrayList<String>();
+		return this.lgsvc.getLogTxt("分页查询模板列表", PageTemplateList_val);
+	}
+}

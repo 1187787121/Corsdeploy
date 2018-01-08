@@ -1,0 +1,21 @@
+package com.wk.cd.module;
+
+import com.wk.cd.module.ProcessContext;
+
+public abstract interface ModuleInterceptor {
+	public abstract void beforeStart(ProcessContext paramProcessContext);
+
+	public abstract void afterEnd(ProcessContext paramProcessContext);
+
+	public abstract void beforeRun(ProcessContext paramProcessContext);
+
+	public abstract void afterRun(ProcessContext paramProcessContext);
+
+	public abstract void beforeStepinto(ProcessContext paramProcessContext);
+
+	public abstract void afterStepinto(ProcessContext paramProcessContext);
+
+	public abstract void skip(ProcessContext paramProcessContext);
+
+	public abstract void skipStep(ProcessContext paramProcessContext);
+}

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="gb2312"?>
+
+<!-- 服务配置文件 -->
+<!ELEMENT service-config (import*|include*|(interceptor*,service*))>
+
+<!-- 定义java包名前缀 -->
+<!-- 由package定义的前缀可以在以后的class中省略，可以同时定义多个前缀，用','分开 -->
+<!ELEMENT import EMPTY>
+<!ATTLIST import
+	package CDATA #REQUIRED
+>
+
+<!--
+	包含另一个文件，这个文件必须和当前的文件有相同的格式
+	file: 包含文件中的文件名
+	prefix: 表示在包含文件中的服务名称必须加上这个前缀
+-->
+<!ELEMENT include EMPTY>
+<!ATTLIST include
+	file CDATA #REQUIRED
+	prefix CDATA #IMPLIED
+>
+
+<!--
+	定义拦截器
+	class: 拦截器的类名
+	match: 拦截器的正则表达式，和服务名相匹配
+-->
+<!ELEMENT interceptor EMPTY>
+<!ATTLIST interceptor
+	class CDATA #REQUIRED
+	match CDATA #REQUIRED
+>
+
+<!--
+	定义服务
+	name: 服务名称
+	class: 服务的类名
+	bean: 服务的bean名称，见beans.xml
+	class和bean属性只有一个起作用，如果定义了class，那么bean属性无效
+	method: 服务对于的方法名称，可以加参数定义
+-->
+<!ELEMENT service (property*)>
+<!ATTLIST service
+	name CDATA #REQUIRED
+	class CDATA #IMPLIED
+	bean CDATA #IMPLIED
+	method CDATA #IMPLIED
+>
+
+<!--
+	定义服务的属性
+	name: 服务的属性名称，对应服务类的Field
+	value: 服务属性的值，可以使简单类型数据、枚举类型、和静态常量
+-->
+<!ELEMENT property EMPTY>
+<!ATTLIST property
+	name CDATA #REQUIRED
+	value CDATA #IMPLIED
+>

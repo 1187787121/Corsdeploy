@@ -1,0 +1,72 @@
+package com.wk.cd.module.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.module.bean.DeleteTemplateInputBean;
+import com.wk.cd.module.bean.DeleteTemplateOutputBean;
+import com.wk.cd.module.dao.MoModuleQuoteDaoService;
+import com.wk.cd.module.dao.MoTemplateDaoService;
+import com.wk.cd.module.info.MoTemplateInfo;
+import com.wk.cd.module.service.ModuleCommonService;
+import com.wk.cd.module.service.TemplateService;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+public class DeleteTemplateAction extends
+		ActionBasic<DeleteTemplateInputBean, DeleteTemplateOutputBean> {
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+
+	@Inject
+	private MoTemplateDaoService moTemplateDaoService;
+
+	@Inject
+	private TemplateService templateService;
+
+	@Inject
+	private MoModuleQuoteDaoService moduleQuoteDaoService;
+
+	@Inject
+	private ModuleCommonService moduleCommonService;
+	private static final Log logger = LogFactory.getLog();
+	private String comp_id;
+
+	protected DeleteTemplateOutputBean doAction(DeleteTemplateInputBean input) {
+		logger.info("**********************DeleteTemplateAction begin********************");
+		DeleteTemplateOutputBean output = new DeleteTemplateOutputBean();
+		String template_name = input.getCn_name();
+
+		Assert.assertNotEmpty(template_name, "模板名");
+
+		this.templateService.checkTemplateNameIsExist(template_name);
+
+		this.comp_id = this.moTemplateDaoService
+				.getRefModuleIdByName(template_name);
+		this.moduleCommonService.deleteCompFile(this.comp_id,
+				MODULE_TYPE.TEMPLATE);
+
+		logger.info("删除组件引用信息表记录,COMP_ID：[" + this.comp_id + "]");
+		this.moduleQuoteDaoService.deleteModuleQuoteById(this.comp_id);
+
+		MoTemplateInfo info = new MoTemplateInfo();
+		info.setTemplate_name(template_name);
+		logger.info("删除投产模版表记录，template_name：[" + template_name + "]");
+		this.moTemplateDaoService.deleteTemplate(info);
+		logger.info("**********************DeleteTemplateAction end********************");
+		return output;
+	}
+
+	protected String getLogTxt(DeleteTemplateInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+		log_lst.add("template_name" + input.getCn_name());
+		log_lst.add("comp_id" + this.comp_id);
+		return this.lgsvc.getLogTxt("删除流程模板", log_lst);
+	}
+}

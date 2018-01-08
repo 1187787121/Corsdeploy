@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="GBK"?>
+<component cnname="PUBLISH_数据库脚本执行" id="COMP201710270076">
+<desc>执行数据库的备份、更新、还原脚本</desc>
+<script type="SHELL"><![CDATA[
+if [ -f "${script_dir}/${relative_path}/${script_file}" ]; then echo "find ${script_file}"; else echo "${script_file} is not exist"; fi;
+test -f "${script_dir}/${relative_path}/${script_file}"
+chmod +x "${script_dir}/${relative_path}/${script_file}";
+sh "${script_dir}/${relative_path}/${script_file}" ${backup_dir}
+]]></script>
+<params>
+<param cnname="脚本目录" defult="" desc="脚本目录" hand="false" name="script_dir"/>
+<param cnname="包相对目录" defult="" desc="包相对目录" hand="false" name="relative_path"/>
+<param cnname="脚本文件" defult="" desc="脚本文件" hand="false" name="script_file"/>
+<param cnname="备份目录" defult="" desc="备份目录" hand="false" name="backup_dir"/>
+</params>
+</component>

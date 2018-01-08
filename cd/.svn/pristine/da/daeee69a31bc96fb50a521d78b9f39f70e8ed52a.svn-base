@@ -1,0 +1,40 @@
+package com.wk.cd.module.impl;
+
+import com.wk.cd.module.ModuleInterceptor;
+import com.wk.cd.module.ProcessContext;
+
+
+public class MonitorInterceptor implements ModuleInterceptor {
+	
+	public void beforeRun(ProcessContext ctx) {
+		
+	}
+
+	public void afterRun(ProcessContext ctx) {
+		
+	}
+
+	public void beforeStepinto(ProcessContext ctx) {
+		
+	}
+
+	public void afterStepinto(ProcessContext ctx) {
+		
+	}
+
+	public void beforeStart(ProcessContext ctx) {
+		
+	}
+
+	public void afterEnd(ProcessContext ctx) {
+		
+	}
+
+	public void skip(ProcessContext ctx) {
+		
+	}
+
+	public void skipStep(ProcessContext ctx) {
+		
+	}
+}

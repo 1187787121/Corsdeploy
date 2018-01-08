@@ -1,0 +1,39 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.PageQueryActionRootInputBean;
+import com.wk.cd.enu.ORDER_TYPE;
+
+public class PageTemplateListInputBean extends PageQueryActionRootInputBean {
+	
+	private static final long serialVersionUID = -5007425888651337313L;
+	
+	/**
+	 * ≈≈–Ú◊÷∂Œ
+	 */
+	private String order_col_name;
+	
+	public static final String ORDER_COL_NAMECN = "≈≈–Ú◊÷∂Œ";
+	
+	/**
+	 * ≈≈–Ú¿‡–Õ
+	 */
+	private ORDER_TYPE order_type;
+	
+	public static final String ORDER_TYPECN = "≈≈–Ú¿‡–Õ";
+
+	public String getOrder_col_name() {
+		return this.order_col_name;
+	}
+
+	public void setOrder_col_name(String order_col_name) {
+		this.order_col_name = order_col_name;
+	}
+
+	public ORDER_TYPE getOrder_type() {
+		return this.order_type;
+	}
+
+	public void setOrder_type(ORDER_TYPE order_type) {
+		this.order_type = order_type;
+	}
+}

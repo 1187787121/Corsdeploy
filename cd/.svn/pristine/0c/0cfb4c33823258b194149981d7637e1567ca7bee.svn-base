@@ -1,0 +1,917 @@
+package com.wk.cd.remote.agent.service;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.LineNumberReader;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.Formatter;
+import java.util.List;
+import java.util.StringTokenizer;
+
+import org.hyperic.sigar.CpuPerc;
+import org.hyperic.sigar.FileSystem;
+import org.hyperic.sigar.FileSystemUsage;
+import org.hyperic.sigar.Sigar;
+import org.hyperic.sigar.SigarException;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.StringUtil;
+import com.wk.cd.remote.agent.bean.AgentMachineSysInfo;
+import com.wk.cd.remote.agent.bean.AgentMonitorBasicInfo;
+import com.wk.cd.remote.agent.bean.ProcessResourceInfo;
+import com.wk.cd.remote.agent.bean.SysCmdLibrary;
+import com.wk.cd.remote.agent.util.AgentHelperUtil;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+/**
+ * windows的监控信息 Class Description:
+ * 
+ * @author 12049
+ */
+public class WindowsResource {
+
+	private static final Log log = LogFactory.getLog();
+
+	private static Sigar sigar = new Sigar();
+	private static final int CPUTIME = 500;
+	private static final int PERCENT = 100;
+	private static final int FAULTLENGTH = 10;
+
+	/**
+	 * 获取系统基本信息
+	 */
+	public static AgentMonitorBasicInfo getBasicware() throws IOException,
+			InterruptedException {
+		// 系统硬件信息
+		AgentMonitorBasicInfo basicware = new AgentMonitorBasicInfo();
+		basicware.setIp(AgentHelperUtil.getServerIP());
+
+		String reply_msg = execShell(SysCmdLibrary.WIN_MSG);
+		if (!Assert.isEmpty(reply_msg)) {
+			String[] win = reply_msg.split("\n");
+			int size = win.length;
+			for (int i = 0; i < size; i++) {
+				String res_msg = win[i].replaceAll("\\s*", "");
+				if (res_msg.contains(SysCmdLibrary.WIN_CPU_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_CPU_EN)) {
+					basicware.setCpu(win[i + 1].replaceAll("\\s*", "").replace(
+							"[01]:", ""));
+				}
+				if (res_msg.contains(SysCmdLibrary.WIN_DISK_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_DISK_EN)) {
+					basicware.setMem(getDealMem(res_msg.replace(
+							SysCmdLibrary.WIN_DISK_ZH, "").replace(
+							SysCmdLibrary.WIN_DISK_EN, "")));
+				}
+
+				if (res_msg.contains(SysCmdLibrary.WIN_OS_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_OS_EN)) {
+					basicware.setSystem(res_msg.replace(
+							SysCmdLibrary.WIN_OS_ZH, "").replace(
+							SysCmdLibrary.WIN_OS_EN, ""));
+				}
+
+				if (res_msg.contains(SysCmdLibrary.WIN_VERSION_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_VERSION_EN)) {
+					basicware.setSystem_version(res_msg.replace(
+							SysCmdLibrary.WIN_VERSION_ZH, "").replace(
+							SysCmdLibrary.WIN_VERSION_EN, ""));
+				}
+			}
+		}
+
+		// 硬盘总量
+		reply_msg = execShell("wmic DISKDRIVE get size");
+		if (!Assert.isEmpty(reply_msg)) {
+			String[] win = reply_msg.split("\n");
+			StringBuffer sb = new StringBuffer();
+			for (String str : win) {
+				if (!Assert.isEmpty(str))
+					sb.append(str.trim()).append(" ");
+			}
+			String[] disk_sizes = sb.toString().split(" ");
+			double totle_size = 0;
+			for (int i = 1; i < disk_sizes.length; i++) {
+				totle_size += Double.parseDouble(disk_sizes[i]);
+			}
+			basicware.setDisk(getDealDisk(totle_size / 1024 / 1024 + "MB"));
+		}
+
+		log.debug("Basicware = [{}]", basicware);
+
+		return basicware;
+	}
+
+	/**
+	 * 系统信息
+	 * 
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	public static AgentMachineSysInfo getSystemResource() throws IOException,
+			InterruptedException {
+		AgentMachineSysInfo sys_info = new AgentMachineSysInfo();
+
+		CpuPerc cpu = null;
+		try {
+			cpu = sigar.getCpuPerc();
+		} catch (SigarException e1) {
+			e1.printStackTrace();
+		}
+		double idle_cpu = cpu.getIdle();
+		double used_cpu = 1 - idle_cpu;
+		sys_info.setCpu_rate((int) (used_cpu * 100));
+
+		// 硬盘总量
+		FileSystem[] fileSystemArray = null;
+		try {
+			fileSystemArray = sigar.getFileSystemList();
+		} catch (SigarException e1) {
+			e1.printStackTrace();
+		}
+		int total_disk = 0;
+		int used_disk = 0;
+		for (FileSystem fileSystem : fileSystemArray) {
+
+			FileSystemUsage fileSystemUsage = null;
+
+			try {
+				fileSystemUsage = sigar.getFileSystemUsage(fileSystem
+						.getDirName());
+
+			} catch (SigarException e) {
+				// 当fileSystem.getType()为5时会出现该异常——此时文件系统类型为光驱
+				continue;
+			}
+			total_disk += fileSystemUsage.getTotal();
+			used_disk += fileSystemUsage.getUsed();
+		}
+		sys_info.setDisk_rate((int) (100.0 * used_disk / total_disk));
+
+		// TODO:磁盘IO_RATE 网络上下行使用率
+		// sys_info.setIo_rate(0);
+
+		String[] net_work = getNetworkThroughputForWindows();
+		sys_info.setNetwork_down(net_work[0]);
+		sys_info.setNetwork_up(net_work[1]);
+
+		// 网卡的大小，用于计算上行下行占用带宽的比例，在初始化的时候需要赋值
+		String nic_size = "100MB";
+		int[] network_rate = LinuxResource.getNetWorkCost(net_work, nic_size);
+
+		if (!Assert.isEmpty(network_rate)) {
+			sys_info.setNetwork_up_rate(network_rate[0]);
+			sys_info.setNetwork_down_rate(network_rate[1]);
+		}
+		return sys_info;
+	}
+
+	/**
+	 * 获取进程信息列表
+	 * @throws IOException
+	 * @throws InterruptedException
+	 */
+	public static List<ProcessResourceInfo> getAllProcResource()
+			throws IOException, InterruptedException {
+		List<ProcessResourceInfo> process_list = new ArrayList<ProcessResourceInfo>();
+		String rs = execShell("wmic process list full");
+		if (!Assert.isEmpty(rs)) {
+			// TODO:处理数据
+		}
+		return process_list;
+	}
+
+	/**
+	 * 此类中Thread.sleep()里的线程睡眠时间
+	 */
+	private static final int SLEEP_TIME = 1000 * 2;
+
+	/**
+	 * 获取Windows环境下网口的上下行速率
+	 * 
+	 * @return
+	 */
+	public static String[] getNetworkThroughputForWindows() {
+		Process pro1 = null;
+		Process pro2 = null;
+		Runtime r = Runtime.getRuntime();
+		BufferedReader input = null;
+		String rxPercent = "";
+		String txPercent = "";
+		try {
+			String command = "netstat -e";
+			pro1 = r.exec(command);
+			input = new BufferedReader(new InputStreamReader(
+					pro1.getInputStream()));
+			String result1[] = readInLine(input, "windows");
+			Thread.sleep(SLEEP_TIME);
+			pro2 = r.exec(command);
+			input = new BufferedReader(new InputStreamReader(
+					pro2.getInputStream()));
+			String result2[] = readInLine(input, "windows");
+			rxPercent = formatNumber((Long.parseLong(result2[0]) - Long
+					.parseLong(result1[0]))
+					/ (float) (1024 * (SLEEP_TIME / 1000))) + "KB/s"; // 上行速率(KB/s)
+			txPercent = formatNumber((Long.parseLong(result2[1]) - Long
+					.parseLong(result1[1]))
+					/ (float) (1024 * (SLEEP_TIME / 1000))) + "KB/s"; // 下行速率(KB/s)
+		} catch (Exception e) {
+			log.error(e.getMessage());
+		}finally{
+			if(input != null){
+				try {
+					input.close();
+				} catch (IOException e) {
+					
+				}
+			}
+			if(pro1 != null){
+				pro1.destroy();
+			}
+			if(pro2 != null){
+				pro2.destroy();
+			}
+			
+		}
+		String[] net_work = { rxPercent, txPercent };
+		return net_work;
+	}
+
+	/**
+	 * 获取windows环境下JVM的cpu占用率
+	 * 
+	 * @return
+	 */
+	public static String getCPURateForWindows(String pid) {
+		try {
+			String procCmd;
+			if(pid != null){
+				procCmd = System.getenv("windir")
+						+ "\\system32\\wbem\\wmic.exe  process "
+						+ "  get Caption,CommandLine,KernelModeTime,ReadOperationCount,ThreadCount,UserModeTime,WriteOperationCount | findstr "  + pid;
+			}else{
+				procCmd = System.getenv("windir")
+						+ "\\system32\\wbem\\wmic.exe  process "
+						+ "  get Caption,CommandLine,KernelModeTime,ReadOperationCount,ThreadCount,UserModeTime,WriteOperationCount";
+			}
+			
+			// 取进程信息
+			long[] c0 = readCpu(Runtime.getRuntime().exec(procCmd));
+			Thread.sleep(CPUTIME);
+			long[] c1 = readCpu(Runtime.getRuntime().exec(procCmd));
+			if (c0 != null && c1 != null) {
+				long idletime = c1[0] - c0[0];
+				long busytime = c1[1] - c0[1];
+				long cpuRate = PERCENT * (busytime) / (busytime + idletime);
+				if (cpuRate > 100) {
+					cpuRate = 100;
+				} else if (cpuRate < 0) {
+					cpuRate = 0;
+				}
+				return String.valueOf(PERCENT * (busytime)
+						/ (busytime + idletime));
+
+			} else {
+				return "0.0";
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			return "0.0";
+		}
+	}
+
+	/**
+	 * 
+	 * 读取CPU信息
+	 * 
+	 * @param proc
+	 * @return
+	 * 
+	 */
+	private static long[] readCpu(final Process proc) {
+		long[] retn = new long[2];
+		InputStreamReader ir = null;
+		LineNumberReader input = null;
+		try {
+			proc.getOutputStream().close();
+			ir = new InputStreamReader(proc.getInputStream());
+			input = new LineNumberReader(ir);
+			String line = input.readLine();
+			if (line == null || line.length() < FAULTLENGTH) {
+				return null;
+			}
+			int capidx = line.indexOf("Caption");
+			int cmdidx = line.indexOf("CommandLine");
+			int rocidx = line.indexOf("ReadOperationCount");
+			int umtidx = line.indexOf("UserModeTime");
+			int kmtidx = line.indexOf("KernelModeTime");
+			int wocidx = line.indexOf("WriteOperationCount");
+			// Caption,CommandLine,KernelModeTime,ReadOperationCount,ThreadCount,UserModeTime,WriteOperationCount
+			long idletime = 0;
+			long kneltime = 0;
+			long usertime = 0;
+			while ((line = input.readLine()) != null) {
+				if (line.length() < wocidx) {
+					continue;
+				}
+				// 字段出现顺序：Caption,CommandLine,KernelModeTime,ReadOperationCount,
+				// ThreadCount,UserModeTime,WriteOperation
+				String caption = substring(line, capidx, cmdidx - 1)
+						.trim();
+				String cmd = substring(line, cmdidx, kmtidx - 1).trim();
+				if (cmd.indexOf("javaw.exe") >= 0) {
+					continue;
+				}
+				// log.info("line="+line);
+				if (caption.equals("System Idle Process")
+						|| caption.equals("System")) {
+					idletime += Long.valueOf(
+							substring(line, kmtidx, rocidx - 1).trim())
+							.longValue();
+					idletime += Long.valueOf(
+							substring(line, umtidx, wocidx - 1).trim())
+							.longValue();
+					continue;
+				}
+
+				kneltime += Long.valueOf(
+						substring(line, kmtidx, rocidx - 1).trim())
+						.longValue();
+				usertime += Long.valueOf(
+						substring(line, umtidx, wocidx - 1).trim())
+						.longValue();
+			}
+			retn[0] = idletime;
+			retn[1] = kneltime + usertime;
+			return retn;
+		} catch (Exception e) {
+			log.error(e.getMessage(), e);
+		} finally {
+			try {
+				if(input != null){
+					input.close();
+				}
+				if(ir != null){
+					ir.close();
+				}
+				proc.getInputStream().close();
+			} catch (IOException e) {
+				log.error(e.getMessage(), e);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 由于String.subString对汉字处理存在问题（把一个汉字视为一个字节)，因此在 包含汉字的字符串时存在隐患，现调整如下：
+	 * 
+	 * @param src
+	 *            要截取的字符串
+	 * @param start_idx
+	 *            开始坐标（包括该坐标)
+	 * @param end_idx
+	 *            截止坐标（包括该坐标）
+	 * @return
+	 */
+	private static String substring(String src, int start_idx, int end_idx) {
+		byte[] b = src.getBytes();
+		String tgt = "";
+		for (int i = start_idx; i <= end_idx; i++) {
+			tgt += (char) b[i];
+		}
+		return tgt;
+	}
+
+	/**
+	 * 格式化浮点数(float 和 double)，保留两位小数
+	 * 
+	 * @param obj
+	 * @return
+	 */
+	private static String formatNumber(Object obj) {
+		String result = "";
+		if (obj.getClass().getSimpleName().equals("Float")) {
+			result = new Formatter().format("%.2f", obj).toString();
+		} else if (obj.getClass().getSimpleName().equals("Double")) {
+			result = new Formatter().format("%.2f", obj).toString();
+		}
+		return result;
+	}
+
+	/**
+	 * 获取网口上下行速率
+	 * 
+	 * @param input
+	 * @return
+	 */
+	public static String[] readInLine(BufferedReader input, String osType) {
+		String rxResult = "";
+		String txResult = "";
+		StringTokenizer tokenStat = null;
+		try {
+			if (osType.equals("linux")) { // 获取linux环境下的网口上下行速率
+				String result[] = input.readLine().split(" ");
+				int j = 0, k = 0;
+				for (int i = 0; i < result.length; i++) {
+					if (result[i].indexOf("RX") != -1) {
+						j++;
+						if (j == 2) {
+							rxResult = result[i + 1].split(":")[1];
+						}
+					}
+					if (result[i].indexOf("TX") != -1) {
+						k++;
+						if (k == 2) {
+							txResult = result[i + 1].split(":")[1];
+							break;
+						}
+					}
+				}
+
+			} else { // 获取windows环境下的网口上下行速率
+				input.readLine();
+				input.readLine();
+				input.readLine();
+				input.readLine();
+				tokenStat = new StringTokenizer(input.readLine());
+				tokenStat.nextToken();
+				rxResult = tokenStat.nextToken();
+				txResult = tokenStat.nextToken();
+			}
+		} catch (Exception e) {
+			log.error(e.getMessage());
+		}
+		String arr[] = { rxResult, txResult };
+		return arr;
+	}
+
+	/**
+	 * 内存单位换算 Description:
+	 * 
+	 * @param mem
+	 * @return
+	 */
+	private static String getDealMem(String mem) {
+		String mem_str = "";
+		if (!Assert.isEmpty(mem)) {
+			mem = mem.replace("\n", "").replaceAll("\\s*", "");
+			try {
+				if (mem.contains("kB")) {
+					String kb_mem = mem.replaceAll("kB", "").trim();
+					double kb = Double.valueOf(kb_mem);
+					mem_str = Double.toString(Math.ceil(kb / 1024 / 1024))
+							+ "G";
+				}
+				if (mem.contains("MB")) {
+					String mb_mem = mem.replaceAll(",", "")
+							.replaceAll("MB", "").trim();
+					double mb = Double.valueOf(mb_mem);
+					mem_str = Double.toString(Math.ceil(mb / 1024)) + "G";
+				}
+			} catch (NumberFormatException e) {
+				mem_str = mem;
+			}
+		}
+		return mem_str;
+	}
+
+	/**
+	 * 硬盘单位换算 Description:
+	 * 
+	 * @param disk
+	 * @return
+	 */
+	private static String getDealDisk(String disk) {
+		String disk_str = "";
+		if (!Assert.isEmpty(disk)) {
+			disk = disk.replace("\n", "").replaceAll("\\s*", "");
+			try {
+				if (disk.endsWith("G")) {
+					String num_str = disk.replaceAll("G", "").trim();
+					double num_disk = Double.valueOf(num_str);
+					if (num_disk > 1000) {
+						NumberFormat nf = new DecimalFormat("0.0");
+						disk_str = Double.toString(Double.parseDouble(nf
+								.format(num_disk / 1024))) + "T";
+					} else {
+						disk_str = Double.toString(Math.ceil(num_disk)) + "G";
+					}
+				}
+				if (disk.endsWith("MB")) {
+					String num_win = disk.replaceAll(",", "")
+							.replaceAll("MB", "").trim();
+					double num_disk = Double.valueOf(num_win);
+					if (num_disk > 1000) {
+						NumberFormat nf = new DecimalFormat("0.0");
+						disk_str = Double.toString(Double.parseDouble(nf
+								.format(num_disk / 1024))) + "G";
+						num_disk = Double.parseDouble(nf
+								.format(num_disk / 1024));
+					} else {
+						disk_str = Double.toString(Math.ceil(num_disk)) + "MB";
+					}
+
+					if (num_disk > 1000) {
+						NumberFormat nf = new DecimalFormat("0.0");
+						disk_str = Double.toString(Double.parseDouble(nf
+								.format(num_disk / 1024))) + "T";
+					}
+				}
+			} catch (NumberFormatException e) {
+				disk_str = disk;
+			}
+		}
+		return disk_str;
+	}
+
+	private static String execShell(String cmd) {
+		String rs = null;
+		Process proc = null;
+		InputStream in = null;
+		try {
+			String[] cmds = { "cmd.exe", "/c", cmd };
+			proc = Runtime.getRuntime().exec(cmds);
+			in = proc.getInputStream();
+			rs = getRetureString(in);
+			proc.waitFor();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}finally{
+			if(in != null){
+				try {
+					in.close();
+				} catch (IOException e) {
+					log.error(e.getMessage(), e);
+				}
+			}
+			if(proc != null){
+				proc.destroy();
+			}
+		}
+		return !Assert.isEmpty(rs) ? rs.trim() : rs;
+	}
+
+	private static String getRetureString(InputStream in) {
+		return StringUtil.stream2str(in);
+	}
+
+	/**
+	 * 获取系统基本信息 Description:
+	 * 
+	 * @param node_name
+	 * @return
+	 * @throws SocketException
+	 * @throws UnknownHostException
+	 */
+	public static AgentMonitorBasicInfo getWindowsSysConfg()
+			throws SocketException, UnknownHostException {
+		AgentMonitorBasicInfo basicware = new AgentMonitorBasicInfo();
+		basicware.setIp(AgentHelperUtil.getServerIP());
+		log.info("----------------------------开始执行-----------------------------");
+		String srv_name = "";
+		// 系统版本号
+		StringBuffer host_version = new StringBuffer();
+		// 网络信息
+		String net_msgString = execShell(SysCmdLibrary.WIN_NET);
+		if (!Assert.isEmpty(net_msgString)) {
+			String[] net_msg = net_msgString.split("\n");
+			StringBuffer net_buffer = new StringBuffer();
+			for (int i = 1; i < net_msg.length; i++) {
+				if (net_msg[i].equals("")) {
+					continue;
+				}
+				net_buffer.append(net_msg[i].trim() + ",");
+			}
+			basicware.setNetwork(dealNetConfig(net_buffer.toString()));
+		}
+
+		// 硬盘信息
+		String disk_msg = execShell(SysCmdLibrary.WIN_DISK);
+		if (!Assert.isEmpty(disk_msg)) {
+			String[] disk = disk_msg.split("\n");
+			double count = 0;
+			for (int i = 1; i < disk.length; i++) {
+				String string = disk[i].replaceAll("\\s*", "");
+				if (string.equals("") || string.contains("pid:")
+						|| string.equals(" ")) {
+					continue;
+				}
+				count = count + Double.valueOf(string.trim());
+			}
+			count = count / 1024 / 1024 / 1024;
+			basicware.setDisk(getDealDisk(count + "G"));
+		}
+		String reply_msg = execShell(SysCmdLibrary.WIN_MSG);
+		if (!Assert.isEmpty(reply_msg)) {
+			StringBuffer win_config = new StringBuffer();
+			String[] win = reply_msg.split("\n");
+			int size = win.length;
+			for (int i = 0; i < size; i++) {
+				String res_msg = win[i].replaceAll("\\s*", "");
+				if (res_msg.contains(SysCmdLibrary.WIN_CPU_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_CPU_EN)) {
+					basicware.setCpu(win[i + 1].replaceAll("\\s*", "").replace(
+							"[01]:", ""));
+				}
+				if (res_msg.contains(SysCmdLibrary.WIN_DISK_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_DISK_EN)) {
+					basicware.setMem(getDealMem(res_msg.replace(SysCmdLibrary.WIN_DISK_ZH,
+							"").replace(SysCmdLibrary.WIN_DISK_EN, "")));
+				}
+				if (res_msg.contains(SysCmdLibrary.WIN_CONFIG_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_CONFIG_EN)
+						|| res_msg.contains(SysCmdLibrary.WIN_CONFIG_ZH2)
+						|| res_msg.contains(SysCmdLibrary.WIN_CONFIG_EN2)) {
+					win_config.append(res_msg
+							.replace(SysCmdLibrary.WIN_CONFIG_ZH, "")
+							.replace(SysCmdLibrary.WIN_CONFIG_EN, "")
+							.replace(SysCmdLibrary.WIN_CONFIG_ZH2, "")
+							.replace(SysCmdLibrary.WIN_CONFIG_EN2, "")
+							+ " ");
+				}
+				if (res_msg.contains(SysCmdLibrary.WIN_SERVER_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_SERVER_EN)) {
+					srv_name = res_msg.replace(SysCmdLibrary.WIN_SERVER_ZH, "")
+							.replace(SysCmdLibrary.WIN_SERVER_EN, "");
+					basicware.setSrv_name(srv_name);
+				}
+				if (res_msg.contains(SysCmdLibrary.WIN_OS_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_OS_EN)
+						|| res_msg.contains(SysCmdLibrary.WIN_VERSION_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_VERSION_EN)) {
+					if (!res_msg.contains("BIOS")) {
+						host_version.append(res_msg
+								.replace(SysCmdLibrary.WIN_OS_ZH, "")
+								.replace(SysCmdLibrary.WIN_OS_EN, "")
+								.replace(SysCmdLibrary.WIN_VERSION_ZH, "")
+								.replace(SysCmdLibrary.WIN_VERSION_EN, "")
+								+ " ");
+					}
+				}
+			}
+			basicware.setMachine_cfg(win_config.toString());
+		}
+		basicware.setOp_system(host_version.toString());
+		String version_msg = "";
+		try {
+			version_msg = execShell("java -version");
+		} catch (Exception e) {
+			log.debug(e.toString(), e);
+		}
+		if (version_msg == null || version_msg.indexOf("java version") < 0) {
+			version_msg = "";
+		}
+		basicware.setJava_version(version_msg);
+		log.info("----------------------------执行结束-----------------------------");
+		return basicware;
+	}
+
+	/**
+	 * Description:
+	 */
+	private static String dealNetConfig(String net_msg) {
+		StringBuffer net_config = new StringBuffer();
+		String[] strings = net_msg.split(",");
+		for (int i = 0; i < strings.length; i++) {
+			if (strings[i].equals("") || strings[i].contains("pid:")) {
+				continue;
+			}
+			String[] strings2 = strings[i].split("\\s+");
+			StringBuffer targetsBuffer = new StringBuffer();
+			for (int j = 0; j < strings2.length; j++) {
+				targetsBuffer.append(strings2[j] + " ");
+			}
+			net_config.append(targetsBuffer.toString() + ",");
+		}
+		return net_config.toString();
+	}
+	
+	/**
+	 * Agent自身监控信息
+	 * Description: 
+	 * @return
+	 * @throws SocketException
+	 * @throws UnknownHostException
+	 */
+	public static AgentMonitorBasicInfo getWindowsAgentSelfInfo() throws SocketException, UnknownHostException {
+		log.info("----------------------------开始执行-----------------------------");
+		AgentMonitorBasicInfo basicware = new AgentMonitorBasicInfo();
+		basicware.setIp(AgentHelperUtil.getServerIP());
+		String total_mem = null;
+		String reply_msg = execShell(SysCmdLibrary.WIN_MSG);
+		if (!Assert.isEmpty(reply_msg)) {
+			StringBuffer win_config = new StringBuffer();
+			String[] win = reply_msg.split("\n");
+			int size = win.length;
+			
+			String free_mem = null;
+			// 系统版本号
+			StringBuffer host_version = new StringBuffer();
+			
+			for (int i = 0; i < size; i++) {
+				String res_msg = win[i].replaceAll("\\s*", "");
+			
+				if (res_msg.contains(SysCmdLibrary.WIN_SERVER_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_SERVER_EN)) {
+					String srv_name = res_msg.replace(SysCmdLibrary.WIN_SERVER_ZH, "")
+							.replace(SysCmdLibrary.WIN_SERVER_EN, "");
+					basicware.setSrv_name(srv_name);
+				}
+
+				if (res_msg.contains(SysCmdLibrary.WIN_OS_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_OS_EN)) {
+					basicware.setSystem(res_msg.replace(
+							SysCmdLibrary.WIN_OS_ZH, "").replace(
+							SysCmdLibrary.WIN_OS_EN, ""));
+				}
+				
+				if (res_msg.contains(SysCmdLibrary.WIN_VERSION_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_VERSION_EN)) {
+					basicware.setSystem_version(res_msg.replace(
+							SysCmdLibrary.WIN_VERSION_ZH, "").replace(
+							SysCmdLibrary.WIN_VERSION_EN, ""));
+				}
+				
+				if (res_msg.contains(SysCmdLibrary.WIN_DISK_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_DISK_EN)) {
+					total_mem = res_msg.replace(SysCmdLibrary.WIN_DISK_ZH, "").replace(SysCmdLibrary.WIN_DISK_EN, "");
+				}
+				
+				if (res_msg.contains(SysCmdLibrary.WIN_DISK_FREE_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_DISK_FREE_EN)) {
+					free_mem = res_msg.replace(SysCmdLibrary.WIN_DISK_FREE_ZH, "").replace(SysCmdLibrary.WIN_DISK_FREE_EN, "");
+				}
+				
+				if (res_msg.contains(SysCmdLibrary.WIN_OS_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_OS_EN)
+						|| res_msg.contains(SysCmdLibrary.WIN_VERSION_ZH)
+						|| res_msg.contains(SysCmdLibrary.WIN_VERSION_EN)) {
+					if (!res_msg.contains("BIOS")) {
+						host_version.append(res_msg
+								.replace(SysCmdLibrary.WIN_OS_ZH, "")
+								.replace(SysCmdLibrary.WIN_OS_EN, "")
+								.replace(SysCmdLibrary.WIN_VERSION_ZH, "")
+								.replace(SysCmdLibrary.WIN_VERSION_EN, "")
+								+ " ");
+					}
+				}
+				
+//				basicware.setMachine_mem((int)getUsedMemRate(total_mem, free_mem));
+				double total_memory = dealMemUnit2Kb(total_mem);
+				double free_memory = dealMemUnit2Kb(free_mem);
+				double used_rate = (total_memory - free_memory) * 100 / total_memory; 
+				basicware.setMachine_mem((int)used_rate);
+				
+				basicware.setOp_system(host_version.toString());
+			}
+		}
+		
+//		basicware.setMachine_cpu(Integer.parseInt(getCPURateForWindows(null)));
+		
+		CpuPerc cpu = null;
+		try {
+			cpu = sigar.getCpuPerc();
+		} catch (SigarException e1) {
+			e1.printStackTrace();
+		}
+		double idle_cpu = cpu.getIdle();
+		double used_cpu = 1 - idle_cpu;
+		basicware.setMachine_cpu((int) (used_cpu * 100));
+		
+		String rs = execShell("wmic process list full");
+		String daemon_pid = null;
+		String work_pid = null;
+		if(!Assert.isEmpty(rs)){
+			String[] proc_items  = rs.split("\n\n\n");
+			if(!Assert.isEmpty(proc_items)){
+				for(int i = 0; i < proc_items.length; i++){
+					//获取守护进程
+					if(proc_items[i].contains("AgentDaemonService")){
+						String[] items = proc_items[i].trim().split("\n");
+						if(!Assert.isEmpty(items)){
+							for(String item : items){
+								if(item.contains("ProcessId")){
+									System.out.println("come into AgentDeamon");
+									daemon_pid = item.replace("ProcessId=", "");
+								}
+							}
+						}
+					}
+					//获取工作进程
+					if(proc_items[i].contains("AgentServerStartup")){
+						String[] items = proc_items[i].trim().split("\n");
+						if(!Assert.isEmpty(items)){
+							for(String item : items){
+								if(item.contains("ProcessId")){
+									work_pid = item.replace("ProcessId=", "");
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		String daemon_mem = null;
+		String work_mem = null;
+		if(daemon_pid != null){
+			String daemon_proc_str = execShell("TASKLIST /NH /FO CSV /FI \"PID EQ " + daemon_pid + "\"");
+			if(!Assert.isEmpty(daemon_proc_str)){
+				String[] items = daemon_proc_str.split("\",\"");
+				daemon_mem = items[4].split("\"")[0];
+			}
+		}else{
+			daemon_mem = "0";
+		}
+		
+		if(work_pid != null){
+			String work_proc_str = execShell("TASKLIST /NH /FO CSV /FI \"PID EQ " + work_pid + "\"");
+			if(!Assert.isEmpty(work_proc_str)){
+				String[] items = work_proc_str.split("\",\"");
+				work_mem = items[4].split("\"")[0];
+			}
+		}else{
+			daemon_mem = "0";
+		}
+		
+		System.out.println("daemon_mem = " + daemon_mem + "; work_mem = " + work_mem);
+		double kb_total_mem = dealMemUnit2Kb(total_mem);
+		double kb_daemon_mem = dealMemUnit2Kb(daemon_mem);
+		double kb_work_mem = dealMemUnit2Kb(work_mem);
+		System.out.println("kb_daemon_mem = " + kb_daemon_mem + "; kb_work_mem = " + kb_work_mem + ";kb_total_mem = " + kb_total_mem);
+		int agent_mem_rate = (int) ((kb_daemon_mem + kb_work_mem) * 100 / kb_total_mem);
+		basicware.setAgent_mem(agent_mem_rate);
+		
+		double daemon_cpu;
+		double work_cpu;
+		if(daemon_pid != null){
+			daemon_cpu = Double.parseDouble(getCPURateForWindows(daemon_pid));
+		}else{
+			daemon_cpu = 0;
+		}
+		
+		if(work_pid != null){
+			work_cpu = Double.parseDouble(getCPURateForWindows(work_pid));
+		}else{
+			work_cpu = 0;
+		}
+		basicware.setAgent_cpu((int) (daemon_cpu + work_cpu));
+		basicware.setAgent_operate_status(1);
+		
+		log.info("----------------------------执行结束-----------------------------");
+		return basicware;
+	}
+	
+	/**
+	 * 计算内存消耗比率
+	 * Description: 
+	 * @param total_mem
+	 * @param free_mem
+	 * @return
+	 */
+	public static double getUsedMemRate(String total_mem, String free_mem){
+		double total_memory = 0;
+		double free_memory = 0;
+		if(!Assert.isEmpty(total_mem)){
+			log.debug("total_mem = " + total_mem);
+			total_memory = Double.parseDouble(total_mem.replace(",", "").split(" ")[0]);
+		}
+		if(!Assert.isEmpty(free_mem)){
+			free_memory = Double.parseDouble(free_mem.trim().replace(",", "").split(" ")[0]);
+		}
+		double used_rate = (total_memory - free_memory) * 100 / total_memory; 
+		
+		return used_rate;
+	}
+
+    /**
+     * 将内存的其他单位换算成KB
+     * Description: 
+     * @param mem
+     * @return
+     */
+    private static double dealMemUnit2Kb(String mem){
+    	double kb_mem = 0;
+    	if(!Assert.isEmpty(mem)){
+    		if(mem.contains("MB")){
+    			kb_mem = Double.parseDouble(mem.replace(",", "").replace("MB", "")) * 1024;
+    		}else if(mem.contains("GB")){
+    			kb_mem = Double.parseDouble(mem.replace(",", "").replace("GB", "")) * 1024 * 1024;
+    		}else if(mem.contains("T")){
+    			kb_mem = Double.parseDouble(mem.replace(",", "").replace("TB", "").replace("T", "")) * 1024 * 1024 * 1024;
+    		}else if(mem.contains("K")){
+    			kb_mem = Double.parseDouble(mem.replace(",", "").replace("KB", "").replace("K", ""));
+    		}
+    	}
+		return kb_mem;
+    }
+}

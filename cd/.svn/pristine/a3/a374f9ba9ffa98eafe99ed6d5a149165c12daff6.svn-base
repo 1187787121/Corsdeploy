@@ -1,0 +1,36 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootOutputBean;
+
+public class AddModuleOutputBean extends ActionRootOutputBean {
+	
+	private static final long serialVersionUID = 2794243139575406425L;
+
+	/**
+	 * 组件ID
+	 */
+	private String id;
+	public static final String COMP_IDCN = "组件ID";
+	
+	/**
+	 * 重复标识
+	 */
+	private boolean override_flag;
+	public static final String OVERRIDE_FLAGCN = "重复标识";
+
+	public String getId() {
+		return this.id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public boolean isOverride_flag() {
+		return this.override_flag;
+	}
+
+	public void setOverride_flag(boolean override_flag) {
+		this.override_flag = override_flag;
+	}
+}

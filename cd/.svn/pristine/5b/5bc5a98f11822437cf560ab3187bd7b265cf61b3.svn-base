@@ -1,0 +1,54 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.bean.ActionRootOutputBean;
+import com.wk.cd.enu.CMD_STATUS;
+
+public class DppModuleTestOutputBean extends ActionRootOutputBean {
+	
+	private static final long serialVersionUID = 3784563544717280720L;
+	
+	/**
+	 * 日志文件全路径
+	 */
+	private String log_file_path;
+	
+	public static final String LOG_FILE_PATHCN = "日志文件全路径";
+	
+	/**
+	 * 最后执行的命令
+	 */
+	private String last_execute_cmd;
+	
+	public static final String LAST_EXECUTE_CMDCN = "最后执行的命令";
+	
+	/**
+	 * 最后一条命令的状态
+	 */
+	private CMD_STATUS last_status;
+	
+	public static final String LAST_STATUSCN = "最后一条命令的状态";
+
+	public String getLog_file_path() {
+		return this.log_file_path;
+	}
+
+	public void setLog_file_path(String log_file_path) {
+		this.log_file_path = log_file_path;
+	}
+
+	public String getLast_execute_cmd() {
+		return this.last_execute_cmd;
+	}
+
+	public void setLast_execute_cmd(String last_execute_cmd) {
+		this.last_execute_cmd = last_execute_cmd;
+	}
+
+	public CMD_STATUS getLast_status() {
+		return this.last_status;
+	}
+
+	public void setLast_status(CMD_STATUS last_status) {
+		this.last_status = last_status;
+	}
+}

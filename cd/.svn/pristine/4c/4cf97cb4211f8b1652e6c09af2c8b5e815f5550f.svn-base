@@ -1,0 +1,182 @@
+package com.wk.cd.module.dao;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.PUBLISH_STATE;
+import com.wk.cd.module.MODULE_PURPOSE;
+import com.wk.cd.module.SCRIPT_SOURCE;
+import com.wk.cd.module.info.MoModuleInfo;
+import com.wk.cd.enu.ORDER_TYPE;
+import com.wk.db.DBIterator;
+import com.wk.lang.Inject;
+import com.wk.util.JaDate;
+import com.wk.util.JaTime;
+import com.wk.util.StringUtil;
+
+public class MoModuleDaoService {
+
+	@Inject
+	private MoModuleDao dao;
+
+	public MoModuleInfo getInfoByKey(MoModuleInfo info) {
+		return dao.get(info);
+	}
+
+	public MoModuleInfo getInfoByKeyForUpdate(MoModuleInfo info) {
+		return dao.getForUpdate(info);
+	}
+
+	public int insertInfo(MoModuleInfo info) {
+		return this.dao.insert(info);
+	}
+
+	public int insertListInfo(List<MoModuleInfo> infos) {
+		return this.dao.insert(infos);
+	}
+
+	public int countModuleById(String id) {
+		return this.dao.countModuleById(id);
+	}
+
+	public int updateModuleInfo(MoModuleInfo info) {
+		return this.dao.update(info);
+	}
+
+	public int deleteModuleInfoByKey(String id) {
+		return this.dao.delete(id);
+	}
+
+	public MoModuleInfo getModuleInfoById(String id) {
+		return this.dao.getModuleInfoById(id);
+	}
+
+	public List<MoModuleInfo> queryAllModuleInfos(String key_word,
+			String order_col_name, ORDER_TYPE order_type) {
+		List<MoModuleInfo> list = new ArrayList<MoModuleInfo>();
+		DBIterator<MoModuleInfo> iterator = null;
+		if (!(Assert.isEmpty(order_col_name))) {
+			order_col_name = order_col_name.replace(" ", "");
+		}
+		
+		if (("default".equals(order_col_name)) || (StringUtil.isEmpty(order_col_name))){
+			iterator = dao.queryAllModuleInfos(key_word, "CRT_BK_DATE "
+					+ ORDER_TYPE.DESC.getName() + ",CRT_BK_TIME",
+					ORDER_TYPE.DESC.getName());
+		} else if ("CRT_BK_DATE,CRT_BK_TIME".equalsIgnoreCase(order_col_name)){
+			iterator = dao.queryAllModuleInfos(key_word, "CRT_BK_DATE "
+					+ order_type.getName() + ",CRT_BK_TIME",
+					order_type.getName());
+		}else {
+			iterator = dao.queryAllModuleInfos(key_word, order_col_name,
+					order_type.getName());
+		}
+			
+		try {
+			while (iterator.hasNext()){
+				list.add(iterator.next());
+			}
+				
+		} finally {
+			iterator.close();
+		}
+		return list;
+	}
+
+	public List<MoModuleInfo> findAllModulenfos() {
+		DBIterator<MoModuleInfo> moModuleInfos = dao.findAllModulenfos(MODULE_PURPOSE.COLLECT);
+		System.out.println(moModuleInfos.next());
+		List<MoModuleInfo> list = new ArrayList<MoModuleInfo>();
+		try {
+			while (moModuleInfos.hasNext()){
+				list.add(moModuleInfos.next());
+			}
+		} finally {
+			moModuleInfos.close();
+		}
+		return list;
+	}
+
+	public List<MoModuleInfo> queryAllGroupInfos(String key_word,
+			String order_col_name, ORDER_TYPE order_type) {
+		List<MoModuleInfo> list = new ArrayList<MoModuleInfo>();
+		DBIterator<MoModuleInfo> iterator = null;
+		if (!(Assert.isEmpty(order_col_name))) {
+			order_col_name = order_col_name.replace(" ", "");
+		}
+		
+		if (("default".equals(order_col_name)) || (StringUtil.isEmpty(order_col_name))) {
+			iterator = dao.queryAllGroupInfos(key_word, "CRT_BK_DATE "
+					+ ORDER_TYPE.DESC.getName() + ",CRT_BK_TIME",
+					ORDER_TYPE.DESC.getName());
+		} else if ("CRT_BK_DATE,CRT_BK_TIME".equalsIgnoreCase(order_col_name)) {
+			iterator = dao.queryAllGroupInfos(key_word, "CRT_BK_DATE "
+					+ order_type.getName() + ",CRT_BK_TIME",
+					order_type.getName());
+		} else {
+			iterator = dao.queryAllGroupInfos(key_word, order_col_name,
+					order_type.getName());
+		}
+			
+		try {
+			while (iterator.hasNext()){
+				list.add(iterator.next());
+			}
+				
+		} finally {
+			iterator.close();
+		}
+		return list;
+	}
+
+	public int updateModulePubStateById(String id, PUBLISH_STATE publish_state) {
+		return dao.updateModulePubStateById(publish_state, id);
+	}
+
+	public int updateModuleBaseByKey(MODULE_PURPOSE module_purpose,
+			SCRIPT_SOURCE script_source, String cn_name, String bk_desc,
+			IMPL_TYPE impl_type, JaDate modify_bk_date, JaTime modify_bk_time,
+			String modify_user_id, String id) {
+		return dao.updateModuleBaseByKey(module_purpose, script_source,
+				cn_name, bk_desc, impl_type, modify_bk_date, modify_bk_time,
+				modify_user_id, id);
+	}
+
+	public int updateGroupBaseByKey(String cn_name, String bk_desc,
+			JaDate modify_bk_date, JaTime modify_bk_time,
+			String modify_user_id, String id) {
+		return dao.updateGroupBaseByKey(cn_name, bk_desc, modify_bk_date,
+				modify_bk_time, modify_user_id, id);
+	}
+
+	public List<MoModuleInfo> queryPublishedModuleByType(MODULE_TYPE module_type) {
+		List<MoModuleInfo> list = new ArrayList<MoModuleInfo>();
+		DBIterator<MoModuleInfo> iterator = dao.queryPublishedModuleByType(module_type);
+		try {
+			while (iterator.hasNext()){
+				list.add(iterator.next());
+			}
+		} finally {
+			iterator.close();
+		}
+		return list;
+	}
+
+	public List<MoModuleInfo> queryPublishedCotModuleByType(
+			MODULE_TYPE module_type, MODULE_PURPOSE module_purpose) {
+		List<MoModuleInfo> list = new ArrayList<MoModuleInfo>();
+		DBIterator<MoModuleInfo> iterator = dao.queryPublishedCotModuleByType(
+				module_type, module_purpose);
+		try {
+			while (iterator.hasNext()){
+				list.add(iterator.next());
+			}
+		} finally {
+			iterator.close();
+		}
+		return list;
+	}
+}

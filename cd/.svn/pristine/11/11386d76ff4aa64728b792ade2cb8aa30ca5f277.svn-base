@@ -1,0 +1,43 @@
+/**
+ * Title: MODULE_PURPOSE.java
+ * File Description: 组件用途
+ * @copyright: 2017
+ * @company: CORSWORK
+ * @author AutoGen
+ * @version 1.0
+ * @date 2017-4-6
+ */
+package com.wk.cd.module;
+
+import com.wk.db.EnumValue;
+
+/**
+ * Class Description: 组件用途
+ * @author AutoGen
+ */
+public class MODULE_PURPOSE extends EnumValue<MODULE_PURPOSE> {
+	 /** 
+	 * @Fields serialVersionUID : 7557506646574530419L
+	 */ 
+	private static final long serialVersionUID = 7557506646574530419L;
+
+	private MODULE_PURPOSE(int value, String name) {
+		 super(value, name);
+	 }
+
+	 /**
+	  * 投产发布
+	  */
+	 public static final MODULE_PURPOSE PROD = new MODULE_PURPOSE(1, "投产发布");
+
+	 /**
+	  * 数据采集
+	  */
+	 public static final MODULE_PURPOSE COLLECT = new MODULE_PURPOSE(2, "数据采集");
+	 
+	 /**
+	  * 自动运维
+	  */
+	 public static final MODULE_PURPOSE OPERATION = new MODULE_PURPOSE(3, "自动运维");
+
+}

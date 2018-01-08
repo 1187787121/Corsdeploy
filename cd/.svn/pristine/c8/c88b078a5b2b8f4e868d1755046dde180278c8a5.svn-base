@@ -1,0 +1,93 @@
+package com.wk.cd.module.action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.PUBLISH_STATE;
+import com.wk.cd.module.MODULE_PURPOSE;
+import com.wk.cd.module.bean.UpdateModuleInputBean;
+import com.wk.cd.module.bean.UpdateModuleOutputBean;
+import com.wk.cd.module.dao.MoModuleDaoService;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.service.ModuleCommonService;
+import com.wk.cd.module.xml.XmlPathUtil;
+import com.wk.cd.module.xml.XmlWriter;
+import com.wk.cd.service.ActionBasic;
+import com.wk.cd.system.lg.service.ActionLogPublicService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+/**
+ * 修改组件
+ * Class Description: 
+ * @author 12049
+ */
+public class UpdateModuleAction extends
+		ActionBasic<UpdateModuleInputBean, UpdateModuleOutputBean> {
+
+	@Inject
+	private MoModuleDaoService tpComponentDaoService;
+
+	@Inject
+	private ModuleCommonService componentPublicService;
+
+	@Inject
+	private ActionLogPublicService lgsvc;
+	private static final Log logger = LogFactory.getLog();
+
+	protected UpdateModuleOutputBean doAction(UpdateModuleInputBean input) {
+		logger.info("--------------UpdateComponentAction begin------------");
+		UpdateModuleOutputBean output = new UpdateModuleOutputBean();
+
+		ModuleInfo module = input.getModule();
+
+		Assert.assertNotEmpty(module, "组件信息");
+		Assert.assertNotEmpty(module.getId(), "组件ID");
+		Assert.assertNotEmpty(module.getCn_name(), "组件中文名");
+		Assert.assertNotEmpty(module.getBk_desc(), "组件描述");
+		Assert.assertNotEmpty(module.getImpl_type(), "实现类型");
+		Assert.assertNotEmpty(module.getCmds(), "执行脚本列表");
+
+		this.componentPublicService.checkCompIdIsExist(module.getId(),
+				MODULE_TYPE.COMPONENT);
+
+		logger.debug("重新写入组件文件：", XmlPathUtil.getPathByCompId(module.getId(),
+				MODULE_TYPE.COMPONENT));
+		if (module.getModule_purpose() == MODULE_PURPOSE.PROD) {
+			XmlWriter.writModule(module, module.getId());
+		}
+
+//		if (module.getModule_purpose() == MODULE_PURPOSE.COLLECT) {
+//			CoProgramModuleBean pgModule = new CoProgramModuleBean();
+//			pgModule.setImpl_type(module.getImpl_type().getValue());
+//			pgModule.setModule_bk_desc(module.getBk_desc());
+//			pgModule.setModule_cn_name(module.getCn_name());
+//			pgModule.setModule_id(module.getId());
+//			pgModule.setModule_purpose(module.getModule_purpose().getValue());
+//			pgModule.setScript(module.getCmds());
+//			pgModule.setScript_file(module.getScript_file_path());
+//			pgModule.setScript_file_param(module.getCmd_param());
+//			pgModule.setScript_source(module.getScript_source().getValue());
+//			CoProgramModuleBean.writeToXML(pgModule, module.getId());
+//		}
+		//修改为未发布
+		tpComponentDaoService.updateModulePubStateById(module.getId(), PUBLISH_STATE.NO);
+		logger.debug("修改组件信息表：COMPID=[" + module.getId() + "]");
+		tpComponentDaoService.updateModuleBaseByKey(module.getModule_purpose(),
+						module.getScript_source(), module.getCn_name(),
+						module.getBk_desc(), module.getImpl_type(),
+						input.getDtbs_bk_date(), input.getDtbs_bk_time(),
+						input.getOrg_user_id(), module.getId());
+		logger.info("--------------UpdateComponentAction end -------------");
+		return output;
+	}
+
+	protected String getLogTxt(UpdateModuleInputBean input) {
+		List<String> log_lst = new ArrayList<String>();
+
+		return this.lgsvc.getLogTxt("修改组件信息", log_lst);
+	}
+}

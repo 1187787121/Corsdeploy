@@ -1,0 +1,51 @@
+package com.wk.cd.module.bean;
+
+import com.wk.cd.enu.MODULE_TYPE;
+
+public class ReferenceBean {
+	
+	/**
+	 * 引用类别
+	 */
+	private MODULE_TYPE ref_type;
+	
+	public static final String REF_TYPECN = "引用类别";
+	
+	/**
+	 * 被引用ID
+	 */
+	private String ref_id;
+	
+	public static final String REF_IDCN = "被引用ID";
+	
+	/**
+	 * 被引用名
+	 */
+	private String ref_name;
+	
+	public static final String REF_NAMECN = "被引用名";
+
+	public MODULE_TYPE getRef_type() {
+		return this.ref_type;
+	}
+
+	public void setRef_type(MODULE_TYPE ref_type) {
+		this.ref_type = ref_type;
+	}
+
+	public String getRef_id() {
+		return this.ref_id;
+	}
+
+	public void setRef_id(String ref_id) {
+		this.ref_id = ref_id;
+	}
+
+	public String getRef_name() {
+		return this.ref_name;
+	}
+
+	public void setRef_name(String ref_name) {
+		this.ref_name = ref_name;
+	}
+}

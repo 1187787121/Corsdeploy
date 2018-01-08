@@ -1,0 +1,155 @@
+/**
+ * Title: AgentCommonTool.java
+ * File Description: 
+ * @copyright: 2017
+ * @company: CORSWORK
+ * @author: Administrator
+ * @version: 1.0
+ * @date: 2017年8月25日
+ */
+package com.wk.cd.remote.agent.util;
+
+import java.util.UUID;
+
+import com.wk.cd.remote.agent.service.AgentClient;
+import com.wk.cd.remote.agent.service.AgentRSession;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.common.util.CfgTool;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.exc.ReadConfigFileException;
+import com.wk.cd.remote.exc.FileNotExistException;
+import com.wk.cd.remote.sh.bean.ShExecRsBean;
+import com.wk.lang.AppException;
+
+/**
+ * Class Description:
+ * 
+ * @author zhangj
+ */
+public class AgentCommonTool {
+
+	private static String path = "common/";
+	
+	public static int getPort() {
+		String port = CfgTool.getProjectPropterty("cms.agent.port");
+		if (Assert.isEmpty(port)) {
+			throw new ReadConfigFileException().addScene("FILE",
+					"cms.properties").addScene("CONFIG", "cms.agent.port");
+		}
+		return Integer.parseInt(port);
+	}
+
+	// 检测远程目标机器环境
+	public static String checkRemoteEnv(String ip) {
+		int port = getPort();
+
+		String id = UUID.randomUUID().toString().replaceAll("\\-", "");
+		boolean isStepSupport = Boolean.parseBoolean(CfgTool
+				.getProjectPropterty("cms.agent.isStepSupport"));
+		AgentClient client = new AgentClient(id, ip, port, isStepSupport,
+				IMPL_TYPE.SHELL, 1, 1, null, null, 0, 0);
+
+		ShExecRsBean reply = client.exeShell(
+				AgentCMDUtil.CHECK_AGENT_EXIST_CMD, "3000");
+
+		String reply_msg = reply.getRs_msg();
+
+		String[] reply_arry = reply_msg.split(",");
+		if (!Assert.isEmpty(reply_arry)) {
+			reply_msg = reply_arry[0];
+		}
+		
+		String result = "";
+		if(reply_msg.toLowerCase().contains("system: win")){
+			result = "windows";
+		}else if(reply_msg.toLowerCase().contains("system: linux")){
+			result = "linux";
+		}else{
+			result = "aix";
+		}
+		return result;
+	}
+
+	// Agent获取远程机器的主目录路径
+	public static String getRootPath(String ip) {
+		int port = getPort();
+		AgentRSession session = new AgentRSession(ip, port, IMPL_TYPE.SHELL, 1, AgentRSession.SYNCHRO_TYPE, true, path);
+
+		String reply = checkRemoteEnv(ip);
+		String str = "";
+		if (reply.equals("windows")) {
+
+			ShExecRsBean bean = session.sendCmd("echo %cd:~,3%");
+			str = bean.getRs_msg();
+
+		} else {
+			ShExecRsBean bean = session.sendCmds(new String[]{"pwd"});
+			str = bean.getRs_msg();
+		}
+
+		return !Assert.isEmpty(str) ? str.trim() : str;
+	}
+
+	// Agent获取远程机器的主目录路径(配置文件使用)
+	public static String getRootPathForConfigList(String ip) {
+		
+		String reply = checkRemoteEnv(ip);
+		String str = "";
+		if (reply.equals("windows")) {
+			str = "我的电脑";
+		} else {
+			int port = getPort();
+			AgentRSession session = new AgentRSession(ip, port, IMPL_TYPE.SHELL, 1, AgentRSession.SYNCHRO_TYPE, true, path);
+			
+			ShExecRsBean bean = session.sendCmds(new String[]{"pwd"});
+			str = bean.getRs_msg();
+		}
+
+		return !Assert.isEmpty(str) ? str.trim() : str;
+	}
+
+	// 若远程路径不存在，创建远程路径
+	public static void createRemotePath(String ip, int port, String path) {
+		AgentRSession session = new AgentRSession(ip, port, IMPL_TYPE.SHELL, 1, AgentRSession.SYNCHRO_TYPE, true, path);
+		String[] cmds = new String[4];
+		cmds[0] = "path=" + path;
+		cmds[1] = "if [ ! -d \"$path\" ];then";
+		cmds[2] = "mkdir $path";
+		cmds[3] = "fi";
+
+		session.sendCmds(cmds);
+	}
+
+	// 检测远程目录是否存在
+	public static void checkRemoteDirPath(String ip, int port, String path) {
+		AgentRSession session = new AgentRSession(ip, port, IMPL_TYPE.SHELL, 1, AgentRSession.SYNCHRO_TYPE, true, path);
+		String[] cmds = new String[6];
+		cmds[0] = "path=" + path;
+		cmds[1] = "if [ ! -d \"$path\" ];then";
+		cmds[2] = "echo false";
+		cmds[3] = "else";
+		cmds[4] = "echo true";
+		cmds[5] = "fi";
+		ShExecRsBean bean = session.sendCmds(cmds);
+		if (bean.getRs_msg().trim().equals("false")) {
+			throw new AppException("远程目录:" + path + " 不存在");
+		}
+	}
+
+	// 检测远程文件是否存在
+	public static void checkRemoteFilePath(String ip, int port, String path) {
+		AgentRSession session = new AgentRSession(ip, port, IMPL_TYPE.SHELL, 1, AgentRSession.SYNCHRO_TYPE, true, path);
+		String[] cmds = new String[6];
+		cmds[0] = "path=" + path;
+		cmds[1] = "if [ ! -f \"$path\" ];then";
+		cmds[2] = "echo false";
+		cmds[3] = "else";
+		cmds[4] = "echo true";
+		cmds[5] = "fi";
+		ShExecRsBean bean = session.sendCmds(cmds);
+		if (bean.getRs_msg().trim().equals("false")) {
+			throw new FileNotExistException().addScene("FILE", "远程文件：" + path);
+		}
+	}
+
+}

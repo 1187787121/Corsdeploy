@@ -1,0 +1,341 @@
+package com.wk.cd.module.service;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.CMD_STATUS;
+import com.wk.cd.enu.MODULE_TYPE;
+import com.wk.cd.enu.PROTOCOL_TYPE;
+//import com.wk.cd.inspection.co.info.CoNodeModuleInfo;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.module.Process;
+import com.wk.cd.module.ProcessManager;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.dao.MoModuleDaoService;
+import com.wk.cd.module.dao.MoModuleQuoteDaoService;
+import com.wk.cd.module.exc.ComponentAlterQuotedException;
+import com.wk.cd.module.exc.ComponentIsQuotedException;
+import com.wk.cd.module.exc.ComponentNotExistException;
+import com.wk.cd.module.impl.DefaultEnv;
+import com.wk.cd.module.info.InstanceInfo;
+import com.wk.cd.module.info.MoModuleQuoteInfo;
+import com.wk.cd.module.info.ModuleBasicInfo;
+import com.wk.cd.module.info.ParamInfo;
+import com.wk.cd.module.xml.XmlPathUtil;
+//import com.wk.cd.release.bs.bean.CompDeployBean;
+import com.wk.cd.system.dt.info.DtSourceInfo;
+import com.wk.cd.system.us.service.UsGetUserInfoService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.FileUtil;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class ModuleCommonService {
+
+	@Inject
+	private MoModuleDaoService moModuleDaoService;
+
+	@Inject
+	private MoModuleQuoteDaoService moduleQuoteDaoService;
+
+	@Inject
+	private UsGetUserInfoService usGetUserInfoService;
+	private static final Log logger = LogFactory.getLog();
+
+	public void checkCompIdIsExist(String comp_id, MODULE_TYPE comp_type) {
+		if (this.moModuleDaoService.countModuleById(comp_id) <= 0)
+			throw new ComponentNotExistException().addScene("COMPTYPE",
+					comp_type.getCname()).addScene("COMPID", comp_id);
+	}
+
+	public boolean assertCompIdIsExist(String comp_id) {
+		if (Assert.isEmpty(comp_id)) {
+			return false;
+		}
+		return this.moModuleDaoService.countModuleById(comp_id) > 0;
+	}
+
+	public void checkComponentNotQuote(String comp_id, MODULE_TYPE comp_type) {
+		if (this.moduleQuoteDaoService.countModuleByQuoteId(comp_id) > 0)
+			throw new ComponentIsQuotedException().addScene("COMPTYPE",
+					comp_type.getCname()).addScene("COMPID", comp_id);
+	}
+
+	public boolean checkCompBeQuote(String comp_id) {
+		if (this.moduleQuoteDaoService.countModuleByQuoteId(comp_id) > 0) {
+			return true;
+		}
+		return false;
+	}
+
+	public void checkAlterComponentValid(String comp_id, MODULE_TYPE comp_type) {
+		if (this.moduleQuoteDaoService.countModuleByQuoteId(comp_id) > 0)
+			throw new ComponentAlterQuotedException().addScene("COMPTYPE",
+					comp_type.getCname()).addScene("COMPID", comp_id);
+	}
+
+	public InstanceInfo generateInst(String id, InstanceInfo inst) {
+		logger.debug("生成[{}]的执行实例文件", id);
+		InstanceInfo inst_new = new InstanceInfo(id, inst.getTemplate(),
+				inst.getEnv());
+		inst_new.setParams(inst.getParams());
+		inst_new.addModuleInfos(inst.getModuleInfos());
+		return inst_new;
+	}
+
+	public void deleteComponent(String comp_id, MODULE_TYPE comp_type) {
+		logger.info("删除组件信息表记录：COMID=[" + comp_id + "]");
+		moModuleDaoService.deleteModuleInfoByKey(comp_id);
+
+		logger.info("删除组件信息关联表记录：COMID=[" + comp_id + "]");
+		moduleQuoteDaoService.deleteModuleQuoteById(comp_id);
+
+		deleteCompFile(comp_id, comp_type);
+	}
+
+	public void deleteCompFile(String comp_id, MODULE_TYPE comp_type) {
+		String file_path = XmlPathUtil.getPathByCompId(comp_id, comp_type);
+		if (!Assert.isEmpty(file_path)) {
+			File file = new File(file_path);
+			if (file.exists()) {
+				logger.info("删除" + comp_type.getCname() + "文件：[" + file_path
+						+ "]");
+				FileUtil.deleteFile(file);
+			}
+		}
+	}
+
+	public Result executeToEnd(InstanceInfo inst) {
+		String log_path = XmlPathUtil.getTestPacakageDirectory() + "/"
+				+ inst.getInstanceId() + ".txt";
+		File log_file = new File(log_path);
+		if (log_file.exists()) {
+			log_file.delete();
+		}
+		logger.debug("当前测试生成实例的存放路径[{}]", log_path);
+		int count = inst.getModuleCount();
+		Process proc = ProcessManager.instance.buildProcess(inst);
+		proc.addInterceptor(new TextLogInterceptor(log_path, count, "组件测试"));
+		Result result = null;
+
+		for (int stage = 0; stage < count; stage++) {
+			result = proc.run(stage);
+			CMD_STATUS cmd_status = result.getStatus();
+			if (!CMD_STATUS.SUCCEED.equals(cmd_status)) {
+				break;
+			}
+		}
+		return result;
+	}
+
+	// public DefaultEnv getEnvByParam(ParamInfo[] param_infos)
+	// {
+	// DefaultEnv env = new DefaultEnv();
+	// if (Assert.isEmpty(param_infos)) {
+	// return env;
+	// }
+	// for (ParamInfo info : param_infos) {
+	// logger.debug("当前处理的参数的名[{}],参数值[{}]", info.getParam_name(),
+	// info.getParam_value());
+	// Integer phase_no = info.getPhase_no();
+	// String value = info.getParam_value();
+	//
+	// if (((phase_no == null) || (phase_no.intValue() <= 0)) &&
+	// (!Assert.isEmpty(value)))
+	// {
+	// String[] values = null;
+	// if (value.contains("-,-")) {
+	// values = value.split("-,-");
+	// } else {
+	// values = new String[1];
+	// values[0] = value;
+	// }
+	// logger.debug("当前处理参数的值[{}]", Arrays.toString(values));
+	// Param sub_p = new Param(info, values);
+	// if (Assert.isEmpty(info.getParam_group()))
+	// env.setParam(info.getParam_name(), sub_p);
+	// else
+	// env.setParam(info.getParam_group() + "." + info.getParam_name(), sub_p);
+	// }
+	// }
+	// return env;
+	// }
+
+	public List<ParamInfo> getParamInfoInCmd(String[] cmds) {
+		List<String> param_list = new ArrayList<String>();
+		String cmd = Arrays.toString(cmds);
+
+		String match_group = "\\$\\{\\s*\\w+\\.\\w+\\s*\\}";
+		param_list.addAll(matchParam(match_group, cmd));
+
+		String match_single = "\\$\\{\\s*\\w+\\s*\\}";
+		param_list.addAll(matchParam(match_single, cmd));
+		return mergeParam(param_list);
+	}
+
+	private List<String> matchParam(String match, String cmd) {
+		List<String> param_list = new ArrayList<String>();
+		Pattern regex_group = Pattern.compile(match);
+		Matcher m_group = regex_group.matcher(cmd);
+
+		while (m_group.find()) {
+			String param = m_group.group().substring(2,
+					m_group.group().length() - 1);
+			if (!param_list.contains(param.trim())) {
+				param_list.add(param.trim());
+			}
+		}
+		return param_list;
+	}
+
+	private List<ParamInfo> mergeParam(List<String> list) {
+		List<ParamInfo> params = new ArrayList<ParamInfo>();
+		if (!Assert.isEmpty(list)) {
+			for (String param : list) {
+				if (param.contains(".")) {
+					ParamInfo info = new ParamInfo();
+					String[] strs = param.split("\\.");
+					info.setParam_name(strs[1]);
+					info.setParam_group(strs[0]);
+					params.add(info);
+				} else {
+					ParamInfo info = new ParamInfo();
+					info.setParam_name(param);
+					params.add(info);
+				}
+			}
+		}
+		return params;
+	}
+
+	public void saveCompQuoteMsg(List<ModuleBasicInfo> module_list,
+			String comp_id, MODULE_TYPE type) {
+		List<MoModuleQuoteInfo> quote_list = new ArrayList<MoModuleQuoteInfo>();
+		List<String> id_list = new ArrayList<String>();
+		for (ModuleBasicInfo module : module_list) {
+			if ((!Assert.isEmpty(module.getId()))
+					&& (!id_list.contains(module.getId()))) {
+				MoModuleQuoteInfo quote_info = new MoModuleQuoteInfo();
+				quote_info.setModule_id(comp_id);
+				quote_info.setQuote_module_id(module.getId());
+				quote_info.setQuote_module_type(type);
+				quote_list.add(quote_info);
+				id_list.add(module.getId());
+			}
+		}
+		logger.debug("更新组件引用表信息：COMPID=[" + comp_id + "]");
+		this.moduleQuoteDaoService.deleteModuleQuoteById(comp_id);
+		this.moduleQuoteDaoService.insertListInfo(quote_list);
+	}
+
+	public List<String> getSocNameListByType(List<DtSourceInfo> soc_list,
+			IMPL_TYPE type) {
+		List<String> list = new ArrayList<String>();
+		if (Assert.isEmpty(soc_list)) {
+			return list;
+		}
+		for (DtSourceInfo info : soc_list) {
+			PROTOCOL_TYPE pt = info.getProtocol_type();
+			String name = info.getSoc_name();
+			if (IMPL_TYPE.FTP.equals(type)) {
+				if ((PROTOCOL_TYPE.PLT_FTP.equals(pt))
+						|| (PROTOCOL_TYPE.SFTP.equals(pt)))
+					list.add(name);
+			} else if (IMPL_TYPE.SVN.equals(type)) {
+				if (PROTOCOL_TYPE.SVN.equals(pt))
+					list.add(name);
+			} else if (IMPL_TYPE.SHELL.equals(type)) {
+				if ((PROTOCOL_TYPE.SSH.equals(pt))
+						|| (PROTOCOL_TYPE.TELNET.equals(pt)))
+					list.add(name);
+			} else if (IMPL_TYPE.WAS.equals(type)) {
+				if (PROTOCOL_TYPE.WAS.equals(pt))
+					list.add(name);
+			} else if ((IMPL_TYPE.WEBLOGIC.equals(type))
+					&& (PROTOCOL_TYPE.WEBLOGIC.equals(pt))) {
+				list.add(name);
+			}
+		}
+
+		return list;
+	}
+
+	public int[] generateIntArray(String int_string) {
+		int[] int_array = null;
+		if (!Assert.isEmpty(int_string)) {
+			String[] str_array = int_string.split("\\|");
+			int_array = new int[str_array.length];
+			for (int i = 0; i < str_array.length; i++) {
+				int_array[i] = Integer.parseInt(str_array[i]);
+			}
+		}
+		return int_array;
+	}
+
+	public String generateIntString(int[] int_array) {
+		StringBuilder sb = new StringBuilder("");
+		if (int_array != null) {
+			for (int num : int_array) {
+				sb.append(num);
+				sb.append("|");
+			}
+		}
+		return sb.toString();
+	}
+
+	// public List<CompDeployBean> classifyCompDeploy(List<MoModuleInfo>
+	// moModuleInfos, List<CoNodeModuleInfo> coNodeModuleInfos) {
+	// List<CompDeployBean> compDeployBeanList = new ArrayList<E>();
+	// if (!Assert.isEmpty(moModuleInfos)) {
+	// for (MoModuleInfo moModuleInfo : moModuleInfos) {
+	// CompDeployBean compDeployBean = new CompDeployBean();
+	// compDeployBean.setIs_deploy(0);
+	// compDeployBean.setModule_cn_name(moModuleInfo.getModule_cn_name());
+	// compDeployBean.setModule_id(moModuleInfo.getModule_id());
+	// compDeployBeanList.add(compDeployBean);
+	// }
+	// }
+	// if (!Assert.isEmpty(coNodeModuleInfos))
+	// {
+	// Iterator localIterator2;
+	// for (??? = compDeployBeanList.iterator(); ???.hasNext();
+	// localIterator2.hasNext())
+	// {
+	// CompDeployBean compDeployBean = (CompDeployBean)???.next();
+	// localIterator2 = coNodeModuleInfos.iterator(); continue; CoNodeModuleInfo
+	// coNodeModuleInfo = (CoNodeModuleInfo)localIterator2.next();
+	// if
+	// (compDeployBean.getModule_id().equals(coNodeModuleInfo.getModule_id())) {
+	// compDeployBean.setIs_deploy(1);
+	// }
+	// }
+	// }
+	//
+	// return compDeployBeanList;
+	// }
+	//
+	// public List<CompDeployBean> classifyCompDeploy(List<CoNodeModuleInfo>
+	// coNodeModuleInfos)
+	// {
+	// List compDeployBeanList = new ArrayList();
+	// MoModuleInfo info = null;
+	// if (!Assert.isEmpty(coNodeModuleInfos)) {
+	// for (CoNodeModuleInfo coNodeModuleInfo : coNodeModuleInfos) {
+	// CompDeployBean compDeployBean = new CompDeployBean();
+	// compDeployBean.setIs_deploy(1);
+	// info = new MoModuleInfo();
+	// info.setModule_id(coNodeModuleInfo.getModule_id());
+	// MoModuleInfo temp = this.moModuleDaoService.getInfoByKey(info);
+	// compDeployBean.setModule_cn_name(temp.getModule_cn_name());
+	// compDeployBean.setModule_id(coNodeModuleInfo.getModule_id());
+	// compDeployBeanList.add(compDeployBean);
+	// }
+	// }
+	//
+	// return compDeployBeanList;
+	// }
+}

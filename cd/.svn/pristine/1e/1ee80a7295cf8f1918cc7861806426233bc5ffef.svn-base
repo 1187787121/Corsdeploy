@@ -1,0 +1,559 @@
+/**
+ * Title: PublistTaskService.java
+ * File Description: 
+ * @copyright: 2016
+ * @company: CORSWORK
+ * @author: zhangj
+ * @version: 1.0
+ * @date: 2016年12月6日
+ */
+package com.wk.cd.build.ea.service;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import org.apache.commons.lang.exception.ExceptionUtils;
+
+import com.wk.cd.build.ea.bean.PhasePublishBean;
+import com.wk.cd.build.ea.bean.SrvSocBean;
+import com.wk.cd.build.ea.dao.BuildStepDaoService;
+import com.wk.cd.build.ea.dao.EnvBuildTaskDaoService;
+import com.wk.cd.build.ea.dao.EnvTaskDaoService;
+import com.wk.cd.build.ea.dao.InstanceExeDaoService;
+import com.wk.cd.build.ea.dao.PgReleStepDaoService;
+import com.wk.cd.build.ea.dao.UuParamDaoService;
+import com.wk.cd.build.ea.dao.UuSocDaoService;
+import com.wk.cd.build.ea.info.BuildStepInfo;
+import com.wk.cd.build.ea.info.EnvBuildTaskInfo;
+import com.wk.cd.build.ea.info.EnvTaskInfo;
+import com.wk.cd.build.ea.info.InstanceExeInfo;
+import com.wk.cd.build.ea.info.UuParamInfo;
+import com.wk.cd.build.ea.info.UuSocInfo;
+import com.wk.cd.common.cm.dao.CmSeqDaoService;
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.CMD_STATUS;
+import com.wk.cd.enu.EXE_STATUS;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.enu.PARAM_TYPE;
+import com.wk.cd.module.Process;
+import com.wk.cd.module.Result;
+import com.wk.cd.module.info.InstanceInfo;
+import com.wk.cd.module.info.ModuleInfo;
+import com.wk.cd.module.info.ModuleSourceInfo;
+import com.wk.cd.module.info.ParamInfo;
+import com.wk.cd.module.info.TemplateInfo;
+import com.wk.cd.module.service.InstanceManager;
+import com.wk.cd.module.service.TemplateService;
+import com.wk.cd.module.xml.XmlReader;
+import com.wk.cd.module.xml.XmlSystemParamUtils;
+import com.wk.cd.module.xml.XmlWriter;
+import com.wk.cd.system.dt.service.DtSocService;
+import com.wk.lang.Inject;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+import com.wk.util.JaDateTime;
+
+/**
+ * Class Description:
+ * @author Zhangj
+ */
+public class PublishTaskService {
+
+	@Inject
+	private TemplateService templateService;
+	@Inject
+	private PgReleStepDaoService pgReleStepDaoService;
+	@Inject
+	private DtSocService dtSocService;
+	@Inject
+	private EnvTaskDaoService envTaskDaoService;
+	@Inject
+	private EnvProgPublicService envProgPublicService;
+	@Inject
+	private EnvTaskPublicService envTaskPublicService;
+	@Inject
+	private UuParamDaoService uuParamDaoService;
+	@Inject
+	private BuildStepDaoService buildStepDaoService;
+	@Inject
+	private UuSocDaoService uuSocDaoService;
+	@Inject
+	private EnvBuildTaskDaoService envBuildTaskDaoService;
+	@Inject
+	private CmSeqDaoService cmsvc;
+	@Inject
+	private InstanceExeDaoService instanceExeDaoService;
+	@Inject
+	InstanceManager instanceManager;
+	private static final Log logger = LogFactory.getLog();
+
+	/**
+	 * Description: 生成执行实例
+	 * @param prog_id
+	 * @param template_name
+	 * @param work_id
+	 * @param ver_num
+	 * @return
+	 */
+	public InstanceInfo generateInstanceById(String prog_id, String template_name, String param_uuid, String work_id, String ver_num) {
+		List<UuParamInfo> param_list = uuParamDaoService.getInfoByUuid(param_uuid);
+		List<UuParamInfo> system_params = getInnerParams(work_id, prog_id, ver_num);
+		logger.debug("方案实例开始生成:方案编号[{}],模板名[{}]", prog_id, template_name);
+		List<PhasePublishBean> phase_list = envProgPublicService.getPhasePublicBean(template_name, prog_id);
+		InstanceInfo inst = generateInstance(param_list, phase_list, system_params, template_name);
+		return inst;
+	}
+
+	/**
+	 * Description: 生成实例 这个生成实例包含了 替换普通参数中的系统参数。 比如命令 cd ${upload}
+	 * 其中参数为upload，这个参数的值为“cv/upload/${task_no}”,这里参数值里面的task_no会被替换
+	 * @param phase_list
+	 * @param param_list
+	 * @param system_params
+	 * @param template_name
+	 * @return
+	 */
+	public InstanceInfo generateInstance(List<UuParamInfo> param_list, List<PhasePublishBean> phase_list, List<UuParamInfo> system_params, String template_name) {
+		// 设置env中的参数
+		TemplateInfo temp_info = templateService.getInfoByTemplateName(template_name);
+		return generateInstance(temp_info, param_list, phase_list, system_params);
+	}
+
+	/**
+	 * Description:其他的生成实例
+	 * @param template_info
+	 * @param param_list
+	 * @param phase_list
+	 * @param system_params 系统参数可以为空
+	 * @return
+	 */
+	public InstanceInfo generateInstance(TemplateInfo template_info, List<UuParamInfo> param_list, List<PhasePublishBean> phase_list, List<UuParamInfo> system_params) {
+		List<ParamInfo> params = XmlSystemParamUtils.replaceParamValue(UuParamInfo.copyToParamInfoList(param_list), UuParamInfo.copyToParamInfoList(system_params));
+		ParamInfo[] param_rele = paramPhase(template_info.getParams());
+		if (!Assert.isEmpty(param_rele)) {
+			template_info.setParams(param_rele);
+		}
+		ParamInfo[] param_all = paramPhase(template_info.getAll_params());
+		if (!Assert.isEmpty(param_all)) {
+			template_info.setAll_params(param_all);
+		}
+		InstanceInfo inst = instanceManager.prepare(template_info, PhasePublishBean.copyList(phase_list), params.toArray(new ParamInfo[params.size()]));
+		return inst;
+	}
+
+	/**
+	 * Description:生成构建实例-1
+	 * @param template_info
+	 * @param param_list
+	 * @param phase_list
+	 * @param system_params 系统参数可以为空
+	 * @return
+	 */
+	public InstanceInfo generateInteInstance(TemplateInfo template_info, List<UuParamInfo> param_list, List<PhasePublishBean> phase_list, List<UuParamInfo> system_params) {
+		List<ParamInfo> params = XmlSystemParamUtils.replaceParamValue(UuParamInfo.copyToParamInfoList(param_list), UuParamInfo.copyToParamInfoList(system_params));
+		ParamInfo[] param_rele = paramIntePhase(template_info.getParams());
+		if (!Assert.isEmpty(param_rele)) {
+			template_info.setParams(param_rele);
+		}
+		ParamInfo[] param_all = paramIntePhase(template_info.getAll_params());
+		if (!Assert.isEmpty(param_all)) {
+			template_info.setAll_params(param_all);
+		}
+		InstanceInfo inst = instanceManager.prepare(template_info, PhasePublishBean.copyList(phase_list), params.toArray(new ParamInfo[params.size()]));
+		return inst;
+	}
+
+	public void insertInstanceExe(InstanceInfo instance_info) {
+		List<ModuleInfo> list = instance_info.getModuleInfos();
+		String instance_id = instance_info.getInstanceId();
+		int index = 1;
+		List<InstanceExeInfo> infos = new ArrayList<InstanceExeInfo>();
+		XmlWriter.writerInstance(instance_info);
+		for (ModuleInfo mi : list) {
+			InstanceExeInfo info = new InstanceExeInfo();
+
+			info.setInstance_id(instance_id);
+			ModuleSourceInfo dsi = mi.getSource_info();
+			if (!Assert.isEmpty(dsi) && !Assert.isEmpty(dsi.getDt_source_info())) {
+				String soc_name = dsi.getDt_source_info().getSoc_name();
+				info.setSoc_name(soc_name);
+			}
+			info.setStep_bk_desc(mi.getCn_name());
+			info.setInst_bk_no(index++);
+			info.setExe_status(EXE_STATUS.PENDING);
+			info.setStart_bk_tm(JaDateTime.valueOf("1971-01-01 00:00:00"));
+			info.setEnd_bk_tm(JaDateTime.valueOf("1971-01-01 00:00:00"));
+			info.setTpl_bk_no(mi.getTemplate_phase_no());
+			infos.add(info);
+		}
+		instanceExeDaoService.insertListInfo(infos);
+	}
+
+	public InstanceInfo getInstanceByWorkId(String work_id, int exe_bk_no) {
+		// 获取执行实例
+		EnvTaskInfo env_task_info = envTaskDaoService.getInfoByKey(work_id);
+		String inst_id = env_task_info.getInstance_id();
+		logger.debug("读取实例Inst_id:[{}]", inst_id);
+		InstanceInfo inst_info = XmlReader.readInstance(inst_id);
+		int count = inst_info.getModuleCount();
+		logger.debug("阶段总数:[{}]", count);
+		if (exe_bk_no > count) {
+			throw new ArrayIndexOutOfBoundsException("阶段已经执行到末尾，不能再继续执行");
+		}
+		return inst_info;
+	}
+
+	/**
+	 * Description: 回退和一键执行中处理每个阶段执行 主要处理耗时
+	 * @param proc
+	 * @param work_id
+	 * @param phase_no
+	 * @param count
+	 * @return
+	 */
+	public boolean dealExecutePhase(Process proc, String work_id, String instance_id, int phase_no, int count, boolean skip_flag) {
+		long start_time = System.currentTimeMillis();
+		Result result = executePhase(proc, instance_id, phase_no, skip_flag);
+		long end_time = System.currentTimeMillis();
+		int time_used = (int) (end_time - start_time);
+		boolean flag = envTaskPublicService.updateEndStatus(result, phase_no, count, time_used, work_id, instance_id);
+		cmsvc.getSession().commitAndResume();
+		return flag;
+	}
+
+	/**
+	 * Description:阶段执行 发送命令
+	 * @param proc
+	 * @param work_id
+	 * @param phase_no
+	 * @return
+	 */
+	public Result executePhase(Process proc, String instance_id, int phase_no, boolean skip_flag) {
+		long start_time = System.currentTimeMillis();
+
+		instanceExeDaoService.updateExecuteStatus(EXE_STATUS.RUNNING, instance_id, phase_no);
+		cmsvc.getSession().commitAndResume();
+		logger.debug("当前执行[{}]第[{}]阶段，阶段从1开始计算", instance_id, phase_no);
+		Result result = null;
+		try {
+			if (skip_flag) {
+				result = proc.skip(phase_no - 1);
+			} else {
+				result = proc.run(phase_no - 1);
+			}
+			logger.debug("当前执行结果状态：+[{}]", result.getStatus().getCname());
+			logger.debug("当前执行信息:[{}]", result.getMsg());
+		} catch (Exception e) {
+			logger.debug("日志里面打出来的错：" + ExceptionUtils.getStackTrace(e));
+			result = new Result(CMD_STATUS.ERROR, e.getMessage(), start_time);
+		}
+		instanceExeDaoService.updateExecuteStartTime(JaDateTime.valueOf(result.getStart_time()), instance_id, phase_no);
+		return result;
+	}
+
+	/**
+	 * Description: 设定固定参数
+	 * @param task_no
+	 * @param prog_id
+	 * @param ver_no
+	 * @return
+	 */
+	public List<UuParamInfo> getInnerParams(String task_no, String prog_id, String ver_no) {
+		logger.debug("--------------getInnerParams begin-------------");
+		List<UuParamInfo> params = new ArrayList<UuParamInfo>();
+		envProgPublicService.checkProgIdIsNotExist(prog_id);
+		// 版本机相对根目录
+		// PgReleInfo pg_rele_info = pgReleDaoService.getInfoByKey(prog_id);
+		// String relative_path = pg_rele_info.getVer_bk_dir();
+		// PgReleParamInfo svn_relative_path = new PgReleParamInfo();
+		// svn_relative_path.setParam_name("svn_relative_path");
+		// svn_relative_path.setParam_value(relative_path);
+		// params.add(svn_relative_path);
+		// 目标版本号（路径）
+		UuParamInfo verno_path = new UuParamInfo();
+		verno_path.setParam_name("verno_path");
+		verno_path.setParam_value(ver_no);
+		params.add(verno_path);
+		// 任务编号
+		UuParamInfo task_no1 = new UuParamInfo();
+		task_no1.setParam_name("task_no");
+		task_no1.setParam_value(task_no);
+		params.add(task_no1);
+
+		return params;
+	}
+
+	/**
+	 * Description: 生成实例的时候所有的阶段号都是从0开始的，这里的模板里面的参数阶段号是从1开始的 ，需要把参数的阶段号减一
+	 * @param params
+	 * @return
+	 */
+	public ParamInfo[] paramPhase(ParamInfo[] params) {
+		List<ParamInfo> list = new ArrayList<ParamInfo>();
+		if (Assert.isEmpty(params)) {
+			return null;
+		}
+		for (ParamInfo info : params) {
+			if (info.getPhase_no() == null) {
+				list.add(info);
+			} else {
+				ParamInfo pi = ParamInfo.copy(info);
+				pi.setPhase_no(info.getPhase_no() - 1);
+				list.add(pi);
+			}
+		}
+		return list.toArray(new ParamInfo[list.size()]);
+	}
+
+	/**
+	 * Description: 生成实例的时候所有的阶段号都是从0开始的，这里的模板里面的参数阶段号是从1开始的 ，需要把参数的阶段号减一
+	 * @param params
+	 * @return
+	 */
+	public ParamInfo[] paramIntePhase(ParamInfo[] params) {
+		List<ParamInfo> list = new ArrayList<ParamInfo>();
+		if (Assert.isEmpty(params)) {
+			return null;
+		}
+		for (ParamInfo info : params) {
+			if (info.getPhase_no() == null) {
+				list.add(info);
+			} else {
+				ParamInfo pi = ParamInfo.copy(info);
+				pi.setPhase_no(info.getPhase_no() - 1);
+				list.add(pi);
+			}
+		}
+		return list.toArray(new ParamInfo[list.size()]);
+	}
+
+	/**
+	 * Description:删除构建模板相关信息
+	 */
+	public void deleteAllBuildTpInfo(String work_id) {
+		EnvBuildTaskInfo task_info = envBuildTaskDaoService.getInfoByKey(work_id);
+		String src_template_name = task_info.getTemplate_name();
+		String param_uuid = task_info.getTemplate_param_uuid();
+		// 删除模板参数
+		uuParamDaoService.deleteById(param_uuid);
+		// 删除模板UUID
+		envBuildTaskDaoService.updateBuildParamInfoByKey(src_template_name, "", work_id);
+		// 删除阶段基本信息
+		List<BuildStepInfo> build_step_list = buildStepDaoService.queryListInfoByIdAndTp(work_id, src_template_name);
+		if (!Assert.isEmpty(build_step_list)) {
+			for (BuildStepInfo build_step_info : build_step_list) {
+				String uuid = build_step_info.getSoc_uuid();
+				if (!Assert.isEmpty(uuid)) {
+					uuSocDaoService.deleteListByUU(uuid);
+				}
+			}
+			buildStepDaoService.deleteListByIdAndTp(work_id, src_template_name);
+		}
+	}
+
+	/**
+	 * Description: 保存构建阶段表的基本信息(先删后增)
+	 * @param inst
+	 * @param work_id
+	 */
+	public void saveBuildStep(PhasePublishBean phase, String work_id, String template_name) {
+		int phase_id = phase.getPhase_no() + 1;
+		logger.info("保存阶段信息:任务编号[{}], 阶段号[{}]", work_id, phase_id);
+
+		/**
+		 * 删除阶段基本信息
+		 */
+		BuildStepInfo build_step_info = buildStepDaoService.getInfoByKey(work_id, template_name, phase_id);
+		if (!Assert.isEmpty(build_step_info)) {
+			String uuid = build_step_info.getSoc_uuid();
+			if (!Assert.isEmpty(uuid)) {
+				uuSocDaoService.deleteListByUU(uuid);
+			}
+			buildStepDaoService.deleteListByIdAndTp(work_id, template_name, phase_id);
+		}
+
+		/**
+		 * 新增阶段基本信息
+		 */
+		List<UuSocInfo> uu_soc_list = new ArrayList<UuSocInfo>();
+		// 构建阶段信息
+		BuildStepInfo build_info = new BuildStepInfo();
+		build_info.setImpl_type(phase.getImpl_type());
+		build_info.setGen_yn_flag(phase.getGen_flag());
+		build_info.setWork_id(work_id);
+		build_info.setTemplate_name(template_name);
+		build_info.setPhase_bk_desc(phase.getCn_name());
+		build_info.setPhase_id(phase_id);
+		// 遍历执行数据源列表
+		SrvSocBean[] soc_array = phase.getSrv_soc();
+		if (!Assert.isEmpty(soc_array)) {
+			String soc_uuid = UUID.randomUUID().toString().replace("-", "");
+			build_info.setSoc_uuid(soc_uuid);
+			int soc_bk_seq = 1;
+			for (SrvSocBean soc_bean : soc_array) {
+				// 新增数据源关联表
+				UuSocInfo soc_info = new UuSocInfo();
+				soc_info.setSoc_uuid(soc_uuid);
+				soc_info.setSoc_bk_seq(soc_bk_seq);
+				soc_info.setExe_server_name(soc_bean.getExe_server_name());
+				soc_info.setExe_soc_name(soc_bean.getExe_soc_name());
+				// 若为SVN执行类别，则存入版本信息
+				if (IMPL_TYPE.SVN.equals(phase.getImpl_type()) || IMPL_TYPE.WEBLOGIC.equals(phase.getImpl_type()) || IMPL_TYPE.WAS.equals(phase.getImpl_type())) {
+					soc_info.setVer_server_name(soc_bean.getVer_server_name());
+					soc_info.setVer_soc_name(soc_bean.getVer_soc_name());
+				}
+				uu_soc_list.add(soc_info);
+				soc_bk_seq++;
+			}
+			uuSocDaoService.insertListInfo(uu_soc_list);
+		}
+		buildStepDaoService.insertInfo(build_info);
+	}
+
+	/**
+	 * Description: 生成阶段列表
+	 * @param work_id
+	 */
+	public List<PhasePublishBean> generatePhases(String work_id, String template_name) {
+		List<PhasePublishBean> phases = new ArrayList<PhasePublishBean>();
+		List<BuildStepInfo> step_list = buildStepDaoService.queryListInfoByIdAndTp(work_id, template_name);
+		// 遍历获取所有数据源关联表记录
+		for (BuildStepInfo info : step_list) {
+			PhasePublishBean bean = new PhasePublishBean();
+			bean.setCn_name(info.getPhase_bk_desc());
+			bean.setGen_flag(info.getGen_yn_flag());
+			bean.setImpl_type(info.getImpl_type());
+			bean.setPhase_no(info.getPhase_id());
+			String soc_uuid = info.getSoc_uuid();
+			List<UuSocInfo> soc_list = uuSocDaoService.queryListInfoByUU(soc_uuid);
+			if (!Assert.isEmpty(soc_list)) {
+				SrvSocBean[] srv_soc = new SrvSocBean[soc_list.size()];
+				for (int i = 0; i < soc_list.size(); i++) {
+					srv_soc[i] = new SrvSocBean();
+					srv_soc[i].setExe_soc_name(soc_list.get(i).getExe_soc_name());
+					srv_soc[i].setVer_soc_name(soc_list.get(i).getVer_soc_name());
+				}
+				bean.setSrv_soc(srv_soc);
+			}
+			phases.add(bean);
+		}
+		return phases;
+	}
+
+	/**
+	 * Description: 比较投产包参数有无变化
+	 * @param work_id
+	 * @param phases
+	 * @return
+	 */
+	public boolean comparePacParam(String work_id, List<UuParamInfo> param_list) {
+		// 初始化标志
+		boolean change_flag = true;
+		// 获取原投产包参数
+		EnvBuildTaskInfo task_info = envBuildTaskDaoService.getInfoByKey(work_id);
+		// 获取投产包参数
+		String param_uuid = task_info.getTemplate_param_uuid();
+		if (!Assert.isEmpty(param_uuid)) {
+			List<String> src_dpp_list = uuParamDaoService.getValueByKey(param_uuid);
+			List<String> now_dpp_list = new ArrayList<String>();
+			for (UuParamInfo info : param_list) {
+				if (PARAM_TYPE.PDDPARAM.equals(info.getParam_type()))
+					now_dpp_list.add(info.getParam_value());
+			}
+			// 若参数不一致，则返回false
+			for (String str : src_dpp_list) {
+				logger.debug("原投产包参数：" + str);
+				if (!now_dpp_list.contains(str)) {
+					change_flag = true;
+					break;
+				} else {
+					change_flag = false;
+				}
+			}
+			for (String str : now_dpp_list) {
+				logger.debug("现投产包参数：" + str);
+				if (!src_dpp_list.contains(str)) {
+					change_flag = true;
+					break;
+				} else {
+					change_flag = false;
+				}
+			}
+		}
+
+		return change_flag;
+	}
+
+	/**
+	 * 复制一个目录及其子目录、文件到另外一个目录
+	 * @param src
+	 * @param dest
+	 * @throws IOException
+	 */
+	public void copyFolder(File src, File dest) {
+		if (src.isDirectory()) {
+			if (!dest.exists()) {
+				dest.mkdirs();
+			}
+			String files[] = src.list();
+			for (String file : files) {
+				File srcFile = new File(src, file);
+				File destFile = new File(dest, file);
+				// 递归复制
+				copyFolder(srcFile, destFile);
+			}
+		} else {
+			InputStream in = null;
+			OutputStream out = null;
+			try {
+				in = new FileInputStream(src);
+				out = new FileOutputStream(dest);
+				byte[] buffer = new byte[1024];
+				int length;
+				while ((length = in.read(buffer)) > 0) {
+					out.write(buffer, 0, length);
+				}
+			} catch (Exception e) {
+				logger.error(e.getMessage());
+			} finally {
+				try {
+					if (!Assert.isEmpty(in)) {
+						in.close();
+					}
+					if (!Assert.isEmpty(out)) {
+						out.close();
+					}
+				} catch (IOException e) {
+					logger.error(e.getMessage());
+				}
+			}
+		}
+	}
+
+	/**
+	 * Description: 删除文件
+	 * @param f
+	 */
+	public void deleteAllFiles(File f) {
+		if (f.exists()) {
+			File[] files = f.listFiles();
+			if (files != null) {
+				for (File file : files)
+					if (file.isDirectory()) {
+						deleteAllFiles(file);
+						file.delete(); // 删除目录下的所有文件后，该目录变成了空目录，可直接删除
+					} else if (file.isFile()) {
+						file.delete();
+					}
+			}
+			f.delete(); // 删除最外层的目录
+		}
+	}
+}

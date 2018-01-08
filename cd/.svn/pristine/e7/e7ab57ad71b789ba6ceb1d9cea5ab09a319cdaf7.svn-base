@@ -1,0 +1,116 @@
+package com.wk.cd.module1.impl;
+
+import com.wk.cd.module1.Result;
+import com.wk.cd.module1.info.ModuleSourceInfo;
+import com.wk.cd.enu.CMD_STATUS;
+import com.wk.cd.enu.IMPL_TYPE;
+import com.wk.cd.module1.impl.MultiStepModule;
+import com.wk.cd.module1.impl.SVNModuleSession;
+import com.wk.cd.remote.bean.AsyncMsgBean;
+import com.wk.logging.Log;
+import com.wk.logging.LogFactory;
+
+/**
+ * SVN实现模块 功能包括：checkout, add, rm, commit, update Created by 姜志刚 on 2016/11/17.
+ */
+public class SVN
+		extends MultiStepModule {
+
+	private static final Log logger = LogFactory.getLog();
+
+	private final ModuleSourceInfo dt_info;
+	private SVNModuleSession sess;
+
+	public SVN(ModuleSourceInfo source_info, String[] cmds) {
+		super(cmds);
+		this.dt_info = source_info;
+	}
+
+	@Override
+	public Result stepinto(int step) {
+		long start_time = System.currentTimeMillis();
+		if (sess == null) {
+			try {
+				sess = new SVNModuleSession(dt_info, step_count);
+				sess.connect();
+			} catch (Throwable t) {
+				logger.error("连接数据源[{}]异常", dt_info.getDt_source_info().getSoc_name(), t);
+				return new Result(t, start_time);
+			}
+			if (ctx != null) {
+				ctx.bindSession(sess);
+			}
+		}
+
+		String cmd = cmds[step];
+		try {
+			String msg = sess.execCmd(cmd);
+			logger.debug("执行返回信息MSG:[{}]",msg);
+			return new Result(CMD_STATUS.SUCCEED, msg, start_time);
+		} catch (Throwable t) {
+			logger.error("执行SVN命令[{}]异常", cmd, t);
+			return new Result(CMD_STATUS.ERROR, t.getMessage(), start_time);
+		}
+	}
+
+	/**
+	 * Description:
+	 */
+	@Override
+	public void sessionClose() {
+		this.sess.disconnect();
+
+	}
+
+	/**
+	 * Description:
+	 */
+	@Override
+	public void interactRun(String remote_relative_dir) {
+		// TODO Auto-generated method stub
+
+	}
+
+	/**
+	 * Description:
+	 * @param cmd
+	 */
+	@Override
+	public void sendInteractCmd(String cmd, boolean sensitive_flag) {
+		// TODO Auto-generated method stub
+
+	}
+
+	/**
+	 * Description:
+	 * @return
+	 */
+	@Override
+	public AsyncMsgBean getInteractMsg() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	/**
+	 * Description:
+	 * @return
+	 */
+	@Override
+	public Result runModule(String remote_relative_dir) {
+		Result result = null;
+		for (int i = 0; i < this.cmds.length; i++) {
+			result = stepinto(i);
+		}
+		return result;
+	}
+
+	/**
+	 * Description:
+	 * @return
+	 */
+	@Override
+	public IMPL_TYPE getImplType() {
+		// TODO Auto-generated method stub
+		return IMPL_TYPE.SVN;
+	}
+}

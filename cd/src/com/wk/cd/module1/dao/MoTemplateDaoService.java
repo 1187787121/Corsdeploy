@@ -1,0 +1,106 @@
+package com.wk.cd.module1.dao;
+
+import java.util.List;
+
+import com.wk.cd.common.util.Assert;
+import com.wk.cd.enu.TEMPLATE_FORMATE;
+import com.wk.cd.enu.TEMPLATE_TYPE;
+import com.wk.cd.module1.info.MoTemplateInfo;
+import com.wk.cd.enu.ORDER_TYPE;
+import com.wk.lang.Inject;
+import com.wk.util.StringUtil;
+
+public class MoTemplateDaoService {
+
+	@Inject
+	private MoTemplateDao dao;
+
+	public MoTemplateInfo getInfoByKey(String template_name) {
+		return dao.get(template_name);
+	}
+
+	public MoTemplateInfo getInfoByKeyForUpdate(MoTemplateInfo info) {
+		return dao.getForUpdate(info);
+	}
+
+	public int insertInfo(MoTemplateInfo info) {
+		return dao.insert(info);
+	}
+
+	public int insertListInfo(List<MoTemplateInfo> infos) {
+		return dao.insert(infos);
+	}
+
+	public int deleteTemplate(MoTemplateInfo info) {
+		return dao.delete(info);
+	}
+
+	public List<String> queryAllTemplateName() {
+		return dao.queryAllTemplateName();
+	}
+
+	public int updateTmplate(String tp_class_name, String script_file_path,
+			String template_name) {
+		return dao.updateTemplate(tp_class_name, script_file_path,
+				template_name);
+	}
+
+	public int countByTemplateName(String template_name) {
+		return dao.countByTemplateName(template_name);
+	}
+
+	public List<MoTemplateInfo> pageAllTemplate(String order_col_name,
+			ORDER_TYPE order_type, int start_recd, int limit_recd) {
+		if (!Assert.isEmpty(order_col_name)) {
+			order_col_name = order_col_name.replace(" ", "");
+		}
+		
+		if ("default".equals(order_col_name)
+				|| StringUtil.isEmpty(order_col_name))
+			return dao.pageAllTemplate("CRT_BK_DATE " + ORDER_TYPE.DESC.getName()
+							+ ",CRT_BK_TIME", ORDER_TYPE.DESC.getName(),
+							start_recd, limit_recd);
+		if ("CRT_BK_DATE,CRT_BK_TIME".equalsIgnoreCase(order_col_name)) {
+			return dao.pageAllTemplate( "CRT_BK_DATE " + order_type.getName() + ",CRT_BK_TIME", order_type.getName(), start_recd, limit_recd);
+		}
+		return dao.pageAllTemplate(order_col_name, order_type.getName(),start_recd, limit_recd);
+	}
+
+	public int countAllTemplate() {
+		return dao.countAllTemplate();
+	}
+
+	public int countByTpScriptFilePath(String script_file_path) {
+		return dao.countByScriptFilePath(script_file_path);
+	}
+
+	public List<String> queryTemplateNameByType(TEMPLATE_TYPE template_type) {
+		return dao.queryTemplateNameByType(template_type);
+	}
+
+	public int updateTmplateInfo(MoTemplateInfo info) {
+		return dao.update(info);
+	}
+
+	public List<String> queryTemplateNameByFormate(
+			TEMPLATE_FORMATE template_formate, TEMPLATE_TYPE template_type) {
+		return dao.queryTemplateNameByFormate(template_formate, template_type);
+	}
+
+	public int updateTemplateScriptPath(String script_file_path,
+			String template_name) {
+		return dao.updateTemplateScriptPath(script_file_path, template_name);
+	}
+
+	public String getRefModuleIdByName(String template_name) {
+		return dao.getRefModuleIdByName(template_name).trim();
+	}
+
+	public void updateTmplateMsg(TEMPLATE_FORMATE template_formate,
+			String reference_comp_id, String script_file_path,
+			String template_name) {
+		dao.updateTemplateScriptPath(script_file_path, template_name);
+		dao.updateTmplateInfoByKey(reference_comp_id, template_formate,
+				template_name);
+	}
+}
