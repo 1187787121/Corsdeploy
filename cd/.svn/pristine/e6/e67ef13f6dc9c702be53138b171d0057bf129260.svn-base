@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="DB2_执行存储过程" component_source="输入" id="COMP201712190149" impl_type="SHELL">
+<desc>执行DB2数据库中的存储过程</desc>
+<script type="default"><![CDATA[db2 connect to ${db_name};
+db2 "set serveroutput on";
+db2 "call ${procedure}${params}";
+db2 terminate;
+]]></script>
+<param cnname="数据库名" defult="" desc="" name="db_name" sensitive="false"/>
+<param cnname="存储过程名" defult="" desc="" name="procedure" sensitive="false"/>
+<param cnname="存储过程参数" defult="()" desc="" name="params" sensitive="false"/>
+</component>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_发布更新文件" component_source="输入" id="COMP201712220165" impl_type="SHELL">
+<desc>将发布包移动到指定目录解压替换</desc>
+<script type="default"><![CDATA[if [ -d '${project_name}' ]; then
+    echo '${project_name} is exist !';
+else
+    mkdir -p ${project_name};
+fi
+cp -rf ${upload_dir}/${package_name} ${project_name}
+cd ${project_name}
+tar xvf ${package_name}
+rm -rf ${package_name}
+]]></script>
+<param cnname="上传目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="发布包名" defult="" desc="" name="package_name" sensitive="false"/>
+<param cnname="项目名称" defult="" desc="" name="project_name" sensitive="false"/>
+</component>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_删除目录或文件" component_source="输入" id="COMP201712190142" impl_type="SHELL">
+<desc>强制删除目录或文件</desc>
+<script type="default"><![CDATA[rm -rf ${dir}
+]]></script>
+<param cnname="待删除文件/路径" defult="" desc="" name="dir" sensitive="false"/>
+</component>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_解压构建包" component_source="输入" id="COMP201712250171" impl_type="SHELL">
+<desc>将目标包解压到指定文件目录</desc>
+<script type="default"><![CDATA[if [ -d '${project_name}' ]; then echo 'Directory ${project_name} already exist !'; else mkdir -p ${project_name}; fi;
+tar xf ${relative_path}/${package_name} -C ./${project_name}
+]]></script>
+<param cnname="项目名" defult="" desc="" name="project_name" sensitive="false"/>
+<param cnname="目标包相对路径" defult="" desc="" name="relative_path" sensitive="false"/>
+<param cnname="目标包名" defult="" desc="" name="package_name" sensitive="false"/>
+</component>

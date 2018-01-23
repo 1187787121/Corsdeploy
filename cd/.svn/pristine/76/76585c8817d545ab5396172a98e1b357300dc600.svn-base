@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_上传发布包" component_source="输入" id="COMP201712190141" impl_type="SHELL">
+<desc>将发布包上传至目标机器的指定上传目录中。</desc>
+<script type="default"><![CDATA[lcd ${update_local_dir}
+cd ${upload_dir}
+bin
+put ${package_name}
+put ${package_name}.csum
+]]></script>
+<param cnname="本地目录" defult="" desc="" name="update_local_dir" sensitive="false"/>
+<param cnname="上传目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="发布包名" defult="" desc="" name="package_name" sensitive="false"/>
+</component>

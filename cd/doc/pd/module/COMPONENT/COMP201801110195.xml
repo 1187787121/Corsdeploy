@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="关闭agent脚本" component_source="输入" id="COMP201801110195" impl_type="SHELL">
+<desc>关闭agent脚本</desc>
+<script type="default"><![CDATA[pid=`ps -ef|grep '${process_keyword}' | grep -v "grep" | awk '{print $2}'`
+if [ -z "$pid" ]
+then
+    echo "no running"
+else
+    kill -9 $pid
+fi
+]]></script>
+<param cnname="" defult="" desc="" name="process_keyword" sensitive="false"/>
+</component>

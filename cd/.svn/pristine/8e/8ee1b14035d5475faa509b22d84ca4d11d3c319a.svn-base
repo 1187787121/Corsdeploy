@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_替换发布文件" component_source="输入" id="COMP201712190137" impl_type="SHELL">
+<desc>解压发布包至用户根路径。</desc>
+<script type="default"><![CDATA[rm -rf ${delete_files}
+tar xvf ${upload_dir}/${package_name}
+]]></script>
+<param cnname="待删除文件/目录" defult="" desc="" name="delete_files" sensitive="false"/>
+<param cnname="上传目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="发布包名" defult="" desc="" name="package_name" sensitive="false"/>
+</component>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_备份发布文件" component_source="输入" id="COMP201712190138" impl_type="SHELL">
+<desc>根据发布文件清单将文件备份至备份目录下。首次备份文件名末尾不带日期，回退时会恢复首次备份的文件。</desc>
+<script type="default"><![CDATA[dateTime=`date '+%Y%m%d%H%M%S'`;
+bakFile=${backup_dir}/${project_name}.tar;
+if [ -f "$bakFile" ]; then
+    bakFile=${backup_dir}/${project_name}$dateTime.tar;
+fi
+touch ${backup_dir}/new_file.list;
+for file in `cat ${upload_dir}/${project_name}.list`; do
+    if [ -f $file ]; then
+        if [ ! -f "$bakFile" ]; then
+            tar -cvf $bakFile $file;
+        else
+            tar -rvf $bakFile $file;
+        fi
+    elif [ ! -e $file ]; then
+    	echo $file >> ${backup_dir}/new_file.list;
+    fi
+done
+for file in ${delete_files}; do
+    if [ -f $file ]; then
+        if [ ! -f "$bakFile" ]; then
+            tar -cvf $bakFile $file;
+        else
+            tar -rvf $bakFile $file;
+        fi
+    fi
+done
+]]></script>
+<param cnname="备份目录" defult="./upload" desc="" name="backup_dir" sensitive="false"/>
+<param cnname="项目名称" defult="" desc="" name="project_name" sensitive="false"/>
+<param cnname="上传目录" defult="./backup" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="待删除文件" defult="" desc="" name="delete_files" sensitive="false"/>
+</component>

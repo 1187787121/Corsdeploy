@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="bat_SVN检出文件" component_source="输入" id="COMP201801100194" impl_type="SHELL">
+<desc>bat_SVN检出文件</desc>
+<script type="default"><![CDATA[svn co ${relative_path} ${dir}
+]]></script>
+<param cnname="" defult="" desc="" name="relative_path" sensitive="false"/>
+<param cnname="" defult="" desc="" name="dir" sensitive="false"/>
+</component>

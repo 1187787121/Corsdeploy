@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_生成发布包内容清单" component_source="输入" id="COMP201712190140" impl_type="SHELL">
+<desc>生成tar包内部文件的清单文件，作为后续发布文件备份的依据。</desc>
+<script type="default"><![CDATA[cd ${upload_dir};
+rm -f ${project_name}.list;
+tar tf ${package_name} >> ${project_name}.list;
+if [ -d '${project_name}' ]; then
+    echo '${project_name} is find !';
+else
+    mv ${project_name}.list temp.list;
+    sed 's/^/${project_name}\//g' temp.list > ${project_name}.list;
+fi
+]]></script>
+<param cnname="上传目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="项目名称" defult="" desc="" name="project_name" sensitive="false"/>
+<param cnname="发布包名" defult="" desc="" name="package_name" sensitive="false"/>
+</component>

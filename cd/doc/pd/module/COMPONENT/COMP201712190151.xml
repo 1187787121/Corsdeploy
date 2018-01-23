@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="DB2_执行SQL文件" component_source="输入" id="COMP201712190151" impl_type="SHELL">
+<desc>在DB2数据库中执行SQL文件。</desc>
+<script type="default"><![CDATA[db2 connect to ${db_name};
+echo '---------------- start execute ${sql_file} ------------------' >> ${backup_dir}/sql.log;
+db2 -stvf ${sql_file} >>  ${backup_dir}/sql.log;
+echo '----------------- end execute ${sql_file} -------------------' >> ${backup_dir}/sql.log;
+db2 terminate;
+]]></script>
+<param cnname="数据库名" defult="" desc="" name="db_name" sensitive="false"/>
+<param cnname="待执行的SQL文件" defult="" desc="" name="sql_file" sensitive="false"/>
+<param cnname="备份目录" defult="" desc="" name="backup_dir" sensitive="false"/>
+</component>

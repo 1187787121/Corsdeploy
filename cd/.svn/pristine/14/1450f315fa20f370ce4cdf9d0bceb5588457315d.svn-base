@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="DB2_执行SQL语句" component_source="输入" id="COMP201712190148" impl_type="SHELL">
+<desc>在DB2数据库中执行SQL语句。</desc>
+<script type="default"><![CDATA[db2 connect to ${db_name};
+db2 "${sql}";
+db2 terminate;
+]]></script>
+<param cnname="数据库名称" defult="" desc="" name="db_name" sensitive="false"/>
+<param cnname="待执行SQL" defult="" desc="" name="sql" sensitive="false"/>
+</component>

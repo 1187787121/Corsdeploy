@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<template bk_desc="环境发布专用模板" cnname="xp_fbmoban1" id="COMP201712250168" template_type="投产模版">
+<operating_system>1|2</operating_system>
+<phase cnname="准备发布和备份目录" component="COMP201712190136" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="1">
+<desc>检查上传目录和备份目录是否存在，不存在则创建该目录。</desc>
+<script type="default"><![CDATA[if [ -d '${upload_dir}' ]; then
+	rm -rf ${upload_dir}/*;
+    echo 'Directory ${upload_dir} already exists !';
+else
+    mkdir -p ${upload_dir};
+fi
+if [ -d '${backup_dir}' ]; then
+    echo 'Directory ${backup_dir} already exists !';
+else
+    mkdir -p ${backup_dir};
+fi
+]]></script>
+<param cnname="上传目录" defult="./upload" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="备份目录" defult="./backup" desc="" name="backup_dir" sensitive="false"/>
+</phase>
+<phase cnname="SVN导出版本数据包" component="COMP201712250169" impl_type="SVN" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="2">
+<desc>从版本上导出目标文件到上传目录</desc>
+<script type="default"><![CDATA[export ${svn_path} ${relative_path}
+]]></script>
+<param cnname="svn版本目录" defult="" desc="" name="svn_path" sensitive="false"/>
+<param cnname="本地上传目录" defult="" desc="" name="relative_path" sensitive="false"/>
+<ref_param cnname="数据版本包目录" defult="" delete="false" desc="" hand="false" name="svn_path" param_type="项目参数" ref="svn_db_path" sensitive="false"/>
+<ref_param cnname="临时应用目录" defult="" delete="false" desc="" hand="false" name="relative_path" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase cnname="解压版本数据包" component="COMP201712190135" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="3">
+<desc>将指定发布包解压至上传目录，并修复文本文件的格式问题和脚本文件的权限问题。</desc>
+<script type="default"><![CDATA[cd ${upload_dir};
+tar xvf ${package_name};
+for text_file in `find . -name "*.sql" -o -name "*.sh" -o -name "*.txt" -o -name "*.list"`; do
+    cat $text_file|tr -d '\r' > $text_file.temp;
+    mv $text_file.temp $text_file;
+done
+for script_file in `find . -name '*.sh'`; do
+    chmod +x $script_file;
+done
+]]></script>
+<param cnname="临时应用目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="发布包名" defult="" desc="" name="package_name" sensitive="false"/>
+<ref_param cnname="数据包" defult="" delete="false" desc="" hand="false" name="package_name" param_type="项目参数" ref="db_apk" sensitive="false"/>
+</phase>
+<phase cnname="数据库备份执行" component="COMP201712190147" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="4">
+<desc>执行备份脚本，根据数据库更新包中的表清单文件backupTable.list对表进行备份。</desc>
+<script type="default"><![CDATA[sh ${upload_dir}/backup.sh ${backup_dir};
+]]></script>
+<param cnname="上传目录" defult="./upload" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="备份目录" defult="./backup" desc="" name="backup_dir" sensitive="false"/>
+</phase>
+<phase cnname="SVN导出发布应用包" component="COMP201712250169" impl_type="SVN" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="5">
+<desc>从版本上导出目标文件到上传目录</desc>
+<script type="default"><![CDATA[export ${svn_path} ${relative_path}
+]]></script>
+<param cnname="svn版本目录" defult="" desc="" name="svn_path" sensitive="false"/>
+<param cnname="本地上传目录" defult="" desc="" name="relative_path" sensitive="false"/>
+<ref_param cnname="应用版本包目录" defult="" delete="false" desc="" hand="false" name="svn_path" param_type="项目参数" ref="svn_app_path" sensitive="false"/>
+<ref_param cnname="临时应用目录" defult="" delete="false" desc="" hand="false" name="relative_path" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase cnname="解压发布应用包" component="COMP201712190135" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="6">
+<desc>将指定发布包解压至上传目录，并修复文本文件的格式问题和脚本文件的权限问题。</desc>
+<script type="default"><![CDATA[cd ${upload_dir};
+tar xvf ${package_name};
+for text_file in `find . -name "*.sql" -o -name "*.sh" -o -name "*.txt" -o -name "*.list"`; do
+    cat $text_file|tr -d '\r' > $text_file.temp;
+    mv $text_file.temp $text_file;
+done
+for script_file in `find . -name '*.sh'`; do
+    chmod +x $script_file;
+done
+]]></script>
+<param cnname="临时应用目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="发布包名" defult="" desc="" name="package_name" sensitive="false"/>
+<ref_param cnname="应用包" defult="" delete="false" desc="" hand="false" name="package_name" param_type="项目参数" ref="app_apk" sensitive="false"/>
+</phase>
+<phase cnname="生成发布包内容清单" component="COMP201712190140" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="7">
+<desc>生成tar包内部文件的清单文件，作为后续发布文件备份的依据。</desc>
+<script type="default"><![CDATA[cd ${upload_dir};
+rm -f ${project_name}.list;
+tar tf ${package_name} >> ${project_name}.list;
+if [ -d '${project_name}' ]; then
+    echo '${project_name} is find !';
+else
+    mv ${project_name}.list temp.list;
+    sed 's/^/${project_name}\//g' temp.list > ${project_name}.list;
+fi
+]]></script>
+<param cnname="上传目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="项目名称" defult="" desc="" name="project_name" sensitive="false"/>
+<param cnname="发布包名" defult="" desc="" name="package_name" sensitive="false"/>
+<ref_param cnname="应用包" defult="" delete="false" desc="" hand="false" name="package_name" param_type="项目参数" ref="app_apk" sensitive="false"/>
+</phase>
+<phase cnname="备份发布应用包文件" component="COMP201712190138" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="8">
+<desc>根据发布文件清单将文件备份至备份目录下。首次备份文件名末尾不带日期，回退时会恢复首次备份的文件。</desc>
+<script type="default"><![CDATA[dateTime=`date '+%Y%m%d%H%M%S'`;
+bakFile=${backup_dir}/${project_name}.tar;
+if [ -f "$bakFile" ]; then
+    bakFile=${backup_dir}/${project_name}$dateTime.tar;
+fi
+touch ${backup_dir}/new_file.list;
+for file in `cat ${upload_dir}/${project_name}.list`; do
+    if [ -f $file ]; then
+        if [ ! -f "$bakFile" ]; then
+            tar -cvf $bakFile $file;
+        else
+            tar -rvf $bakFile $file;
+        fi
+    elif [ ! -e $file ]; then
+    	echo $file >> ${backup_dir}/new_file.list;
+    fi
+done
+for file in ${delete_files}; do
+    if [ -f $file ]; then
+        if [ ! -f "$bakFile" ]; then
+            tar -cvf $bakFile $file;
+        else
+            tar -rvf $bakFile $file;
+        fi
+    fi
+done
+]]></script>
+<param cnname="备份目录" defult="./upload" desc="" name="backup_dir" sensitive="false"/>
+<param cnname="项目名称" defult="" desc="" name="project_name" sensitive="false"/>
+<param cnname="上传目录" defult="./backup" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="待删除文件" defult="" desc="" name="delete_files" sensitive="false"/>
+</phase>
+<phase cnname="执行系统服务停止脚本" component="COMP201712190134" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="9">
+<desc>切换到脚本路径，执行脚本文件</desc>
+<script type="default"><![CDATA[cd ${script_dir};
+chmod +x ${script};
+sh ${script};
+]]></script>
+<param cnname="脚本路径" defult="" desc="" name="script_dir" sensitive="false"/>
+<param cnname="脚本文件" defult="" desc="" name="script" sensitive="false"/>
+<ref_param cnname="服务停止脚本" defult="" delete="false" desc="" hand="false" name="script" param_type="项目参数" ref="server_stop" sensitive="false"/>
+<ref_param cnname="服务停止脚本目录" defult="" delete="false" desc="" hand="false" name="script_dir" param_type="项目参数" ref="server_stop_path" sensitive="false"/>
+</phase>
+<phase cnname="执行数据库更新脚本" component="COMP201712190152" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="10">
+<desc>执行更新脚本，调用数据库更新包中的update.sql对数据库进行更新操作。</desc>
+<script type="default"><![CDATA[cd ${upload_dir};
+sh update.sh ${backup_dir};
+]]></script>
+<param cnname="上传目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="备份目录" defult="" desc="" name="backup_dir" sensitive="false"/>
+</phase>
+<phase cnname="发布更新文件" component="COMP201712220165" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="11">
+<desc>将发布包移动到指定目录解压替换</desc>
+<script type="default"><![CDATA[if [ -d '${project_name}' ]; then
+    echo '${project_name} is exist !';
+else
+    mkdir -p ${project_name};
+fi
+cp -rf ${upload_dir}/${package_name} ${project_name}
+cd ${project_name}
+tar xvf ${package_name}
+rm -rf ${package_name}
+]]></script>
+<param cnname="上传目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="发布包名" defult="" desc="" name="package_name" sensitive="false"/>
+<param cnname="项目名称" defult="" desc="" name="project_name" sensitive="false"/>
+<ref_param cnname="应用包" defult="" delete="false" desc="" hand="false" name="package_name" param_type="项目参数" ref="app_apk" sensitive="false"/>
+</phase>
+<phase cnname="执行系统服务启动脚本" component="COMP201712190134" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="12">
+<desc>切换到脚本路径，执行脚本文件</desc>
+<script type="default"><![CDATA[cd ${script_dir};
+chmod +x ${script};
+sh ${script};
+]]></script>
+<param cnname="脚本路径" defult="" desc="" name="script_dir" sensitive="false"/>
+<param cnname="脚本文件" defult="" desc="" name="script" sensitive="false"/>
+<ref_param cnname="服务启动脚本" defult="" delete="false" desc="" hand="false" name="script" param_type="项目参数" ref="server_start" sensitive="false"/>
+<ref_param cnname="服务启动脚本目录" defult="" delete="false" desc="" hand="false" name="script_dir" param_type="项目参数" ref="server_start_path" sensitive="false"/>
+</phase>
+<phase cnname="清除此次发布临时目录/文件" component="COMP201712190142" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="13">
+<desc>强制删除目录或文件</desc>
+<script type="default"><![CDATA[rm -rf ${dir}
+]]></script>
+<param cnname="待删除文件/路径" defult="" desc="" name="dir" sensitive="false"/>
+<ref_param cnname="临时应用目录" defult="" delete="false" desc="" hand="false" name="dir" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase_param cnname="服务停止脚本" defult="stopCmsw.sh" delete="false" desc="" hand="true" modify="是" name="server_stop" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="项目名称" defult="" delete="false" desc="" hand="false" modify="是" name="project_name" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="应用包" defult="" delete="false" desc="" hand="true" modify="是" name="app_apk" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="待删除文件" defult="temp" delete="false" desc="" hand="false" modify="是" name="delete_files" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="临时应用目录" defult="./upload/${task_no}" delete="false" desc="" hand="false" modify="是" name="upload_dir" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="备份目录" defult="./backup/${task_no}" delete="false" desc="" hand="false" modify="是" name="backup_dir" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="服务启动脚本" defult="startCmsw.sh" delete="false" desc="" hand="true" modify="是" name="server_start" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="应用版本包目录" defult="/CorsManager/onlyforcd/${verno_path}/" delete="false" desc="" hand="true" modify="是" name="svn_app_path" param_type="投产包参数" ref="" sensitive="false"/>
+<phase_param cnname="服务停止脚本目录" defult="" delete="false" desc="" hand="true" modify="是" name="server_stop_path" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="数据包" defult="" delete="false" desc="" hand="true" modify="是" name="db_apk" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="数据版本包目录" defult="/CorsManager/onlyforcd/${verno_path}/" delete="false" desc="" hand="true" modify="是" name="svn_db_path" param_type="投产包参数" ref="" sensitive="false"/>
+<phase_param cnname="服务启动脚本目录" defult="" delete="false" desc="" hand="true" modify="是" name="server_start_path" param_type="项目参数" ref="" sensitive="false"/>
+</template>

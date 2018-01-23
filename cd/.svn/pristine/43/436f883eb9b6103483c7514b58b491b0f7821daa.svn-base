@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<template bk_desc="cd修改测试中的模板" cnname="publish_test" id="COMP201801130001" template_type="投产模版">
+<operating_system>1|2|3</operating_system>
+<phase cnname="基础组件_创建目录" component="COMP201712140109" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="1">
+<desc>创建目录，存在就输出存在信息，不存在就创建目录。</desc>
+<script type="default"><![CDATA[if [ -d '${dir}' ]; then echo 'Directory ${dir} already exist !'; else mkdir -p ${dir}; fi;
+]]></script>
+<param cnname="待创建目录" defult="" desc="" name="dir" sensitive="false"/>
+<ref_param cnname="TEST路径" defult="" delete="false" desc="" hand="false" name="dir" param_type="项目参数" ref="test_dir" sensitive="false"/>
+</phase>
+<phase cnname="base_svn检出文件" component="COMP201712190145" impl_type="SVN" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="2">
+<desc>从SVN检出目标文件到本地服务器</desc>
+<script type="default"><![CDATA[co ${svn_path} ${relative_path}
+]]></script>
+<param cnname="svn目标路径" defult="" desc="" name="svn_path" sensitive="false"/>
+<param cnname="本地相对路径" defult="" desc="" name="relative_path" sensitive="false"/>
+</phase>
+<phase cnname="基础组件_删除目录" component="COMP201712180129" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="3">
+<desc>基础组件_删除目录</desc>
+<script type="default"><![CDATA[rm -rf ${path}
+]]></script>
+<param cnname="路径/文件" defult="" desc="" name="path" sensitive="false"/>
+<ref_param cnname="TEST路径" defult="" delete="false" desc="" hand="false" name="path" param_type="项目参数" ref="test_dir" sensitive="false"/>
+</phase>
+<phase_param cnname="svn目标路径" defult="" delete="false" desc="" hand="false" modify="是" name="svn_path" param_type="投产包参数" ref="" sensitive="false"/>
+<phase_param cnname="TEST路径" defult="" delete="false" desc="" hand="true" modify="是" name="test_dir" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="本地相对路径" defult="" delete="false" desc="" hand="false" modify="是" name="relative_path" param_type="项目参数" ref="" sensitive="false"/>
+</template>

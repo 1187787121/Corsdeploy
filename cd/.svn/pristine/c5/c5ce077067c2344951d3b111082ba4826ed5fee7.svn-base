@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="bat_准备发布部署目录" component_source="输入" id="COMP201801100192" impl_type="SHELL">
+<desc>检查上传目录和备份目录是否存在，不存在则创建该目录。</desc>
+<script type="default"><![CDATA[@echo off
+set RTDIR=${root_dir}
+set UPDIR=${upload_dir}
+set BKDIR=${backup_dir}
+if exist %RTDIR% (
+	if exist %RTDIR%%UPDIR% (		
+		echo 目录%RTDIR%%UPDIR%已存在，无需创建
+	) else (
+        echo 创建%RTDIR%%UPDIR%
+		md %Pan%%UPDIR%
+	)
+	if exist %RTDIR%%BKDIR% (
+		echo 目录%RTDIR%%BKDIR%已存在无需创建		
+	) else (
+		echo 创建%RTDIR%%BKDIR%
+		md %RTDIR%%BKDIR%
+	)
+) else (
+	echo !!
+	echo !!执行失败，当前系统上不存在%RTDIR%盘
+	echo !!
+)
+echo 执行完毕
+]]></script>
+<param cnname="盘符根路径" defult="D:\" desc="" name="root_dir" sensitive="false"/>
+<param cnname="上传目录" defult="upload" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="备份目录" defult="backup" desc="" name="backup_dir" sensitive="false"/>
+</component>

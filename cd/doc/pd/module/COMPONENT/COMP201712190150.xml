@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="DB2_删除数据库" component_source="输入" id="COMP201712190150" impl_type="SHELL">
+<desc>删除指定数据库。</desc>
+<script type="default"><![CDATA[db2 force application all;
+db2 drop db ${db_name};
+]]></script>
+<param cnname="数据库名" defult="" desc="" name="db_name" sensitive="false"/>
+</component>

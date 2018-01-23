@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="DB2_执行更新脚本" component_source="输入" id="COMP201712190152" impl_type="SHELL">
+<desc>执行更新脚本，调用数据库更新包中的update.sql对数据库进行更新操作。</desc>
+<script type="default"><![CDATA[cd ${upload_dir};
+sh update.sh ${backup_dir};
+]]></script>
+<param cnname="上传目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="备份目录" defult="" desc="" name="backup_dir" sensitive="false"/>
+</component>

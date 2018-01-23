@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="aa" component_source="输入" id="COMP201712280001" impl_type="SHELL">
+<desc>aa</desc>
+<script type="default"><![CDATA[aaa
+]]></script>
+</component>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="DB2_创建数据库" component_source="输入" id="COMP201712190146" impl_type="SHELL">
+<desc>创建一个全新的DB2数据库。</desc>
+<script type="default"><![CDATA[db2 create db ${db_name} ${db_params};
+]]></script>
+<param cnname="数据库名" defult="" desc="" name="db_name" sensitive="false"/>
+<param cnname="数据库创建参数" defult="using codeset GBK territory zh_CN" desc="" name="db_params" sensitive="false"/>
+</component>

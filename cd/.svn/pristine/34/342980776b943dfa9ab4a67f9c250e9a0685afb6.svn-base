@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="DB2_执行恢复脚本" component_source="输入" id="COMP201712190153" impl_type="SHELL">
+<desc>执行恢复脚本，将备份的表数据恢复，同时执行restore.sql删除本次更新中新创建的DB2对象。</desc>
+<script type="default"><![CDATA[cd ${backup_dir};
+sh restore.sh;
+]]></script>
+<param cnname="备份目录" defult="" desc="" name="backup_dir" sensitive="false"/>
+</component>

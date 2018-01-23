@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_解压发布包" component_source="输入" id="COMP201712190135" impl_type="SHELL">
+<desc>将指定发布包解压至上传目录，并修复文本文件的格式问题和脚本文件的权限问题。</desc>
+<script type="default"><![CDATA[cd ${upload_dir};
+tar xvf ${package_name};
+for text_file in `find . -name "*.sql" -o -name "*.sh" -o -name "*.txt" -o -name "*.list"`; do
+    cat $text_file|tr -d '\r' > $text_file.temp;
+    mv $text_file.temp $text_file;
+done
+for script_file in `find . -name '*.sh'`; do
+    chmod +x $script_file;
+done
+]]></script>
+<param cnname="临时应用目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="发布包名" defult="" desc="" name="package_name" sensitive="false"/>
+</component>

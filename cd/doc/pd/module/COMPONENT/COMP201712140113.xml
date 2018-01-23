@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="下载文件" component_source="输入" id="COMP201712140113" impl_type="FTP">
+<desc>下载文件</desc>
+<script type="default"><![CDATA[lcd ${local_dir}
+cd ${upload_dir}
+bin
+get ${package_name}
+]]></script>
+<param cnname="本地路径" defult="" desc="" name="local_dir" sensitive="false"/>
+<param cnname="上传路径" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="包名" defult="" desc="" name="package_name" sensitive="false"/>
+</component>

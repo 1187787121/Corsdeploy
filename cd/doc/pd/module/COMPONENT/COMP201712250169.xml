@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="Alter_svn导出目标文件" component_source="输入" id="COMP201712250169" impl_type="SVN">
+<desc>从版本上导出目标文件到上传目录</desc>
+<script type="default"><![CDATA[export ${svn_path} ${relative_path}
+]]></script>
+<param cnname="svn版本目录" defult="" desc="" name="svn_path" sensitive="false"/>
+<param cnname="本地上传目录" defult="" desc="" name="relative_path" sensitive="false"/>
+</component>

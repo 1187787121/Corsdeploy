@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<template bk_desc="构建模板" cnname="base_build" id="COMP201712250172" template_type="构建模版">
+<operating_system>1|2</operating_system>
+<phase cnname="base_创建应用目录" component="COMP201712190133" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="1">
+<desc>检查目录是否存在，不存在则创建该目录。</desc>
+<script type="default"><![CDATA[if [ -d '${dir}' ]; then
+	echo 'Directory ${dir} already exists !';
+else
+	mkdir -p ${dir};
+fi
+]]></script>
+<source>{
+"exe_soc_name":"227ssh",
+"exe_server_name":"227server",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_soc_list":["227ssh"]
+}</source>
+<param cnname="待创建目录" defult="" desc="" name="dir" sensitive="false"/>
+<ref_param cnname="上传路径" defult="" delete="false" desc="" hand="false" name="dir" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase cnname="base_svn检出应用包" component="COMP201712190145" impl_type="SVN" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="2">
+<desc>从SVN检出目标文件到本地服务器</desc>
+<script type="default"><![CDATA[co ${svn_path} ${relative_path}
+]]></script>
+<source>{
+"exe_soc_name":"227ssh",
+"exe_server_name":"227server",
+"ver_soc_name":"240svn",
+"ver_server_name":"240server",
+"exe_soc_list":["227ssh"],
+"ver_soc_list":["240svn"]
+}</source>
+<param cnname="svn目标路径" defult="" desc="" name="svn_path" sensitive="false"/>
+<param cnname="本地相对路径" defult="" desc="" name="relative_path" sensitive="false"/>
+<ref_param cnname="版本应用路径" defult="" delete="false" desc="" hand="false" name="svn_path" param_type="项目参数" ref="svn_app_path" sensitive="false"/>
+<ref_param cnname="临时应用目录" defult="" delete="false" desc="" hand="false" name="relative_path" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase cnname="base_解压构建应用包" component="COMP201712250171" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="3">
+<desc>将目标包解压到指定文件目录</desc>
+<script type="default"><![CDATA[if [ -d '${project_name}' ]; then echo 'Directory ${project_name} already exist !'; else mkdir -p ${project_name}; fi;
+tar xf ${relative_path}/${package_name} -C ./${project_name}
+]]></script>
+<source>{
+"exe_soc_name":"227ssh",
+"exe_server_name":"227server",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_soc_list":["227ssh"]
+}</source>
+<param cnname="项目名" defult="" desc="" name="project_name" sensitive="false"/>
+<param cnname="目标包相对路径" defult="" desc="" name="relative_path" sensitive="false"/>
+<param cnname="目标包名" defult="" desc="" name="package_name" sensitive="false"/>
+<ref_param cnname="上传路径" defult="" delete="false" desc="" hand="false" name="relative_path" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+<ref_param cnname="应用包名" defult="" delete="false" desc="" hand="false" name="package_name" param_type="项目参数" ref="app_package" sensitive="false"/>
+</phase>
+<phase cnname="base_删除应用包" component="COMP201712190142" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="4">
+<desc>强制删除目录或文件</desc>
+<script type="default"><![CDATA[rm -rf ${dir}
+]]></script>
+<source>{
+"exe_soc_name":"227ssh",
+"exe_server_name":"227server",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_soc_list":["227ssh"]
+}</source>
+<param cnname="待删除文件/路径" defult="" desc="" name="dir" sensitive="false"/>
+<ref_param cnname="上传路径" defult="" delete="false" desc="" hand="false" name="dir" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase cnname="base_创建数据目录" component="COMP201712190133" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="5">
+<desc>检查目录是否存在，不存在则创建该目录。</desc>
+<script type="default"><![CDATA[if [ -d '${dir}' ]; then
+	echo 'Directory ${dir} already exists !';
+else
+	mkdir -p ${dir};
+fi
+]]></script>
+<source>{
+"exe_soc_name":"232ssh",
+"exe_server_name":"232Server",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_soc_list":["232ssh","232Telnet"]
+}</source>
+<param cnname="待创建目录" defult="" desc="" name="dir" sensitive="false"/>
+<ref_param cnname="临时应用目录" defult="" delete="false" desc="" hand="false" name="dir" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase cnname="base_svn检出数据包" component="COMP201712190145" impl_type="SVN" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="6">
+<desc>从SVN检出目标文件到本地服务器</desc>
+<script type="default"><![CDATA[co ${svn_path} ${relative_path}
+]]></script>
+<source>{
+"exe_soc_name":"232ssh",
+"exe_server_name":"232Server",
+"ver_soc_name":"240svn",
+"ver_server_name":"240server",
+"exe_soc_list":["232ssh","232Telnet"],
+"ver_soc_list":["240svn"]
+}</source>
+<param cnname="svn目标路径" defult="" desc="" name="svn_path" sensitive="false"/>
+<param cnname="本地相对路径" defult="" desc="" name="relative_path" sensitive="false"/>
+<ref_param cnname="版本数据包路径" defult="" delete="false" desc="" hand="false" name="svn_path" param_type="项目参数" ref="svn_db_path" sensitive="false"/>
+<ref_param cnname="临时应用目录" defult="" delete="false" desc="" hand="false" name="relative_path" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase cnname="base_解压数据包" component="COMP201712190135" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="7">
+<desc>将指定发布包解压至上传目录，并修复文本文件的格式问题和脚本文件的权限问题。</desc>
+<script type="default"><![CDATA[cd ${upload_dir};
+tar xvf ${package_name};
+for text_file in `find . -name "*.sql" -o -name "*.sh" -o -name "*.txt" -o -name "*.list"`; do
+    cat $text_file|tr -d '\r' > $text_file.temp;
+    mv $text_file.temp $text_file;
+done
+for script_file in `find . -name '*.sh'`; do
+    chmod +x $script_file;
+done
+]]></script>
+<source>{
+"exe_soc_name":"232ssh",
+"exe_server_name":"232Server",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_soc_list":["232ssh","232Telnet"]
+}</source>
+<param cnname="临时应用目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="发布包名" defult="" desc="" name="package_name" sensitive="false"/>
+<ref_param cnname="数据包名" defult="" delete="false" desc="" hand="false" name="package_name" param_type="项目参数" ref="db_package" sensitive="false"/>
+</phase>
+<phase cnname="base_创建数据库" component="COMP201712190134" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="8">
+<desc>切换到脚本路径，执行脚本文件</desc>
+<script type="default"><![CDATA[cd ${script_dir};
+chmod +x ${script};
+sh ${script};
+]]></script>
+<source>{
+"exe_soc_name":"232ssh",
+"exe_server_name":"232Server",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_soc_list":["232ssh","232Telnet"]
+}</source>
+<param cnname="脚本路径" defult="" desc="" name="script_dir" sensitive="false"/>
+<param cnname="脚本文件" defult="" desc="" name="script" sensitive="false"/>
+<ref_param cnname="临时应用目录" defult="" delete="false" desc="" hand="false" name="script_dir" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+<ref_param cnname="数据库创建脚本" defult="" delete="false" desc="" hand="false" name="script" param_type="项目参数" ref="create_db_script" sensitive="false"/>
+</phase>
+<phase cnname="base_创建数据表" component="COMP201712190134" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="9">
+<desc>切换到脚本路径，执行脚本文件</desc>
+<script type="default"><![CDATA[cd ${script_dir};
+chmod +x ${script};
+sh ${script};
+]]></script>
+<source>{
+"exe_soc_name":"232ssh",
+"exe_server_name":"232Server",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_soc_list":["232ssh","232Telnet"]
+}</source>
+<param cnname="脚本路径" defult="" desc="" name="script_dir" sensitive="false"/>
+<param cnname="脚本文件" defult="" desc="" name="script" sensitive="false"/>
+<ref_param cnname="临时应用目录" defult="" delete="false" desc="" hand="false" name="script_dir" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+<ref_param cnname="数据表创建脚本" defult="" delete="false" desc="" hand="false" name="script" param_type="项目参数" ref="create_tbl_script" sensitive="false"/>
+</phase>
+<phase cnname="base_导入基础数据" component="COMP201712190134" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="10">
+<desc>切换到脚本路径，执行脚本文件</desc>
+<script type="default"><![CDATA[cd ${script_dir};
+chmod +x ${script};
+sh ${script};
+]]></script>
+<source>{
+"exe_soc_name":"232ssh",
+"exe_server_name":"232Server",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_soc_list":["232ssh","232Telnet"]
+}</source>
+<param cnname="脚本路径" defult="" desc="" name="script_dir" sensitive="false"/>
+<param cnname="脚本文件" defult="" desc="" name="script" sensitive="false"/>
+<ref_param cnname="临时应用目录" defult="" delete="false" desc="" hand="false" name="script_dir" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+<ref_param cnname="基础数据脚本" defult="" delete="false" desc="" hand="false" name="script" param_type="项目参数" ref="import_data_script" sensitive="false"/>
+</phase>
+<phase cnname="DB2_执行备份脚本" component="COMP201712190147" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="11">
+<desc>执行备份脚本，根据数据库更新包中的表清单文件backupTable.list对表进行备份。</desc>
+<script type="default"><![CDATA[sh ${upload_dir}/backup.sh ${backup_dir};
+]]></script>
+<source>{
+"exe_soc_name":"232ssh",
+"exe_server_name":"232Server",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_soc_list":["232ssh","232Telnet"]
+}</source>
+<param cnname="上传目录" defult="./upload" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="备份目录" defult="./backup" desc="" name="backup_dir" sensitive="false"/>
+</phase>
+<phase cnname="base_删除数据包" component="COMP201712190142" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="12">
+<desc>强制删除目录或文件</desc>
+<script type="default"><![CDATA[rm -rf ${dir}
+]]></script>
+<source>{
+"exe_soc_name":"232ssh",
+"exe_server_name":"232Server",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_soc_list":["232ssh","232Telnet"]
+}</source>
+<param cnname="待删除文件/路径" defult="" desc="" name="dir" sensitive="false"/>
+<ref_param cnname="临时应用目录" defult="" delete="false" desc="" hand="false" name="dir" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase_param cnname="项目名" defult="" delete="false" desc="" hand="false" modify="是" name="project_name" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="临时应用目录" defult="./upload/${task_no}" delete="false" desc="" hand="false" modify="是" name="upload_dir" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="应用包名" defult="" delete="false" desc="" hand="true" modify="是" name="app_package" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="数据包名" defult="" delete="false" desc="" hand="true" modify="是" name="db_package" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="基础数据脚本" defult="dataimport.sh" delete="false" desc="" hand="true" modify="是" name="import_data_script" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="备份目录" defult="./backup/${task_no}" delete="false" desc="" hand="false" modify="是" name="backup_dir" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="版本应用路径" defult="/CorsManager/" delete="false" desc="" hand="true" modify="是" name="svn_app_path" param_type="投产包参数" ref="" sensitive="false"/>
+<phase_param cnname="数据库创建脚本" defult="createdb.sh" delete="false" desc="" hand="true" modify="是" name="create_db_script" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="版本数据包路径" defult="/CorsManager/" delete="false" desc="" hand="true" modify="是" name="svn_db_path" param_type="投产包参数" ref="" sensitive="false"/>
+<phase_param cnname="数据表创建脚本" defult="createtbl.sh" delete="false" desc="" hand="true" modify="是" name="create_tbl_script" param_type="项目参数" ref="" sensitive="false"/>
+</template>

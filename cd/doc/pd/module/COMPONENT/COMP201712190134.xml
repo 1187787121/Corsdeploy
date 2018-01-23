@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_执行脚本" component_source="输入" id="COMP201712190134" impl_type="SHELL">
+<desc>切换到脚本路径，执行脚本文件</desc>
+<script type="default"><![CDATA[cd ${script_dir};
+chmod +x ${script};
+sh ${script};
+]]></script>
+<param cnname="脚本路径" defult="" desc="" name="script_dir" sensitive="false"/>
+<param cnname="脚本文件" defult="" desc="" name="script" sensitive="false"/>
+</component>

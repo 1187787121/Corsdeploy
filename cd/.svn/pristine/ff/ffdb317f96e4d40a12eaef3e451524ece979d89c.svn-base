@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<template bk_desc="构建模板没有数据库的" cnname="build_test" id="COMP201801130002" template_type="构建模版">
+<operating_system>1|2|3</operating_system>
+<phase cnname="base_创建目录" component="COMP201712190133" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="1">
+<desc>检查目录是否存在，不存在则创建该目录。</desc>
+<script type="default"><![CDATA[if [ -d '${dir}' ]; then
+	echo 'Directory ${dir} already exists !';
+else
+	mkdir -p ${dir};
+fi
+]]></script>
+<source>{
+"exe_server_name":"227server",
+"exe_soc_name":"227agent",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_ip":"10.1.1.227",
+"ver_ip":"",
+"exe_soc_list":["227agent"]
+}</source>
+<param cnname="待创建目录" defult="" desc="" name="dir" sensitive="false"/>
+<ref_param cnname="上传路径" defult="" delete="false" desc="" hand="false" name="dir" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase cnname="base_svn检出文件" component="COMP201712190145" impl_type="SVN" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="2">
+<desc>从SVN检出目标文件到本地服务器</desc>
+<script type="default"><![CDATA[co ${svn_path} ${relative_path}
+]]></script>
+<source>{
+"exe_server_name":"227server",
+"exe_soc_name":"227agent",
+"ver_soc_name":"240svn",
+"ver_server_name":"240server",
+"exe_ip":"10.1.1.227",
+"ver_ip":"10.1.1.240",
+"exe_soc_list":["227agent"],
+"ver_soc_list":["240svn"]
+}</source>
+<param cnname="svn目标路径" defult="" desc="" name="svn_path" sensitive="false"/>
+<param cnname="本地相对路径" defult="" desc="" name="relative_path" sensitive="false"/>
+<ref_param cnname="上传路径" defult="" delete="false" desc="" hand="false" name="relative_path" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase cnname="base_解压构建包" component="COMP201712250171" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="3">
+<desc>将目标包解压到指定文件目录</desc>
+<script type="default"><![CDATA[if [ -d '${project_name}' ]; then echo 'Directory ${project_name} already exist !'; else mkdir -p ${project_name}; fi;
+tar xf ${relative_path}/${package_name} -C ./${project_name}
+]]></script>
+<source>{
+"exe_server_name":"227server",
+"exe_soc_name":"227agent",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_ip":"10.1.1.227",
+"ver_ip":"",
+"exe_soc_list":["227agent"]
+}</source>
+<param cnname="项目名" defult="" desc="" name="project_name" sensitive="false"/>
+<param cnname="目标包相对路径" defult="" desc="" name="relative_path" sensitive="false"/>
+<param cnname="目标包名" defult="" desc="" name="package_name" sensitive="false"/>
+<ref_param cnname="上传路径" defult="" delete="false" desc="" hand="false" name="relative_path" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase cnname="base_删除目录或文件" component="COMP201712190142" impl_type="SHELL" interactor_flag="false" parallel_flag="false" phase_type="组件" phaseno="4">
+<desc>强制删除目录或文件</desc>
+<script type="default"><![CDATA[rm -rf ${dir}
+]]></script>
+<source>{
+"exe_server_name":"227server",
+"exe_soc_name":"227agent",
+"ver_soc_name":"",
+"ver_server_name":"",
+"exe_ip":"10.1.1.227",
+"ver_ip":"",
+"exe_soc_list":["227agent"]
+}</source>
+<param cnname="待删除文件/路径" defult="" desc="" name="dir" sensitive="false"/>
+<ref_param cnname="上传路径" defult="" delete="false" desc="" hand="false" name="dir" param_type="项目参数" ref="upload_dir" sensitive="false"/>
+</phase>
+<phase_param cnname="项目名" defult="" delete="false" desc="" hand="false" modify="是" name="project_name" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="svn目标路径" defult="" delete="false" desc="" hand="false" modify="是" name="svn_path" param_type="投产包参数" ref="" sensitive="false"/>
+<phase_param cnname="上传路径" defult="./upload/${task_no}" delete="false" desc="" hand="true" modify="是" name="upload_dir" param_type="项目参数" ref="" sensitive="false"/>
+<phase_param cnname="目标包名" defult="" delete="false" desc="" hand="false" modify="是" name="package_name" param_type="项目参数" ref="" sensitive="false"/>
+</template>

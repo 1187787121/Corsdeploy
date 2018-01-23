@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="测试bat" component_source="输入" id="COMP201801100191" impl_type="SHELL">
+<desc>测试bat</desc>
+<script type="default"><![CDATA[@echo off
+echo '{"name":"zhangsan","result":"ss"}'
+]]></script>
+</component>

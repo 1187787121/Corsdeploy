@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="创建bat目录" component_source="输入" id="COMP201801100190" impl_type="SHELL">
+<desc>创建bat目录</desc>
+<script type="default"><![CDATA[@echo off
+md ${path}
+]]></script>
+<param cnname="" defult="" desc="" name="path" sensitive="false"/>
+</component>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_恢复发布文件" component_source="输入" id="COMP201712190139" impl_type="SHELL">
+<desc>删除所有变更的文件，在用户根路径解压备份文件。</desc>
+<script type="default"><![CDATA[for new_file in `cat ${backup_dir}/new_file.list`; do
+    rm -rf $new_file;
+done
+if [ -f ${backup_dir}/${project_name}.tar ]; then
+    tar xvf ${backup_dir}/${project_name}.tar;
+else
+	echo 'Backup files not find !';
+fi
+]]></script>
+<param cnname="备份目录" defult="" desc="" name="backup_dir" sensitive="false"/>
+<param cnname="项目名称" defult="" desc="" name="project_name" sensitive="false"/>
+</component>

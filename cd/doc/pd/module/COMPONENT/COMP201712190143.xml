@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_校验发布包" component_source="输入" id="COMP201712190143" impl_type="SHELL">
+<desc>校验发布包上传结果。</desc>
+<script type="default"><![CDATA[cd ${upload_dir};
+loaclFileCksum=$loaclFileCksum`cat ${package_name}.csum`;
+remoteFileCksum=$remoteFileCksum`cksum ${package_name} | awk '{print $1$2}'`;
+if [ "$loaclFileCksum" = "$remoteFileCksum" ]; then
+    echo "download success";
+else
+    echo "download failed";
+    test "$loaclFileCksum" = "$remoteFileCksum";
+fi
+]]></script>
+<param cnname="上传目录" defult="" desc="" name="upload_dir" sensitive="false"/>
+<param cnname="发布包名" defult="" desc="" name="package_name" sensitive="false"/>
+</component>

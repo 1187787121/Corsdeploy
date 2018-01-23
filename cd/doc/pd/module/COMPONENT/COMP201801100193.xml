@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="bat_svn" component_source="输入" id="COMP201801100193" impl_type="SHELL">
+<desc>bat_svn</desc>
+<script type="default"><![CDATA[echo off
+set ResourceUrl=http://10.1.1.240/CorsManager/onlyforcd/cddb
+set ResourcePath=D:\win_svn
+if not exist "%ResourcePath%" (
+ echo %ResourcePath% not exist, now checkout
+ TortoiseProc.exe /command:checkout /closeonend:1 /path:"%ResourcePath%" /url:"%ResourceUrl%" /closeonend:1
+)
+TortoiseProc.exe /command:update /path:"%ResourcePath%" /closeonend:1
+]]></script>
+</component>

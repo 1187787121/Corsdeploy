@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="base_svn检出文件" component_source="输入" id="COMP201712190145" impl_type="SVN">
+<desc>从SVN检出目标文件到本地服务器</desc>
+<script type="default"><![CDATA[co ${svn_path} ${relative_path}
+]]></script>
+<param cnname="svn目标路径" defult="" desc="" name="svn_path" sensitive="false"/>
+<param cnname="本地相对路径" defult="" desc="" name="relative_path" sensitive="false"/>
+</component>

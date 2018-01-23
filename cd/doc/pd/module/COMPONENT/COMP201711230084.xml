@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="GBK" standalone="no"?>
+<component cnname="xp001" component_source="输入" id="COMP201711230084" impl_type="SHELL">
+<desc>xp001</desc>
+<script type="default"><![CDATA[echo ${dir}
+echo ${script}
+]]></script>
+<param cnname="目录" defult="test_dir" desc="" name="dir" sensitive="false"/>
+<param cnname="脚本" defult="kkk" desc="" name="script" sensitive="false"/>
+</component>
